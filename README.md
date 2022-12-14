@@ -44,7 +44,7 @@ w1_kernel:
 
 Script setup.sh will do this for You.
 
-#####Check if job is already in cron:
+##### Check if job is already in cron:
 
 ```
 crontab -l
