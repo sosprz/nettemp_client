@@ -14,8 +14,10 @@ if  [ ! -z "$cron" ]
     echo "@reboot /bin/nohup $(pwd)/venv/bin/python3 $(pwd)/nettemp_client.py &" > nettemp_crontab
     crontab nettemp_crontab
 
-#echo "Add $USER to I2C group"
-#sudo usermod pi -aG i2c
+echo "Add $USER to I2C group"
+sudo usermod $USER -aG i2c
+
+
 
 
 
