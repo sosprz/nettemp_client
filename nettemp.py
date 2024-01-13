@@ -45,4 +45,4 @@ class insert2:
         print (r.content)
         print(f"[ nettemp client ] {data}")
     except:
-      print(f"[ nettemp client ] [cannot connect to local] {data})
+      print(f"[ nettemp client ] [cannot connect to local] {data}")
