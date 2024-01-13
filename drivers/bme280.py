@@ -463,49 +463,48 @@ class BME280(object):
         return h
 
 
+def bme280():
+    try:
+        if sys.argv[2]:
+            addr = int('0x'+sys.argv[2], 16)
+    except:
+        addr = 0x76
 
-try:
-    if sys.argv[2]:
-        addr = int('0x'+sys.argv[2], 16)
-except:
-    addr = 0x76
+    try:
+        from nettemp import insert
+        sensor = BME280(mode=BME280_OSAMPLE_8, address=addr)
 
-sensor = BME280(mode=BME280_OSAMPLE_8, address=addr)
+        degrees = sensor.read_temperature()
+        pascals = sensor.read_pressure()
+        hectopascals = pascals / 100
+        humidity = sensor.read_humidity()
 
-degrees = sensor.read_temperature()
-pascals = sensor.read_pressure()
-hectopascals = pascals / 100
-humidity = sensor.read_humidity()
+        temp = '{0:0.2f}'.format(degrees)
+        press = '{0:0.2f}'.format(hectopascals)
+        humid = '{0:0.2f}'.format(humidity)
 
-temp = '{0:0.2f}'.format(degrees)
-press = '{0:0.2f}'.format(hectopascals)
-humid = '{0:0.2f}'.format(humidity)
+        group = socket.gethostname()
+        rom = group+"i2c_76_temp"
+        value = temp
+        name = 'bme280_temp'
+        type = 'temp'
+        data=insert(rom, type, value, name, group)
+        data.request()
 
-from nettemp import insert
+        rom = group+"i2c_76_press"
+        value = press
+        name = 'bme280_press'
+        type = 'press'
+        data=insert(rom, type, value, name, group)
+        data.request()
 
-try:
-  group = socket.gethostname()
-  rom = group+"i2c_76_temp"
-  value = temp
-  name = 'bme280_temp'
-  type = 'temp'
-  data=insert(rom, type, value, name, group)
-  data.request()
+        rom = group+"i2c_76_humid"
+        value = humid
+        name = 'bme280_humid'
+        type = 'humid'
+        data=insert(rom, type, value, name, group)
+        data.request()
 
-  rom = group+"i2c_76_press"
-  value = press
-  name = 'bme280_press'
-  type = 'press'
-  data=insert(rom, type, value, name, group)
-  data.request()
-
-  rom = group+"i2c_76_humid"
-  value = humid
-  name = 'bme280_humid'
-  type = 'humid'
-  data=insert(rom, type, value, name, group)
-  data.request()
-
-except: 
-  print ("No BME280")
+    except: 
+        print ("No BME280")
 
