@@ -5,6 +5,7 @@ import adafruit_tsl2561
 from nettemp import insert
 
 def tsl2561():
+  print ("TSL2561")
   try:
     # Create the I2C bus
     i2c = busio.I2C(board.SCL, board.SDA)
