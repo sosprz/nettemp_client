@@ -10,6 +10,14 @@ sched.start()
 config_file = open("config.conf")
 config = yaml.load(config_file, Loader=yaml.FullLoader)
 
+if config["mpl3115a2"]["enabled"] and config["mpl3115a2"]["read_in_sec"]:
+  from drivers.mpl3115a2 import mpl3115a2
+  try:
+    mpl3115a2()
+  except Exception as e:
+    pass
+    print("\n[WARN] Error \n\tArgs: '%s'" % (str(e.args)))
+  sched.add_job(mpl3115a2, 'interval', seconds = config["mpl3115a2"]["read_in_sec"])
 
 if config["tsl2561"]["enabled"] and config["tsl2561"]["read_in_sec"]:
   from drivers.tsl2561 import tsl2561 
