@@ -25,7 +25,7 @@
 #logging.basicConfig(level=logging.DEBUG)
 
 import Adafruit_BMP.BMP085 as BMP085
-import socket
+import socket, sys, os
 from nettemp import insert
 
 # Default constructor will pick a default I2C bus.
@@ -36,51 +36,51 @@ from nettemp import insert
 #
 # For the Beaglebone Black the library will assume bus 1 by default, which is
 # exposed with SCL = P9_19 and SDA = P9_20.
+def bmp180():
+    if len(sys.argv) > 1:
+        nbus = sys.argv[1]
+    elif  os.path.exists("/dev/i2c-0"):
+        nbus = "0"
+    elif os.path.exists("/dev/i2c-1"):
+        nbus = "1"
+    elif os.path.exists("/dev/i2c-2"):
+        nbus = "2"
+    elif os.path.exists("/dev/i2c-3"):
+        nbus = "3"
 
-if len(sys.argv) > 1:
-    nbus = sys.argv[1]
-elif  os.path.exists("/dev/i2c-0"):
-    nbus = "0"
-elif os.path.exists("/dev/i2c-1"):
-    nbus = "1"
-elif os.path.exists("/dev/i2c-2"):
-    nbus = "2"
-elif os.path.exists("/dev/i2c-3"):
-    nbus = "3"
+    #sensor = BMP085.BMP085(busnum=int(nbus))
 
-#sensor = BMP085.BMP085(busnum=int(nbus))
+    # Optionally you can override the nbus number:
+    #sensor = BMP085.BMP085(nbusnum=2)
 
-# Optionally you can override the nbus number:
-#sensor = BMP085.BMP085(nbusnum=2)
+    # You can also optionally change the BMP085 mode to one of BMP085_ULTRALOWPOWER, 
+    # BMP085_STANDARD, BMP085_HIGHRES, or BMP085_ULTRAHIGHRES.  See the BMP085
+    # datasheet for more details on the meanings of each mode (accuracy and power
+    # consumption are primarily the differences).  The default mode is STANDARD.
+    #sensor = BMP085.BMP085(mode=BMP085.BMP085_ULTRAHIGHRES)
 
-# You can also optionally change the BMP085 mode to one of BMP085_ULTRALOWPOWER, 
-# BMP085_STANDARD, BMP085_HIGHRES, or BMP085_ULTRAHIGHRES.  See the BMP085
-# datasheet for more details on the meanings of each mode (accuracy and power
-# consumption are primarily the differences).  The default mode is STANDARD.
-#sensor = BMP085.BMP085(mode=BMP085.BMP085_ULTRAHIGHRES)
+    #print(sensor.read_temperature())
+    #print(sensor.read_pressure()*0.01)
+    #print '{0:0.2f}'.format(sensor.read_altitude())
+    #print '{0:0.2f}'.format(sensor.read_sealevel_pressure())
 
-#print(sensor.read_temperature())
-#print(sensor.read_pressure()*0.01)
-#print '{0:0.2f}'.format(sensor.read_altitude())
-#print '{0:0.2f}'.format(sensor.read_sealevel_pressure())
+    try:
+        sensor = BMP085.BMP085(busnum=int(nbus))
+        group = socket.gethostname()
+        rom = group+"i2c_77_temp"
+        value = '{0:0.2f}'.format(sensor.read_temperature())
+        name = 'bmp180_temp'
+        type = 'temp'
+        data=insert(rom, type, value, name, group)
+        data.request()
 
-try:
-  sensor = BMP085.BMP085(busnum=int(nbus))
-  group = socket.gethostname()
-  rom = group+"i2c_77_temp"
-  value = '{0:0.2f}'.format(sensor.read_temperature())
-  name = 'bmp180_temp'
-  type = 'temp'
-  data=insert(rom, type, value, name, group)
-  data.request()
-
-  rom = group+"i2c_77_press"
-  value = '{0:0.2f}'.format(sensor.read_pressure()*0.01)
-  name = 'bmp180_press'
-  type = 'press'
-  data=insert(rom, type, value, name, group)
-  data.request()
-except:
-  print ("No BMP180")
+        rom = group+"i2c_77_press"
+        value = '{0:0.2f}'.format(sensor.read_pressure()*0.01)
+        name = 'bmp180_press'
+        type = 'press'
+        data=insert(rom, type, value, name, group)
+        data.request()
+    except:
+        print("No BMP180")
 
 
