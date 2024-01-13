@@ -2,6 +2,7 @@ import psutil, socket
 from nettemp import insert
 
 def system():
+    print("system")
     group = socket.gethostname()
 
     cpu=psutil.cpu_percent()

@@ -65,6 +65,7 @@ def bmp180():
     #print '{0:0.2f}'.format(sensor.read_sealevel_pressure())
 
     try:
+        print("BMP180")
         sensor = BMP085.BMP085(busnum=int(nbus))
         group = socket.gethostname()
         rom = group+"_i2c_77_temp"

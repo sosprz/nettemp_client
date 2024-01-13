@@ -4,6 +4,7 @@ from nettemp import insert
 
 def w1_kernel():
     try:
+        print ("w1_kernel")
         from w1thermsensor import W1ThermSensor
         group = socket.gethostname()
         for sensor in W1ThermSensor.get_available_sensors():

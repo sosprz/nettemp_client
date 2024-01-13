@@ -35,6 +35,15 @@ if config["bh1750"]["enabled"] and config["bh1750"]["read_in_sec"]:
     print("\n[WARN] Error \n\tArgs: '%s'" % (str(e.args)))
   sched.add_job(bh1750, 'interval', seconds = config["bh1750"]["read_in_sec"])
 
+if config["adxl345"]["enabled"] and config["adxl345"]["read_in_sec"]:
+  from drivers.adxl345 import adxl345
+  try:
+    adxl345()
+  except Exception as e:
+    pass
+    print("\n[WARN] Error \n\tArgs: '%s'" % (str(e.args)))
+  sched.add_job(adxl345, 'interval', seconds = config["adxl345"]["read_in_sec"])
+
 if config["system"]["enabled"] and config["system"]["read_in_sec"]:
   from drivers.system import system 
   try:

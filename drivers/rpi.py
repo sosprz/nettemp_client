@@ -5,6 +5,7 @@ from nettemp import insert
 
 def rpi():
     try:
+        print("Rpi")
         from gpiozero import CPUTemperature
         cpu = CPUTemperature()
         group = socket.gethostname()

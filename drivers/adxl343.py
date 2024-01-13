@@ -3,10 +3,8 @@ import board
 import busio
 import adafruit_adxl34x
 import sys
-import os.path
-dir=(os.path.abspath(os.path.join(os.path.dirname( __file__ ), '..', '..','..','..')))
-sys.path.append(dir+'/app')
-from local_nettemp import insert
+import os.path, socket
+from nettemp import insert
 i2c = busio.I2C(board.SCL, board.SDA)
 
 accelerometer = adafruit_adxl34x.ADXL343(i2c)
@@ -26,32 +24,34 @@ try:
   y = '{0:0.2f}'.format(data[1])
   z = '{0:0.2f}'.format(data[2])
 
+  group = socket.gethostname()
+
   rom = "i2c_53_acce_x"
   value = x
   name = 'adxl343_x'
   type = 'accel'
-  data=insert(rom, type, value, name)
+  data=insert(rom, type, value, name, group)
   data.request()
 
   rom = "i2c_53_acce_y"
   value = y
   name = 'adxl343_y'
   type = 'accel'
-  data=insert(rom, type, value, name)
+  data=insert(rom, type, value, name, group)
   data.request()
 
   rom = "i2c_53_acce_z"
   value = z
   name = 'adxl343_z'
   type = 'accel'
-  data=insert(rom, type, value, name)
+  data=insert(rom, type, value, name, group)
   data.request()
 
   rom = "i2c_53_moti"
   value = '{0:0.2f}'.format(motion)
   name = 'adxl343_motion'
   type = 'motion'
-  data=insert(rom, type, value, name)
+  data=insert(rom, type, value, name, group)
   data.request()
 except:
   print ("No ADXL34x")

@@ -471,6 +471,7 @@ def bme280():
         addr = 0x76
 
     try:
+        print("BME280")
         from nettemp import insert
         sensor = BME280(mode=BME280_OSAMPLE_8, address=addr)
 
@@ -506,5 +507,5 @@ def bme280():
         data.request()
 
     except: 
-        print ("No BME280")
+        print("No BME280")
 
