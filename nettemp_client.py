@@ -28,6 +28,11 @@ bmp180_read_in_sec = config["bmp180"]["read_in_sec"]
 bme280_enabled = config["bme280"]["enabled"]
 bme280_read_in_sec = config["bme280"]["read_in_sec"]
 
+htu21d_enabled = config["htu21d"]["enabled"]
+htu21d_read_in_sec = config["htu21d"]["read_in_sec"]
+
+
+
 if system_enabled and system_read_in_sec:
   from drivers.system import system 
   try:
@@ -82,6 +87,15 @@ if bme280_enabled and bme280_read_in_sec:
     pass
     print("\n[WARN] Error \n\tArgs: '%s'" % (str(e.args)))
   sched.add_job(bme280, 'interval', seconds = bme280_read_in_sec)
+
+if htu21d_enabled and htu21d_read_in_sec:
+  from drivers.htu21d import htu21d 
+  try:
+    htu21d()
+  except Exception as e:
+    pass
+    print("\n[WARN] Error \n\tArgs: '%s'" % (str(e.args)))
+  sched.add_job(htu21d, 'interval', seconds = htu21d_read_in_sec)
 
 while True:
     sleep(1)
