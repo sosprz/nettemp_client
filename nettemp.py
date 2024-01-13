@@ -38,7 +38,6 @@ class insert2:
     server_api_key = config["server_api_key"]
 
     data = self.data
-    print(data)
     try:
         url = f'https://{server_ip}'
         r = requests.post(url,headers={'Content-Type':'application/json', 'Authorization': f'Bearer {server_api_key}'},json=data, verify=False)
