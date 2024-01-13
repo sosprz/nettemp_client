@@ -4,7 +4,7 @@ import busio
 import adafruit_adxl34x
 import sys
 import os.path, socket
-from nettemp import insert
+from nettemp import insert, insert2
 i2c = busio.I2C(board.SCL, board.SDA)
 
 def adxl345():
@@ -33,28 +33,27 @@ def adxl345():
       value = x
       name = 'adxl345_x'
       type = 'accel'
-      data=insert(rom, type, value, name, group)
-      data.request()
+      data=insert2(rom, type, value, name, group)
 
       rom = group+"_i2c_53_acce_y"
       value = y
       name = 'adxl345_y'
       type = 'accel'
-      data=insert(rom, type, value, name, group)
-      data.request()
+      data=insert2(rom, type, value, name, group)
 
       rom = group+"_i2c_53_acce_z"
       value = z
       name = 'adxl345_z'
       type = 'accel'
-      data=insert(rom, type, value, name, group)
-      data.request()
+      data=insert2(rom, type, value, name, group)
+
 
       rom = group+"_i2c_53_moti"
       value = '{0:0.2f}'.format(motion)
       name = 'adxl345_motion'
       type = 'motion'
-      data=insert(rom, type, value, name, group)
+      data=insert2(rom, type, value, name, group)
+
       data.request()
 
   except:
