@@ -2,10 +2,8 @@
 import smbus
 import time
 import os.path
-import sys
-dir=(os.path.abspath(os.path.join(os.path.dirname( __file__ ), '..', '..','..','..')))
-sys.path.append(dir+'/app')
-from local_nettemp import insert
+import sys, socket
+from nettemp import insert
 
 
 # Define some constants from the datasheet
@@ -32,39 +30,41 @@ ONE_TIME_HIGH_RES_MODE_2 = 0x21
 # Device is automatically set to Power Down after measurement.
 ONE_TIME_LOW_RES_MODE = 0x23
 
-if len(sys.argv) > 1:
-    nbus = sys.argv[1]
-elif  os.path.exists("/dev/i2c-0"):
-    nbus = "0"
-elif os.path.exists("/dev/i2c-1"):
-    nbus = "1"
-elif os.path.exists("/dev/i2c-2"):
-    nbus = "2"
-elif os.path.exists("/dev/i2c-3"):
-    nbus = "3"
+def bh1750():
+  try:
+    print ("bh1750")
+    if len(sys.argv) > 1:
+        nbus = sys.argv[1]
+    elif  os.path.exists("/dev/i2c-0"):
+        nbus = "0"
+    elif os.path.exists("/dev/i2c-1"):
+        nbus = "1"
+    elif os.path.exists("/dev/i2c-2"):
+        nbus = "2"
+    elif os.path.exists("/dev/i2c-3"):
+        nbus = "3"
 
-bus = smbus.SMBus(int(nbus))
- 
-def convertToNumber(data):
-  # Simple function to convert 2 bytes of data
-  # into a decimal number
-  return ((data[1] + (256 * data[0])) / 1.2)
- 
-def readLight(addr=DEVICE):
-  data = bus.read_i2c_block_data(addr,ONE_TIME_HIGH_RES_MODE_1)
-  return convertToNumber(data)
- 
-#print(readLight())
+    bus = smbus.SMBus(int(nbus))
+    
+    def convertToNumber(data):
+      # Simple function to convert 2 bytes of data
+      # into a decimal number
+      return ((data[1] + (256 * data[0])) / 1.2)
+    
+    def readLight(addr=DEVICE):
+      data = bus.read_i2c_block_data(addr,ONE_TIME_HIGH_RES_MODE_1)
+      return convertToNumber(data)
+    
+    #print(readLight())
+    group = socket.gethostname()
+    rom = group+"_i2c_23_lux"
+    value = '{0:0.2f}'.format(readLight())
+    name = 'bh1750_lux'
+    type = 'lux'
+    data=insert(rom, type, value, name, group)
+    data.request()
 
-try:
-  rom = "i2c_23_lux"
-  value = '{0:0.2f}'.format(readLight())
-  name = 'bh1750_lux'
-  type = 'lux'
-  data=insert(rom, type, value, name)
-  data.request()
-
-except:
-  print ("No bh1750")
+  except:
+    print ("No bh1750")
 
 
