@@ -11,6 +11,15 @@ config_file = open("config.conf")
 config = yaml.load(config_file, Loader=yaml.FullLoader)
 
 
+if config["tsl2561"]["enabled"] and config["tsl2561"]["read_in_sec"]:
+  from drivers.tsl2561 import tsl2561 
+  try:
+    tsl2561()
+  except Exception as e:
+    pass
+    print("\n[WARN] Error \n\tArgs: '%s'" % (str(e.args)))
+  sched.add_job(tsl2561, 'interval', seconds = config["tsl2561"]["read_in_sec"])
+
 if config["hih6130"]["enabled"] and config["hih6130"]["read_in_sec"]:
   from drivers.hih6130 import hih6130 
   try:
