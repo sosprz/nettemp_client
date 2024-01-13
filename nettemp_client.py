@@ -22,6 +22,12 @@ tmp102_read_in_sec = config["tmp102"]["read_in_sec"]
 rpi_enabled = config["rpi"]["enabled"]
 rpi_read_in_sec = config["rpi"]["read_in_sec"]
 
+bmp180_enabled = config["bmp180"]["enabled"]
+bmp180_read_in_sec = config["bmp180"]["read_in_sec"]
+
+bme280_enabled = config["bme280"]["enabled"]
+bme280_read_in_sec = config["bme280"]["read_in_sec"]
+
 if system_enabled and system_read_in_sec:
   from drivers.system import system 
   try:
@@ -59,7 +65,23 @@ if rpi_enabled and rpi_read_in_sec:
     print("\n[WARN] Error \n\tArgs: '%s'" % (str(e.args)))
   sched.add_job(rpi, 'interval', seconds = rpi_read_in_sec)
 
+if bmp180_enabled and bmp180_read_in_sec:
+  from drivers.bmp180 import bmp180 
+  try:
+    bmp180()
+  except Exception as e:
+    pass
+    print("\n[WARN] Error \n\tArgs: '%s'" % (str(e.args)))
+  sched.add_job(bmp180, 'interval', seconds = bmp180_read_in_sec)
 
+if bme280_enabled and bme280_read_in_sec:
+  from drivers.bme280 import bme280 
+  try:
+    bme280()
+  except Exception as e:
+    pass
+    print("\n[WARN] Error \n\tArgs: '%s'" % (str(e.args)))
+  sched.add_job(bme280, 'interval', seconds = bme280_read_in_sec)
 
 while True:
     sleep(1)

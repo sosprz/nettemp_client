@@ -1,6 +1,6 @@
 #!/usr/bin/python
 import sys
-
+import socket
 import logging
 import time
 import os
@@ -481,31 +481,29 @@ temp = '{0:0.2f}'.format(degrees)
 press = '{0:0.2f}'.format(hectopascals)
 humid = '{0:0.2f}'.format(humidity)
 
-import os.path
-dir=(os.path.abspath(os.path.join(os.path.dirname( __file__ ), '..', '..','..','..')))
-sys.path.append(dir+'/app')
-from local_nettemp import insert
+from nettemp import insert
 
 try:
-  rom = "i2c_76_temp"
+  group = socket.gethostname()
+  rom = group+"i2c_76_temp"
   value = temp
   name = 'bme280_temp'
   type = 'temp'
-  data=insert(rom, type, value, name)
+  data=insert(rom, type, value, name, group)
   data.request()
 
-  rom = "i2c_76_press"
+  rom = group+"i2c_76_press"
   value = press
   name = 'bme280_press'
   type = 'press'
-  data=insert(rom, type, value, name)
+  data=insert(rom, type, value, name, group)
   data.request()
 
-  rom = "i2c_76_humid"
+  rom = group+"i2c_76_humid"
   value = humid
   name = 'bme280_humid'
   type = 'humid'
-  data=insert(rom, type, value, name)
+  data=insert(rom, type, value, name, group)
   data.request()
 
 except: 

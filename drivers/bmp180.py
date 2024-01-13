@@ -25,11 +25,8 @@
 #logging.basicConfig(level=logging.DEBUG)
 
 import Adafruit_BMP.BMP085 as BMP085
-import sys
-import os.path
-dir=(os.path.abspath(os.path.join(os.path.dirname( __file__ ), '..', '..','..','..')))
-sys.path.append(dir+'/app')
-from local_nettemp import insert
+import socket
+from nettemp import insert
 
 # Default constructor will pick a default I2C bus.
 #
@@ -69,18 +66,19 @@ elif os.path.exists("/dev/i2c-3"):
 
 try:
   sensor = BMP085.BMP085(busnum=int(nbus))
-  rom = "i2c_77_temp"
+  group = socket.gethostname()
+  rom = group+"i2c_77_temp"
   value = '{0:0.2f}'.format(sensor.read_temperature())
   name = 'bmp180_temp'
   type = 'temp'
-  data=insert(rom, type, value, name)
+  data=insert(rom, type, value, name, group)
   data.request()
 
-  rom = "i2c_77_press"
+  rom = group+"i2c_77_press"
   value = '{0:0.2f}'.format(sensor.read_pressure()*0.01)
   name = 'bmp180_press'
   type = 'press'
-  data=insert(rom, type, value, name)
+  data=insert(rom, type, value, name, group)
   data.request()
 except:
   print ("No BMP180")
