@@ -67,14 +67,14 @@ def bmp180():
     try:
         sensor = BMP085.BMP085(busnum=int(nbus))
         group = socket.gethostname()
-        rom = group+"i2c_77_temp"
+        rom = group+"_i2c_77_temp"
         value = '{0:0.2f}'.format(sensor.read_temperature())
         name = 'bmp180_temp'
         type = 'temp'
         data=insert(rom, type, value, name, group)
         data.request()
 
-        rom = group+"i2c_77_press"
+        rom = group+"_i2c_77_press"
         value = '{0:0.2f}'.format(sensor.read_pressure()*0.01)
         name = 'bmp180_press'
         type = 'press'

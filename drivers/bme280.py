@@ -484,14 +484,14 @@ def bme280():
         humid = '{0:0.2f}'.format(humidity)
 
         group = socket.gethostname()
-        rom = group+"i2c_76_temp"
+        rom = group+"_i2c_76_temp"
         value = temp
         name = 'bme280_temp'
         type = 'temp'
         data=insert(rom, type, value, name, group)
         data.request()
 
-        rom = group+"i2c_76_press"
+        rom = group+"_i2c_76_press"
         value = press
         name = 'bme280_press'
         type = 'press'

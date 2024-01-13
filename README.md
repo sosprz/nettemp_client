@@ -11,7 +11,7 @@ Drivers like ds2482 needs root perms (on raspberry pi no action needed)
 ```
 git clone https://github.com/sosprz/nettemp_client
 cd nettemp_client
-./setup.sh
+bash ./setup.sh
 ```
 
 ##### Set server IP and API key in config file. Enable with sensors You want. 
