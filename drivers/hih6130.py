@@ -27,12 +27,10 @@ class HIH6130:
 		elif os.path.exists("/dev/i2c-2"):
 		    nbus = "2"
 		elif os.path.exists("/dev/i2c-3"):
-		    nbus = "3"					
-    
+			nbus = "3"
+
 		try:
-                       
-                       self.i2c = smbus.SMBus(int(nbus))
-		
+			self.i2c = smbus.SMBus(int(nbus))
 		except:
 			raise IOError("Could not find i2c device.")
 
