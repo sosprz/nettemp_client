@@ -1,10 +1,8 @@
 import smbus
 import os.path
-import sys
+import sys, socket
 from datetime import datetime
-dir=(os.path.abspath(os.path.join(os.path.dirname( __file__ ), '..', '..','..','..')))
-sys.path.append(dir+'/app')
-from local_nettemp import insert
+from nettemp import insert2
 
 
 __all__ = ['HIH6130']
@@ -54,27 +52,34 @@ class HIH6130:
 
 		return
 
+def hih6130():
+	print ("HIH6130")
+	try:
+		rht = HIH6130()
+		rht.read()
+		#print ("{0}\n{1}".format(rht.rh, rht.t))
 
-try:
-  rht = HIH6130()
-  rht.read()
-  #print ("{0}\n{1}".format(rht.rh, rht.t))
+		group = socket.gethostname()
 
-  rom = "i2c_27_temp"
-  value = '{0:0.2f}'.format(rht.t)
-  name = 'hih6130_temp'
-  type = 'temp'
-  data=insert(rom, type, value, name)
-  data.request()
+		data = []
 
-  rom = "i2c_27_humid"
-  value = '{0:0.2f}'.format(rht.rh)
-  name = 'hih6130_humid'
-  type = 'humid'
-  data=insert(rom, type, value, name)
-  data.request()
-except: 
-  print ("No HIH6130")
+		rom = group+"_i2c_27_temp"
+		value = '{0:0.2f}'.format(rht.t)
+		name = 'hih6130_temp'
+		type = 'temp'
+		data.append({"rom":rom,"type":type, "value":value,"name":name, "group":group})
+	
+		rom = group+"_i2c_27_humid"
+		value = '{0:0.2f}'.format(rht.rh)
+		name = 'hih6130_humid'
+		type = 'humid'
+		data.append({"rom":rom,"type":type, "value":value,"name":name, "group":group})
+	   
+		data=insert2(data)
+		data.request()
+	
+	except: 
+		print ("No HIH6130")
 
 
 

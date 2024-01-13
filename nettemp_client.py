@@ -10,6 +10,16 @@ sched.start()
 config_file = open("config.conf")
 config = yaml.load(config_file, Loader=yaml.FullLoader)
 
+
+if config["hih6130"]["enabled"] and config["hih6130"]["read_in_sec"]:
+  from drivers.hih6130 import hih6130 
+  try:
+    hih6130()
+  except Exception as e:
+    pass
+    print("\n[WARN] Error \n\tArgs: '%s'" % (str(e.args)))
+  sched.add_job(hih6130, 'interval', seconds = config["hih6130"]["read_in_sec"])
+
 if config["bh1750"]["enabled"] and config["bh1750"]["read_in_sec"]:
   from drivers.bh1750 import bh1750 
   try:
