@@ -19,6 +19,15 @@ if config["dht22"]["enabled"] and config["dht22"]["read_in_sec"] and config["dht
     print("\n[WARN] Error \n\tArgs: '%s'" % (str(e.args)))
   sched.add_job(dht22, 'interval', seconds = config["dht22"]["read_in_sec"], args=[config["dht22"]["gpio_pin"]])
 
+if config["dht11"]["enabled"] and config["dht11"]["read_in_sec"] and config["dht11"]["gpio_pin"]:
+  from drivers.dht11 import dht11
+  try:
+    dht11(config["dht11"]["gpio_pin"])
+  except Exception as e:
+    pass
+    print("\n[WARN] Error \n\tArgs: '%s'" % (str(e.args)))
+  sched.add_job(dht11, 'interval', seconds = config["dht11"]["read_in_sec"], args=[config["dht11"]["gpio_pin"]])
+
 if config["mpl3115a2"]["enabled"] and config["mpl3115a2"]["read_in_sec"]:
   from drivers.mpl3115a2 import mpl3115a2
   try:

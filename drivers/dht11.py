@@ -1,29 +1,39 @@
-import Adafruit_DHT
-import sys, os
-dir=(os.path.abspath(os.path.join(os.path.dirname( __file__ ), '..', '..','..','..')))
-sys.path.append(dir+'/app')
-from local_nettemp import insert
+import time, socket
+import board
+import adafruit_dht
 
-sensor = Adafruit_DHT.DHT11
+from nettemp import insert2
 
-name = os.listdir(dir+'/data/sensors/dht11/')
-for i in name:
-  pin = os.listdir(dir+'/data/sensors/dht11/'+i)[0]
-  humidity, temperature = Adafruit_DHT.read_retry(sensor, pin)
+def dht22(*args):
+  print("DHT11")
+  try:
+    pin = str(args[0])
+    pin = "D"+pin
+    print(pin)
+    dht_device = adafruit_dht.DHT11(getattr(board,pin))
+    temperature = dht_device.temperature
+    humidity = dht_device.humidity
+    dht_device.exit()
+    print(temperature)
+    print(humidity)
+    group = socket.gethostname()
+    data = []
 
-  if humidity is not None and temperature is not None:
-    value = '{0:0.1f}'.format(temperature)
-    rom = 'dht11_temp_gpio_'+i
-    type = 'temp'
-    name = rom
-    data=insert(rom, type, value, name)
-    data.request()
-   
-    value = '{0:0.1f}'.format(humidity)
-    rom = 'dht11_humid_gpio_'+i
-    type = 'humid'
-    name = rom
-    data=insert(rom, type, value, name)
-    data.request()
-   
+    if humidity is not None and temperature is not None:
+      value = '{0:0.1f}'.format(temperature)
+      rom = group+'_dht11_temp_gpio_'+pin
+      type = 'temp'
+      name = rom
+      data.append({"rom":rom,"type":type, "value":value,"name":name, "group":group})
     
+      value = '{0:0.1f}'.format(humidity)
+      rom = group+'_dht11_humid_gpio_'+pin
+      type = 'humid'
+      name = rom
+      data.append({"rom":rom,"type":type, "value":value,"name":name, "group":group})
+
+      data=insert2(data)
+      data.request()
+
+  except:
+    print("No DHT11")
