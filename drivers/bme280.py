@@ -472,7 +472,7 @@ def bme280():
 
     try:
         print("BME280")
-        from nettemp import insert
+        from nettemp import insert2
         sensor = BME280(mode=BME280_OSAMPLE_8, address=addr)
 
         degrees = sensor.read_temperature()
@@ -485,26 +485,29 @@ def bme280():
         humid = '{0:0.2f}'.format(humidity)
 
         group = socket.gethostname()
+        data = []
+
         rom = group+"_i2c_76_temp"
         value = temp
         name = 'bme280_temp'
         type = 'temp'
-        data=insert(rom, type, value, name, group)
-        data.request()
+        data.append({"rom":rom,"type":type, "value":value,"name":name, "group":group})
 
         rom = group+"_i2c_76_press"
         value = press
         name = 'bme280_press'
         type = 'press'
-        data=insert(rom, type, value, name, group)
-        data.request()
+        data.append({"rom":rom,"type":type, "value":value,"name":name, "group":group})
 
         rom = group+"i2c_76_humid"
         value = humid
         name = 'bme280_humid'
         type = 'humid'
-        data=insert(rom, type, value, name, group)
+        data.append({"rom":rom,"type":type, "value":value,"name":name, "group":group})
+
+        data=insert2(data)
         data.request()
+
 
     except: 
         print("No BME280")
