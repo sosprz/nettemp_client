@@ -10,6 +10,15 @@ sched.start()
 config_file = open("config.conf")
 config = yaml.load(config_file, Loader=yaml.FullLoader)
 
+if config["dht22"]["enabled"] and config["dht22"]["read_in_sec"]:
+  from drivers.dht22 import dht22
+  try:
+    dht22()
+  except Exception as e:
+    pass
+    print("\n[WARN] Error \n\tArgs: '%s'" % (str(e.args)))
+  sched.add_job(dht22, 'interval', seconds = config["dht22"]["read_in_sec"])
+
 if config["mpl3115a2"]["enabled"] and config["mpl3115a2"]["read_in_sec"]:
   from drivers.mpl3115a2 import mpl3115a2
   try:
