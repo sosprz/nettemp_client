@@ -8,7 +8,7 @@ def dht22():
   print("DHT22")
   #try:
   pin = 4
-  pin = str('D'+pin)
+  #pin = str('D'+pin)
   dht_device = adafruit_dht.DHT22(board.D4)
   temperature = dht_device.temperature
   humidity = dht_device.humidity
@@ -18,13 +18,13 @@ def dht22():
 
   if humidity is not None and temperature is not None:
     value = '{0:0.1f}'.format(temperature)
-    rom = group+'_dht22_temp_gpio_'+i
+    rom = group+'_dht22_temp_gpio_'+pin
     type = 'temp'
     name = rom
     data.append({"rom":rom,"type":type, "value":value,"name":name, "group":group})
   
     value = '{0:0.1f}'.format(humidity)
-    rom = group+'_dht22_humid_gpio_'+i
+    rom = group+'_dht22_humid_gpio_'+pin
     type = 'humid'
     name = rom
     data.append({"rom":rom,"type":type, "value":value,"name":name, "group":group})
