@@ -12,7 +12,7 @@ def dht22():
     dht_device = adafruit_dht.DHT22(getattr(board, pin))
     temperature = dht_device.temperature
     humidity = dht_device.humidity
-
+    print(temperature)
     group = socket.gethostname()
     data = []
 
