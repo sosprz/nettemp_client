@@ -4,10 +4,9 @@ import adafruit_dht
 
 from nettemp import insert2
 
-def dht22():
+def dht22(pin):
   print("DHT22")
   #try:
-  pin = "4"
   pin = "D"+pin
   dht_device = adafruit_dht.DHT22(getattr(board,pin))
   temperature = dht_device.temperature
