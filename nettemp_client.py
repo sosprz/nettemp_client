@@ -13,7 +13,7 @@ config = yaml.load(config_file, Loader=yaml.FullLoader)
 if config["dht22"]["enabled"] and config["dht22"]["read_in_sec"] and config["dht22"]["gpio_pin"]:
   from drivers.dht22 import dht22
   try:
-    dht22(config["dht22"]["gpio_pin"])
+    dht22([config["dht22"]["gpio_pin"]])
   except Exception as e:
     pass
     print("\n[WARN] Error \n\tArgs: '%s'" % (str(e.args)))
