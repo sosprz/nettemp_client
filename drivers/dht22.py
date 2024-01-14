@@ -4,7 +4,7 @@ import adafruit_dht
 
 from nettemp import insert2
 
-def dht22(args):
+def dht22(*args):
   print("DHT22")
   try:
     pin = str(args[0])
