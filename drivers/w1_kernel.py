@@ -2,6 +2,11 @@ import socket, random
 from nettemp import insert2
 
 def w1_kernel():
+
+    import RPi.GPIO as GPIO
+    GPIO.setmode(GPIO.BCM)
+    GPIO.setup(4, GPIO.IN, pull_up_down=GPIO.PUD_UP)
+    
     print ("w1_kernel")
     try:
         from w1thermsensor import W1ThermSensor
