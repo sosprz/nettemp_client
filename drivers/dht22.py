@@ -13,6 +13,7 @@ def dht22():
   temperature = dht_device.temperature
   humidity = dht_device.humidity
   print(temperature)
+  print(humidity)
   group = socket.gethostname()
   data = []
 
