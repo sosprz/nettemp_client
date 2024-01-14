@@ -8,7 +8,7 @@ def dht22():
   print("DHT22")
   #try:
   pin = 4
-  pin = 'D'+pin
+  pin = str('D'+pin)
   dht_device = adafruit_dht.DHT22(getattr(board, pin))
   temperature = dht_device.temperature
   humidity = dht_device.humidity
