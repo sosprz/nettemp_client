@@ -136,6 +136,15 @@ if config["htu21d"]["enabled"] and config["htu21d"]["read_in_sec"]:
     print("\n[WARN] Error \n\tArgs: '%s'" % (str(e.args)))
   sched.add_job(htu21d, 'interval', seconds = config["htu21d"]["read_in_sec"])
 
+if config["w1_kernel_gpio"]["enabled"] and config["w1_kernel_gpio"]["read_in_sec"]:
+  from drivers.w1_kernel_gpio import w1_kernel_gpio
+  try:
+    w1_kernel_gpio()
+  except Exception as e:
+    pass
+    print("\n[WARN] Error \n\tArgs: '%s'" % (str(e.args)))
+  sched.add_job(w1_kernel_gpio, 'interval', seconds = config["w1_kernel_gpio"]["read_in_sec"])
+
 if config["w1_kernel"]["enabled"] and config["w1_kernel"]["read_in_sec"]:
   from drivers.w1_kernel import w1_kernel
   try:

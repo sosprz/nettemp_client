@@ -2,7 +2,7 @@ import socket, random
 from nettemp import insert2
 
 def w1_kernel():
-    print ("w1_kernel")
+    print ("w1_kernel_gpio")
     try:
         from w1thermsensor import W1ThermSensor
         group = socket.gethostname()
