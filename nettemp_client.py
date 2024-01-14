@@ -22,7 +22,7 @@ if config["dht22"]["enabled"] and config["dht22"]["read_in_sec"] and config["dht
 if config["dht11"]["enabled"] and config["dht11"]["read_in_sec"] and config["dht11"]["gpio_pin"]:
   from drivers.dht11 import dht11
   try:
-    dht11(config["dht11"]["gpio_pin"])
+    dht11([config["dht11"]["gpio_pin"]])
   except Exception as e:
     pass
     print("\n[WARN] Error \n\tArgs: '%s'" % (str(e.args)))
