@@ -25,3 +25,23 @@ class insert:
         print("[ nettemp client ] Sensor %s value: %s" % (self.rom, self.value))
     except:
       print("[ nettemp client ] [cannot connect to local] Sensor %s value: %s" % (self.rom, self.value))
+
+class insert2:
+  def __init__(self, data):
+    self.data = data
+
+  def request(self):
+
+    config_file = open("config.conf")
+    config = yaml.load(config_file, Loader=yaml.FullLoader)
+    server_ip = config["server_ip"]
+    server_api_key = config["server_api_key"]
+
+    data = self.data
+    try:
+        url = f'https://{server_ip}'
+        r = requests.post(url,headers={'Content-Type':'application/json', 'Authorization': f'Bearer {server_api_key}'},json=data, verify=False)
+        print (r.content)
+        print(f"[ nettemp client ] {data}")
+    except:
+      print(f"[ nettemp client ] [cannot connect to local] {data}")

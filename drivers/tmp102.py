@@ -2,6 +2,7 @@ import smbus, time, sys, os, socket
 from nettemp import insert
 
 def tmp102():
+    print("TMP102")
     if len(sys.argv) > 1:
         nbus = sys.argv[1]
     elif  os.path.exists("/dev/i2c-0"):
@@ -27,5 +28,5 @@ def tmp102():
         data=insert(rom, type, value, name, group)
         data.request()
     except: 
-        print ("No TMP102")
+        print("No TMP102")
         
