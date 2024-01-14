@@ -7,7 +7,7 @@ from nettemp import insert2
 def dht22(*args):
   print("DHT22")
   try:
-    pin = str(args[1])
+    pin = str(args[0])
     pin = "D"+pin
     print(pin)
     dht_device = adafruit_dht.DHT22(getattr(board,pin))
