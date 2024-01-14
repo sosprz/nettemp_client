@@ -1,7 +1,7 @@
 import socket, random
 from nettemp import insert2
 
-def w1_kernel():
+def w1_kernel_gpio():
     print ("w1_kernel_gpio")
     try:
         from w1thermsensor import W1ThermSensor
