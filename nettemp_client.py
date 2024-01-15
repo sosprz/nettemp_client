@@ -18,14 +18,9 @@ if 1==1:
   sched.add_job(remote_config, 'interval', seconds = 60)
 
 try:
-  remote_config_file = open("remote.conf")
+  config = yaml.load(open("remote.conf"), Loader=yaml.FullLoader)
 except:
-  config_file = open("configd.conf")
-
-if remote_config_file:
-  config = yaml.load(remote_config_file, Loader=yaml.FullLoader)
-else:
-  config = yaml.load(config_file, Loader=yaml.FullLoader)
+  config = yaml.load(open("configd.conf"), Loader=yaml.FullLoader)
 
 if config["ping"]["enabled"] and config["ping"]["read_in_sec"]:
   from drivers.ping import ping
