@@ -22,7 +22,7 @@ config_file = open("configd.conf")
 try:
   remote_config_file = open("remote.conf")
 except:
-  pass
+  remote_config_file = False
 
 if remote_config_file:
   config = yaml.load(remote_config_file, Loader=yaml.FullLoader)
