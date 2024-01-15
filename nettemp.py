@@ -1,6 +1,6 @@
 import requests
 requests.packages.urllib3.disable_warnings() 
-import yaml
+import yaml, socket
 
 class insert:
   def __init__(self, rom, type, value, name, group):
@@ -45,3 +45,17 @@ class insert2:
         print(f"[ nettemp client ] {data}")
     except:
       print(f"[ nettemp client ] [cannot connect to local] {data}")
+
+def remote_config(group):
+    config_file = open("config.conf")
+    config = yaml.load(config_file, Loader=yaml.FullLoader)
+    server = config["server"]
+    server_api_key = config["server_api_key"]
+
+    try:
+      group = socket.gethostname()
+      url = f'{server}/api/clients/{group}'
+      r = requests.get(url,headers={'Content-Type':'application/json', 'Authorization': f'Bearer {server_api_key}'},verify=False)
+      print (r.content)
+    except:
+      print("[ nettemp client ] [cannot connect or no config]")

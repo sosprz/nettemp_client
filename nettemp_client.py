@@ -7,8 +7,21 @@ sched = BackgroundScheduler({'apscheduler.timezone': 'Europe/London'})
 
 sched.start()
 
+if 1==1:
+  from nettemp import remote_config
+  try:
+    remote_config()
+  except Exception as e:
+    pass
+    print("\n[WARN] Error \n\tArgs: '%s'" % (str(e.args)))
+  sched.add_job(remote_config, 'interval', seconds = 60)
+
 config_file = open("configd.conf")
-config = yaml.load(config_file, Loader=yaml.FullLoader)
+remote_config_file = open("remote.conf")
+if remote_config_file:
+  config = yaml.load(remote_config_file, Loader=yaml.FullLoader)
+else:
+  config = yaml.load(config_file, Loader=yaml.FullLoader)
 
 if config["ping"]["enabled"] and config["ping"]["read_in_sec"]:
   from drivers.ping import ping
