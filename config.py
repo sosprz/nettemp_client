@@ -19,7 +19,7 @@ def configInit():
          'mpl3115a2': {'enabled': False, 'read_in_sec': 60}, 
          'dht11': {'enabled': False, 'read_in_sec': 60, 'gpio_pin': 4, 'info':'minimum read interval 60sec'}, 
          'dht22': {'enabled': False, 'read_in_sec': 60, 'gpio_pin': 4, 'info':'minimum read interval 60sec'},
-         'ping' : {'enable': True, 'read_in_sec': 60, 'hosts':['wp.pl','google.com']}
+         'ping' : {'enabled': True, 'read_in_sec': 60, 'hosts':['wp.pl','google.com']}
         }
 
     config = {
