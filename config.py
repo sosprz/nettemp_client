@@ -1,8 +1,8 @@
 import os, yaml
 
 def configInit():
-    configd = [{
-        'config':{'w1_kernel': {'enabled': False, 'read_in_sec': 60}, 
+    configd = {
+         'w1_kernel': {'enabled': False, 'read_in_sec': 60}, 
          'w1_kernel_gpio': {'enabled': False, 'read_in_sec': 60}, 
          'system': {'enabled': True, 'read_in_sec': 60}, 
          'tmp102': {'enabled': False, 'read_in_sec': 60}, 
@@ -18,9 +18,8 @@ def configInit():
          'tsl2561': {'enabled': False, 'read_in_sec': 60}, 
          'mpl3115a2': {'enabled': False, 'read_in_sec': 60}, 
          'dht11': {'enabled': False, 'read_in_sec': 60, 'gpio_pin': 4}, 
-         'dht22': {'enabled': False, 'read_in_sec': 60, 'gpio_pin': 4}}
-        
-    }]
+         'dht22': {'enabled': False, 'read_in_sec': 60, 'gpio_pin': 4}
+        }
 
     config = [
        {'server_ip': 'nettemp.pslocal.pl',
