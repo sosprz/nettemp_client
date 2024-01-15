@@ -20,15 +20,26 @@ def configInit():
          'dht11': {'enabled': False, 'read_in_sec': 60, 'gpio_pin': 4}, 
          'dht22': {'enabled': False, 'read_in_sec': 60, 'gpio_pin': 4}}
     ]
+
+    confg = [
+       {'server_ip': 'nettemp.pslocal.pl',
+        'server_api_key': 'y8k76HDjmuQqJDKIaFwf8rk55sa8jIh1zCzZJ6sJZ8c'}
+    ]
+
     if (os.path.exists("configd.conf") == False):
-      print("[ nettemp ][ config ] NEW config creating!")
+      print("[ nettemp ][ config ] NEW driver configd creating!")
       with open('configd.conf', 'a+') as yamlfile:
          data = yaml.dump(configd, yamlfile)
     else:
-      print("[ nettemp ][ config ] Config already exist!")
+      print("[ nettemp ][ config ] Configd already exist!")
+
+    if (os.path.exists("config.conf") == False):
+      print("[ nettemp ][ config ] NEW configd creating!")
+      with open('config.conf', 'a+') as yamlfile:
+         data = yaml.dump(config, yamlfile)
+    else:
+      print("[ nettemp ][ config ] Configd already exist!")
        
-
-
     #with open("config.conf", "r") as yamlfile:
     # data = yaml.load(yamlfile, Loader=yaml.FullLoader)
     #print("Read successful")
