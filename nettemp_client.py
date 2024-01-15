@@ -7,8 +7,17 @@ sched = BackgroundScheduler({'apscheduler.timezone': 'Europe/London'})
 
 sched.start()
 
-config_file = open("config.conf")
+config_file = open("configd.conf")
 config = yaml.load(config_file, Loader=yaml.FullLoader)
+
+if config["ping"]["enabled"] and config["ping"]["read_in_sec"]:
+  from drivers.ping import ping
+  try:
+    ping()
+  except Exception as e:
+    pass
+    print("\n[WARN] Error \n\tArgs: '%s'" % (str(e.args)))
+  sched.add_job(ping, 'interval', seconds = config["ping"]["read_in_sec"])
 
 if config["dht22"]["enabled"] and config["dht22"]["read_in_sec"] and config["dht22"]["gpio_pin"]:
   from drivers.dht22 import dht22
@@ -154,6 +163,15 @@ if config["w1_kernel"]["enabled"] and config["w1_kernel"]["read_in_sec"]:
     pass
     print("\n[WARN] Error \n\tArgs: '%s'" % (str(e.args)))
   sched.add_job(w1_kernel, 'interval', seconds = config["w1_kernel"]["read_in_sec"])
+
+if config["lm_sensors"]["enabled"] and config["lm_sensors"]["read_in_sec"]:
+  from drivers.lm_sensors import lm_sensors
+  try:
+    lm_sensors()
+  except Exception as e:
+    pass
+    print("\n[WARN] Error \n\tArgs: '%s'" % (str(e.args)))
+  sched.add_job(lm_sensors, 'interval', seconds = config["lm_sensors"]["read_in_sec"])
 
 while True:
     sleep(1)
