@@ -12,6 +12,8 @@ pip3 install adafruit-circuitpython-htu21d adafruit-circuitpython-tsl2561 Adafru
 
 deactivate
 
+python3 config.py
+
 cron_data=$(crontab -l)
 grep  -q "nettemp_client" <<< $cron_data
 
@@ -24,7 +26,7 @@ echo "### crontab -l"
 crontab -l
 echo "### end crontab"
 
-echo "Add $USER to I2C group"
+echo "### Add $USER to I2C group"
 sudo usermod $USER -aG i2c
 
 

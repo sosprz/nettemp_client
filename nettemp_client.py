@@ -7,7 +7,7 @@ sched = BackgroundScheduler({'apscheduler.timezone': 'Europe/London'})
 
 sched.start()
 
-config_file = open("config.conf")
+config_file = open("configd.conf")
 config = yaml.load(config_file, Loader=yaml.FullLoader)
 
 if config["dht22"]["enabled"] and config["dht22"]["read_in_sec"] and config["dht22"]["gpio_pin"]:
