@@ -56,6 +56,7 @@ def remote_config():
     try:
       url = f'{server}/api/clients/{group}'
       r = requests.get(url,headers={'Content-Type':'application/json', 'Authorization': f'Bearer {server_api_key}'},verify=False)
+      print(r)
       print (r.content)
     except:
       print("[ nettemp client ] [cannot connect or no config]")
