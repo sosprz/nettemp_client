@@ -21,7 +21,7 @@ def configInit():
          'dht22': {'enabled': False, 'read_in_sec': 60, 'gpio_pin': 4}}
     ]
 
-    confg = [
+    config = [
        {'server_ip': 'nettemp.pslocal.pl',
         'server_api_key': 'y8k76HDjmuQqJDKIaFwf8rk55sa8jIh1zCzZJ6sJZ8c'}
     ]
