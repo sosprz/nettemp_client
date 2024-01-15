@@ -58,7 +58,7 @@ def remote_config():
       r = requests.get(url,headers={'Content-Type':'application/json', 'Authorization': f'Bearer {server_api_key}'},verify=False)
       config = r.json()
 
-      with open('remote.conf', 'a+') as yamlfile:
+      with open('remote.conf', 'w+') as yamlfile:
          data = yaml.dump(config, yamlfile)
       print("[ nettemp client ] [remote config saved]")
     except:
