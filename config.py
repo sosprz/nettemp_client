@@ -7,7 +7,7 @@ def configInit():
          'system': {'enabled': True, 'read_in_sec': 60}, 
          'tmp102': {'enabled': False, 'read_in_sec': 60}, 
          'rpi': {'enabled': False, 'read_in_sec': 60}, 
-         'lm_sensors': {'enabled': True, 'read_in_sec': 60},
+         'lm_sensors': {'enabled': False, 'read_in_sec': 60},
          'bmp180': {'enabled': False, 'read_in_sec': 60}, 
          'bme280': {'enabled': False, 'read_in_sec': 60}, 
          'htu21d': {'enabled': False, 'read_in_sec': 60}, 
@@ -18,7 +18,8 @@ def configInit():
          'tsl2561': {'enabled': False, 'read_in_sec': 60}, 
          'mpl3115a2': {'enabled': False, 'read_in_sec': 60}, 
          'dht11': {'enabled': False, 'read_in_sec': 60, 'gpio_pin': 4, 'info':'minimum read interval 60sec'}, 
-         'dht22': {'enabled': False, 'read_in_sec': 60, 'gpio_pin': 4, 'info':'minimum read interval 60sec'}
+         'dht22': {'enabled': False, 'read_in_sec': 60, 'gpio_pin': 4, 'info':'minimum read interval 60sec'},
+         'ping' : {'enable': True, 'read_in_sec': 60, 'hosts':['wp.pl','google.com']}
         }
 
     config = {

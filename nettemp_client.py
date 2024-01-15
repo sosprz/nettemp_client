@@ -10,6 +10,15 @@ sched.start()
 config_file = open("configd.conf")
 config = yaml.load(config_file, Loader=yaml.FullLoader)
 
+if config["ping"]["enabled"] and config["ping"]["read_in_sec"]:
+  from drivers.ping import ping
+  try:
+    ping()
+  except Exception as e:
+    pass
+    print("\n[WARN] Error \n\tArgs: '%s'" % (str(e.args)))
+  sched.add_job(ping, 'interval', seconds = config["ping"]["read_in_sec"])
+
 if config["dht22"]["enabled"] and config["dht22"]["read_in_sec"] and config["dht22"]["gpio_pin"]:
   from drivers.dht22 import dht22
   try:
