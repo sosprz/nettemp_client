@@ -1,8 +1,8 @@
 import os, yaml
 
 def configInit():
-    configd = [
-        {'w1_kernel': {'enabled': False, 'read_in_sec': 60}, 
+    configd = [{
+        'config':{'w1_kernel': {'enabled': False, 'read_in_sec': 60}, 
          'w1_kernel_gpio': {'enabled': False, 'read_in_sec': 60}, 
          'system': {'enabled': True, 'read_in_sec': 60}, 
          'tmp102': {'enabled': False, 'read_in_sec': 60}, 
@@ -19,7 +19,8 @@ def configInit():
          'mpl3115a2': {'enabled': False, 'read_in_sec': 60}, 
          'dht11': {'enabled': False, 'read_in_sec': 60, 'gpio_pin': 4}, 
          'dht22': {'enabled': False, 'read_in_sec': 60, 'gpio_pin': 4}}
-    ]
+        
+    }]
 
     config = [
        {'server_ip': 'nettemp.pslocal.pl',
@@ -40,9 +41,8 @@ def configInit():
     else:
       print("[ nettemp ][ config ] Configd already exist!")
        
-    #with open("config.conf", "r") as yamlfile:
-    # data = yaml.load(yamlfile, Loader=yaml.FullLoader)
-    #print("Read successful")
+    with open("configd.conf", "r") as yamlfile:
+     data = yaml.load(yamlfile, Loader=yaml.FullLoader)
     #print(data)
 
 configInit()
