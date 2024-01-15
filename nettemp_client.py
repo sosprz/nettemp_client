@@ -11,14 +11,19 @@ sched.start()
 if 1==1:
   from nettemp import remote_config
   try:
-    remote_config(group)
+    remote_config()
   except Exception as e:
     pass
     print("\n[WARN] Error \n\tArgs: '%s'" % (str(e.args)))
   sched.add_job(remote_config, 'interval', seconds = 60)
 
 config_file = open("configd.conf")
-remote_config_file = open("remote.conf")
+
+try:
+  remote_config_file = open("remote.conf")
+except:
+  pass
+
 if remote_config_file:
   config = yaml.load(remote_config_file, Loader=yaml.FullLoader)
 else:
