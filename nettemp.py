@@ -1,6 +1,6 @@
 import requests
 requests.packages.urllib3.disable_warnings() 
-import yaml, socket
+import yaml, socket, json
 
 class insert:
   def __init__(self, rom, type, value, name, group):
@@ -56,7 +56,8 @@ def remote_config():
     try:
       url = f'{server}/api/clients/{group}'
       r = requests.get(url,headers={'Content-Type':'application/json', 'Authorization': f'Bearer {server_api_key}'},verify=False)
-      config = r.content
+      config = json.loads(r.content)
+
       with open('remote.conf', 'a+') as yamlfile:
          data = yaml.dump(config, yamlfile)
       print("[ nettemp client ] [remote config saved]")
