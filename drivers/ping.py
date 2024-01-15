@@ -26,7 +26,7 @@ def ping():
             value = '{0:0.2f}'.format(jout['rtt_avg'])
             print(name, value)
             rom=group+'_'+name
-            type='ping'
+            type='host'
             data.append({"rom":rom,"type":type, "value":value,"name":name, "group":group})
 
         data=insert2(data)
