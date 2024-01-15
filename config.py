@@ -40,8 +40,8 @@ def configInit():
     else:
       print("[ nettemp ][ config ] Configd already exist!")
        
-    with open("configd.conf", "r") as yamlfile:
-     data = yaml.load(yamlfile, Loader=yaml.FullLoader)
+    #with open("configd.conf", "r") as yamlfile:
+    # data = yaml.load(yamlfile, Loader=yaml.FullLoader)
     #print(data)
 
 configInit()
