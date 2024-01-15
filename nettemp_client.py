@@ -1,9 +1,10 @@
 
 from time import sleep
-import yaml, os, time, smbus
+import yaml, os, time, smbus, socket
 os.chdir(os.path.dirname(__file__))
 from apscheduler.schedulers.background import BackgroundScheduler
 sched = BackgroundScheduler({'apscheduler.timezone': 'Europe/London'})
+group = socket.gethostname()
 
 sched.start()
 
