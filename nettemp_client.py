@@ -155,6 +155,15 @@ if config["w1_kernel"]["enabled"] and config["w1_kernel"]["read_in_sec"]:
     print("\n[WARN] Error \n\tArgs: '%s'" % (str(e.args)))
   sched.add_job(w1_kernel, 'interval', seconds = config["w1_kernel"]["read_in_sec"])
 
+if config["lm_sensors"]["enabled"] and config["lm_sensors"]["read_in_sec"]:
+  from drivers.lm_sensors import lm_sensors
+  try:
+    lm_sensors()
+  except Exception as e:
+    pass
+    print("\n[WARN] Error \n\tArgs: '%s'" % (str(e.args)))
+  sched.add_job(lm_sensors, 'interval', seconds = config["lm_sensors"]["read_in_sec"])
+
 while True:
     sleep(1)
 
