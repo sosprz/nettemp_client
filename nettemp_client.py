@@ -17,12 +17,10 @@ if 1==1:
     print("\n[WARN] Error \n\tArgs: '%s'" % (str(e.args)))
   sched.add_job(remote_config, 'interval', seconds = 60)
 
-config_file = open("configd.conf")
-
 try:
   remote_config_file = open("remote.conf")
 except:
-  remote_config_file = False
+  config_file = open("configd.conf")
 
 if remote_config_file:
   config = yaml.load(remote_config_file, Loader=yaml.FullLoader)

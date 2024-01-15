@@ -10,8 +10,15 @@ def ping():
         group = socket.gethostname()
         data = []
 
-        config_file = open("configd.conf")
-        config = yaml.load(config_file, Loader=yaml.FullLoader)
+        try:
+            remote_config_file = open("remote.conf")
+        except:
+            config_file = open("configd.conf")
+
+        if remote_config_file:
+            config = yaml.load(remote_config_file, Loader=yaml.FullLoader)
+        else:
+            config = yaml.load(config_file, Loader=yaml.FullLoader)
 
         print(config["ping"]["hosts"])
 
