@@ -5,10 +5,6 @@ Nettemp client using python3 and virtual enviroment.
 Remember turn on I2C and 1wire on raspberry pi devices over raspi-config. 
 Drivers like ds2482 needs root perms (on raspberry pi no action needed)
 
-* lm-sensors
-* ping
-
-
 ##### Download and setup nettemp_client
 
 ```
