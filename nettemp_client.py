@@ -1,17 +1,17 @@
 
 from time import sleep
-import yaml, os, time, smbus, socket
+import yaml, os, time, smbus
 os.chdir(os.path.dirname(__file__))
 from apscheduler.schedulers.background import BackgroundScheduler
 sched = BackgroundScheduler({'apscheduler.timezone': 'Europe/London'})
-group = socket.gethostname()
+
 
 sched.start()
 
 if 1==1:
   from nettemp import remote_config
   try:
-    remote_config()
+    remote_config(group)
   except Exception as e:
     pass
     print("\n[WARN] Error \n\tArgs: '%s'" % (str(e.args)))

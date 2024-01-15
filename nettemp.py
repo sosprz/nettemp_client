@@ -46,11 +46,12 @@ class insert2:
     except:
       print(f"[ nettemp client ] [cannot connect to local] {data}")
 
-def remote_config(group):
+def remote_config():
     config_file = open("config.conf")
     config = yaml.load(config_file, Loader=yaml.FullLoader)
     server = config["server"]
     server_api_key = config["server_api_key"]
+    group = socket.gethostname()
 
     try:
       url = f'{server}/api/clients/{group}'
