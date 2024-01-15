@@ -5,7 +5,7 @@ from nettemp import insert2
 def lm_sensors():
   print("LM-SENSORS")
   try:
-    output = subprocess.check_output("sensors -j", shell=True)
+    output = subprocess.check_output("/usr/bin/sensors -j", shell=True)
     output = output.decode("utf-8")
     lmdata = json.loads(output)
     group = socket.gethostname()
@@ -23,7 +23,7 @@ def lm_sensors():
 
     data=insert2(data)
     data.request()
-    
+
   except:
      print("NO LM-SENSORS")
 
