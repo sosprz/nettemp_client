@@ -22,7 +22,7 @@ def configInit():
         }
 
     config = {
-      'server_ip': 'nettemp.pslocal.pl',
+      'server': 'https://nettemp_ip',
       'server_api_key': 'y8k76HDjmuQqJDKIaFwf8rk55sa8jIh1zCzZJ6sJZ8c'
       }
 
