@@ -79,8 +79,8 @@ def remote_config():
         print("[ nettemp client ] [ remote config saved ]")
         return True
       else:
-        b = yaml_as_dict(temp_file)
-        a = yaml_as_dict(local_file)
+        a = yaml_as_dict(temp_file)
+        b = yaml_as_dict(local_file)
         ddiff = DeepDiff(a, b, ignore_order=True)
         if ddiff:
           print(f"[ nettemp client ] [ new remote config: {ddiff} ]")
