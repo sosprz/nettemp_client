@@ -2,10 +2,6 @@ import yaml, socket
 from nettemp import insert2
 import json
 import pingparsing
-from apscheduler.schedulers.background import BackgroundScheduler
-sched = BackgroundScheduler({'apscheduler.timezone': 'Europe/London'})
-
-
 
 def ping():
     print("PING")
