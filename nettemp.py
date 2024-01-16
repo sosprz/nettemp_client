@@ -38,13 +38,13 @@ class insert2:
     server_api_key = config["server_api_key"]
 
     data = self.data
-    try:
-        url = f'{server}'
-        r = requests.post(url,headers={'Content-Type':'application/json', 'Authorization': f'Bearer {server_api_key}'},json=data, verify=False)
-        print (r.content)
-        print(f"[ nettemp client ] {data}")
-    except:
-      print(f"[ nettemp client ] [cannot connect to local] {data}")
+    # try:
+    url = f'{server}'
+    r = requests.post(url,headers={'Content-Type':'application/json', 'Authorization': f'Bearer {server_api_key}'},json=data, verify=False)
+    print (r.content)
+    print(f"[ nettemp client ] {data}")
+    # except:
+    #   print(f"[ nettemp client ] [cannot connect to local] {data}")
 
 def remote_config():
     config_file = open("config.conf")
