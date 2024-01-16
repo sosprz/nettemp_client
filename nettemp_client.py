@@ -24,6 +24,8 @@ try:
 except:
   config = yaml.load(open("configd.conf"), Loader=yaml.FullLoader)
 
+# zastanowic sie czy zostawic!!!!! ping
+  
 if config["ping"]["enabled"] and config["ping"]["read_in_sec"]:
   from drivers.ping import ping
   sched.add_job(ping, 'interval', seconds = config["ping"]["read_in_sec"], id="ping")
@@ -183,7 +185,9 @@ if config["lm_sensors"]["enabled"] and config["lm_sensors"]["read_in_sec"]:
   sched.add_job(lm_sensors, 'interval', seconds = config["lm_sensors"]["read_in_sec"])
 
 while True:
-    sleep(20)
+    sleep(120)
+    ## sprawdac czy nowszy pojawil się plik
+    ## auto file name!
     os.execv(sys.executable, ["/home/przemek/nettemp_client/venv/bin/python3"] + sys.argv)
 
 
