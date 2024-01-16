@@ -186,7 +186,8 @@ while True:
         print("[ nettemp client ] [ new remote config, restarting ]")
         #os.execv(sys.executable, ["/home/przemek/nettemp_client/venv/bin/python3"] + sys.argv)
         os.execv(sys.executable, [sys.executable] + sys.argv)
-    except
+    except:
+      pass
 
 
 
