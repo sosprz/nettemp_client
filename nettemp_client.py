@@ -22,8 +22,10 @@ sched.start()
 try:
   if config_remote_config:
     config = yaml.load(open("remote.conf"), Loader=yaml.FullLoader)
+    print("[ nettemp client ] [ remote config: Enabled ]")
 except:
   config = yaml.load(open("configd.conf"), Loader=yaml.FullLoader)
+  print("[ nettemp client ] [ remote config: Disabled ]")
 
 # zastanowic sie czy zostawic!!!!! ping
   
