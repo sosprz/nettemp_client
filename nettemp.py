@@ -57,7 +57,7 @@ def remote_config():
       config = r.json()
 
       temp_file = 'temp_remote.conf'
-      remote_file = 'remote.conf'
+      local_file = 'remote.conf'
 
       with open(temp_file, 'w+') as yamlfile:
          data = yaml.dump(config, yamlfile)
@@ -73,17 +73,19 @@ def remote_config():
                       my_dict[key] = value
           return my_dict
 
-      if not os.path.isfile(remote_file):
+      if not os.path.isfile(local_file):
         with open('remote.conf', 'w+') as yamlfile:
           data = yaml.dump(config, yamlfile)
         print("[ nettemp client ] [ remote config saved ]")
         return True
       else:
         a = yaml_as_dict(temp_file)
-        b = yaml_as_dict(remote_file)
+        b = yaml_as_dict(local_file)
         ddiff = DeepDiff(a, b, ignore_order=True)
         if ddiff:
           print(f"[ nettemp client ] [ new remote config: {ddiff} ]")
+          os.remove(local_file)
+          os.rename(temp_file, local_file)
           return True
         else:
           return False      
