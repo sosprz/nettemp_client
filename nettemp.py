@@ -39,8 +39,9 @@ class insert2:
 
     data = self.data
     # try:
-    print(server)
+    print(data)
     url = f'{server}'
+
     r = requests.post(url,headers={'Content-Type':'application/json', 'Authorization': f'Bearer {server_api_key}'},json=data, verify=False)
     print (r.content)
     print(f"[ nettemp client ] {data}")
