@@ -8,9 +8,12 @@ os.chdir(os.path.dirname(__file__))
 from apscheduler.schedulers.background import BackgroundScheduler
 sched = BackgroundScheduler({'apscheduler.timezone': 'Europe/London'})
 
+configm = "config.conf"
+config_remote = "remote.conf"
+configd = "configd.conf"
 
 def config_remote_config():
-  config = yaml.load(open("config.conf"), Loader=yaml.FullLoader)
+  configm = yaml.load(open(config_remote), Loader=yaml.FullLoader)
   if config["remote_config"]['enabled']:
     return True
   else:
@@ -18,15 +21,15 @@ def config_remote_config():
 
 sched.start()
 
-try:
-  if config_remote_config():
-    config = yaml.load(open("remote.conf"), Loader=yaml.FullLoader)
+if config_remote_config():
+  if os.path.isfile(config_remote)
+    config = yaml.load(open(config_remote), Loader=yaml.FullLoader)
     print("[ nettemp client ] [ remote config: Enabled ]")
   else:
-    config = yaml.load(open("configd.conf"), Loader=yaml.FullLoader)
+    config = yaml.load(open(configd), Loader=yaml.FullLoader)
     print("[ nettemp client ] [ remote config: Disabled ]")
-except:
-  config = yaml.load(open("configd.conf"), Loader=yaml.FullLoader)
+else:
+  config = yaml.load(open((configd), Loader=yaml.FullLoader)
   print("[ nettemp client ] [ remote config: Disabled ]")
 
 # zastanowic sie czy zostawic!!!!! ping
@@ -189,10 +192,10 @@ if config["lm_sensors"]["enabled"] and config["lm_sensors"]["read_in_sec"]:
     print("\n[WARN] Error \n\tArgs: '%s'" % (str(e.args)))
   sched.add_job(lm_sensors, 'interval', seconds = config["lm_sensors"]["read_in_sec"])
 
-with open('configd.conf', 'rb') as file_obj:
+with open(configd, 'rb') as file_obj:
   configd_md5_hash = hashlib.md5(file_obj.read()).hexdigest()
 
-with open('config.conf', 'rb') as file_obj:
+with open(configm, 'rb') as file_obj:
   config_md5_hash = hashlib.md5(file_obj.read()).hexdigest()
 
 while True:
@@ -205,14 +208,14 @@ while True:
     except:
       print("[ nettemp client ] [ new remote config, problem ]")
     
-    with open('configd.conf', 'rb') as file_obj:
+    with open(configd, 'rb') as file_obj:
       new_configd_md5_hash = hashlib.md5(file_obj.read()).hexdigest()
     
     if configd_md5_hash != new_configd_md5_hash:
       print("[ nettemp client ] [ new local configd, restarting ]")
       os.execv(sys.executable, [sys.executable] + sys.argv)
 
-    with open('config.conf', 'rb') as file_obj:
+    with open(configm, 'rb') as file_obj:
       new_config_md5_hash = hashlib.md5(file_obj.read()).hexdigest()
 
     if config_md5_hash != new_config_md5_hash:
