@@ -184,7 +184,8 @@ if config["lm_sensors"]["enabled"] and config["lm_sensors"]["read_in_sec"]:
 
 while True:
     sleep(5)
-    os.execv(__file__, sys.argv)
+    os.execv(sys.executable, ['python'] + sys.argv)
+
 
 
 
