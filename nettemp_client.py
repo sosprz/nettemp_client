@@ -1,4 +1,6 @@
 
+#!/usr/bin/env python
+
 from time import sleep
 import yaml, os, time, smbus, sys
 os.chdir(os.path.dirname(__file__))
