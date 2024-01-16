@@ -10,10 +10,9 @@ pip3 install git+https://github.com/nicmcd/vcgencmd.git
 pip3 install adafruit-circuitpython-htu21d adafruit-circuitpython-tsl2561 Adafruit-BMP adafruit-circuitpython-adxl34x \
  adafruit-circuitpython-dht adafruit-circuitpython-vl53l0x
 pip3 install pingparsing deepdiff
+python3 config.py
 
 deactivate
-
-python3 config.py
 
 cron_data=$(crontab -l)
 grep  -q "nettemp_client" <<< $cron_data
@@ -29,6 +28,10 @@ echo "### end crontab"
 
 echo "### Add $USER to I2C group"
 sudo usermod $USER -aG i2c
+
+echo "### 1. edit config.conf to add server IP and api key token"
+echo "### 2. edit configd.conf to enable drivers for sensors"
+
 
 
 
