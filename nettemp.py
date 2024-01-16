@@ -31,7 +31,7 @@ class insert2:
     self.data = data
 
   def request(self):
-
+    print(self)
     config_file = open("config.conf")
     config = yaml.load(config_file, Loader=yaml.FullLoader)
     server = config["server"]
