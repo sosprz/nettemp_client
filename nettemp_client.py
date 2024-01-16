@@ -19,7 +19,7 @@ def config_remote_config():
 sched.start()
 
 try:
-  if config_remote_config:
+  if config_remote_config():
     config = yaml.load(open("remote.conf"), Loader=yaml.FullLoader)
     print("[ nettemp client ] [ remote config: Enabled ]")
 except:
