@@ -13,7 +13,7 @@ config_remote = "remote.conf"
 configd = "configd.conf"
 
 def config_remote_config():
-  configm = yaml.load(open(configm), Loader=yaml.FullLoader)
+  config = yaml.load(open(configm), Loader=yaml.FullLoader)
   if config["remote_config"]['enabled']:
     return True
   else:
