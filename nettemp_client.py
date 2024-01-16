@@ -1,6 +1,6 @@
 
 from time import sleep
-import yaml, os, time, smbus
+import yaml, os, time, smbus, sys
 os.chdir(os.path.dirname(__file__))
 from apscheduler.schedulers.background import BackgroundScheduler
 sched = BackgroundScheduler({'apscheduler.timezone': 'Europe/London'})
@@ -182,7 +182,7 @@ if config["lm_sensors"]["enabled"] and config["lm_sensors"]["read_in_sec"]:
 
 while True:
     sleep(5)
-    os.execv(__file__)
+    os.execv(__file__, sys.argv)
 
 
 
