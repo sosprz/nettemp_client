@@ -55,6 +55,7 @@ def remote_config():
       url = f'{server}/api/clients/{group}'
       r = requests.get(url,headers={'Content-Type':'application/json', 'Authorization': f'Bearer {server_api_key}'},verify=False)
       config = r.json()
+      print(f"[ nettemp client] {r.status_code}")
 
       temp_file = 'temp_remote.conf'
       local_file = 'remote.conf'
@@ -79,8 +80,8 @@ def remote_config():
         print("[ nettemp client ] [ remote config saved ]")
         return True
       else:
-        a = yaml_as_dict(temp_file)
-        b = yaml_as_dict(local_file)
+        b = yaml_as_dict(temp_file)
+        a = yaml_as_dict(local_file)
         ddiff = DeepDiff(a, b, ignore_order=True)
         if ddiff:
           print(f"[ nettemp client ] [ new remote config: {ddiff} ]")
