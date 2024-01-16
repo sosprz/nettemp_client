@@ -31,7 +31,7 @@ class insert2:
     self.data = data
 
   def request(self):
-    print(self)
+    #print(self)
     config_file = open("config.conf")
     config = yaml.load(config_file, Loader=yaml.FullLoader)
     server = config["server"]
@@ -39,6 +39,7 @@ class insert2:
 
     data = self.data
     # try:
+    print(server)
     url = f'{server}'
     r = requests.post(url,headers={'Content-Type':'application/json', 'Authorization': f'Bearer {server_api_key}'},json=data, verify=False)
     print (r.content)
