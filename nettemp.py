@@ -82,8 +82,11 @@ def remote_config():
         a = yaml_as_dict(temp_file)
         b = yaml_as_dict(remote_file)
         ddiff = DeepDiff(a, b, ignore_order=True)
-        print(ddiff)
-        return True
+        if ddiff:
+          print(ddiff)
+          return True
+        else:
+          return False      
       
     except:
       print("[ nettemp client ] [cannot connect or no config]")
