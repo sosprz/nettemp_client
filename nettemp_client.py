@@ -184,7 +184,7 @@ if config["lm_sensors"]["enabled"] and config["lm_sensors"]["read_in_sec"]:
 
 while True:
     sleep(5)
-    os.execv(sys.executable, "/home/przemek/nettemp_client/venv/bin/python3 /home/przemek/nettemp_client/nettemp_client.py")
+    os.execv(sys.executable, ["python3"] + sys.argv)
 
 
 
