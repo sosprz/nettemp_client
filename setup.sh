@@ -30,7 +30,7 @@ echo "### Add $USER to I2C group"
 sudo usermod $USER -aG i2c
 
 echo "### 1. edit config.conf to add server IP and api key token"
-echo "### 2. edit configd.conf to enable drivers for sensors"
+echo "### 2. edit drivers.conf to enable drivers for sensors"
 
 
 

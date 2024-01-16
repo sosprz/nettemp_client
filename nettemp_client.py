@@ -10,7 +10,7 @@ sched = BackgroundScheduler({'apscheduler.timezone': 'Europe/London'})
 
 configm = "config.conf"
 config_remote = "remote.conf"
-configd = "configd.conf"
+configd = "drivers.conf"
 
 def config_remote_config():
   config = yaml.load(open(configm), Loader=yaml.FullLoader)

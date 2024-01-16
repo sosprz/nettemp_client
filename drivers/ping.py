@@ -13,7 +13,7 @@ def ping():
         try:
             config = yaml.load(open("remote.conf"), Loader=yaml.FullLoader)
         except:
-            config = yaml.load(open("configd.conf"), Loader=yaml.FullLoader)
+            config = yaml.load(open("drivers.conf"), Loader=yaml.FullLoader)
 
         print(config["ping"]["hosts"])
 

@@ -28,7 +28,7 @@ server_api_key: o39-SumAuuAMyY1lUuVlllj2h08HXr-F4heUKzIpeyo
 ##### Enable sensors 
 
 ```
-nano configd.conf
+nano drivers.conf
 ```
 ```
 w1_kernel:

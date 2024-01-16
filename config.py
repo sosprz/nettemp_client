@@ -28,9 +28,9 @@ def configInit():
       'remote_config': {'enabled': 'true'}
       }
 
-    if (os.path.exists("configd.conf") == False):
+    if (os.path.exists("drivers.conf") == False):
       print("[ nettemp ][ config ] NEW driver configd creating!")
-      with open('configd.conf', 'a+') as yamlfile:
+      with open('drivers.conf', 'a+') as yamlfile:
          data = yaml.dump(configd, yamlfile)
     else:
       print("[ nettemp ][ config ] Configd already exist!")
@@ -42,7 +42,7 @@ def configInit():
     else:
       print("[ nettemp ][ config ] Configd already exist!")
        
-    #with open("configd.conf", "r") as yamlfile:
+    #with open("drivers.conf", "r") as yamlfile:
     # data = yaml.load(yamlfile, Loader=yaml.FullLoader)
     #print(data)
 
