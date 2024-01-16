@@ -22,14 +22,14 @@ def config_remote_config():
 sched.start()
 
 if config_remote_config():
-  if os.path.isfile(config_remote)
+  if os.path.isfile(config_remote):
     config = yaml.load(open(config_remote), Loader=yaml.FullLoader)
     print("[ nettemp client ] [ remote config: Enabled ]")
   else:
     config = yaml.load(open(configd), Loader=yaml.FullLoader)
     print("[ nettemp client ] [ remote config: Disabled ]")
 else:
-  config = yaml.load(open((configd), Loader=yaml.FullLoader)
+  config = yaml.load(open(configd), Loader=yaml.FullLoader)
   print("[ nettemp client ] [ remote config: Disabled ]")
 
 # zastanowic sie czy zostawic!!!!! ping
