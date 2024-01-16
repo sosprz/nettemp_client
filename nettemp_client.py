@@ -3,21 +3,13 @@
 
 from time import sleep
 import yaml, os, time, smbus, sys
+from nettemp import remote_config
 os.chdir(os.path.dirname(__file__))
 from apscheduler.schedulers.background import BackgroundScheduler
 sched = BackgroundScheduler({'apscheduler.timezone': 'Europe/London'})
 
 
 sched.start()
-
-if 1==1:
-  from nettemp import remote_config
-  try:
-    remote_config()
-  except Exception as e:
-    pass
-    print("\n[WARN] Error \n\tArgs: '%s'" % (str(e.args)))
-  sched.add_job(remote_config, 'interval', seconds = 60)
 
 try:
   config = yaml.load(open("remote.conf"), Loader=yaml.FullLoader)
@@ -188,7 +180,14 @@ while True:
     sleep(120)
     ## sprawdac czy nowszy pojawil się plik
     ## auto file name!
-    os.execv(sys.executable, ["/home/przemek/nettemp_client/venv/bin/python3"] + sys.argv)
+    try:
+      check = remote_config()
+      if check:
+        print("[ nettemp client ] [ new remote config, restarting ]")
+        #os.execv(sys.executable, ["/home/przemek/nettemp_client/venv/bin/python3"] + sys.argv)
+        os.execv(sys.executable, [sys.executable] + sys.argv)
+    except
+
 
 
 
