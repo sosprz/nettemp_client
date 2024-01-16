@@ -55,7 +55,7 @@ def remote_config():
       url = f'{server}/api/clients/{group}'
       r = requests.get(url,headers={'Content-Type':'application/json', 'Authorization': f'Bearer {server_api_key}'},verify=False)
       config = r.json()
-      print(f"[ nettemp client] {r.status_code}")
+      print(f"[ nettemp client] [ connection to remote server: {r.status_code} ]")
 
       temp_file = 'temp_remote.conf'
       local_file = 'remote.conf'
