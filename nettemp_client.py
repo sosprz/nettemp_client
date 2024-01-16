@@ -184,7 +184,7 @@ while True:
     job = sched.get_job(job_id="ping")
     print(job)
     #job.modify(seconds=10)
-    sleep(1)
+    sleep(10)
 
 
 
