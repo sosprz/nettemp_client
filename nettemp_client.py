@@ -2,7 +2,7 @@
 #!/usr/bin/env python
 
 from time import sleep
-import yaml, os, time, smbus, sys
+import yaml, os, time, smbus, sys, hashlib
 from nettemp import remote_config
 os.chdir(os.path.dirname(__file__))
 from apscheduler.schedulers.background import BackgroundScheduler
@@ -176,6 +176,9 @@ if config["lm_sensors"]["enabled"] and config["lm_sensors"]["read_in_sec"]:
     print("\n[WARN] Error \n\tArgs: '%s'" % (str(e.args)))
   sched.add_job(lm_sensors, 'interval', seconds = config["lm_sensors"]["read_in_sec"])
 
+with open('configd.conf', 'rb') as file_obj:
+  configd_md5_hash = hashlib.md5(file_obj.read()).hexdigest()
+
 while True:
     sleep(60)
     try:
@@ -185,6 +188,13 @@ while True:
         os.execv(sys.executable, [sys.executable] + sys.argv)
     except:
       print("[ nettemp client ] [ new remote config, problem ]")
+    
+    with open('configd.conf', 'rb') as file_obj:
+      new_configd_md5_hash = hashlib.md5(file_obj.read()).hexdigest()
+    
+    if configd_md5_hash != new_configd_md5_hash:
+      print("[ nettemp client ] [ new local config, restarting ]")
+      os.execv(sys.executable, [sys.executable] + sys.argv)
 
 
 
