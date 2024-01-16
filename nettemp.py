@@ -76,18 +76,18 @@ def remote_config():
       if not os.path.isfile(remote_file):
         with open('remote.conf', 'w+') as yamlfile:
           data = yaml.dump(config, yamlfile)
-        print("[ nettemp client ] [remote config saved]")
+        print("[ nettemp client ] [ remote config saved ]")
         return True
       else:
         a = yaml_as_dict(temp_file)
         b = yaml_as_dict(remote_file)
         ddiff = DeepDiff(a, b, ignore_order=True)
         if ddiff:
-          print(ddiff)
+          print(f"[ nettemp client ] [ new remote config: {ddiff} ]")
           return True
         else:
           return False      
       
     except:
-      print("[ nettemp client ] [cannot connect or no config]")
+      print("[ nettemp client ] [ cannot connect or no config ]")
       return False

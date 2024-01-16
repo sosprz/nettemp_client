@@ -178,8 +178,6 @@ if config["lm_sensors"]["enabled"] and config["lm_sensors"]["read_in_sec"]:
 
 while True:
     sleep(60)
-    ## sprawdac czy nowszy pojawil się plik
-    ## auto file name!
     try:
       check = remote_config()
       if check:
