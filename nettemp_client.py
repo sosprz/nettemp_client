@@ -11,9 +11,7 @@ sched = BackgroundScheduler({'apscheduler.timezone': 'Europe/London'})
 
 def config_remote_config():
   config_file = open("config.conf")
-  config = yaml.load(config_file, Loader=yaml.FullLoader)
-  print(config["remote_config"])
-  if config["remote_config"]:
+  if config["remote_config"]['enabled']:
     return True
   else:
     return False
