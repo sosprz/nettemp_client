@@ -1,6 +1,6 @@
 import requests
 requests.packages.urllib3.disable_warnings() 
-import yaml, socket, json
+import yaml, socket, json, os
 
 class insert:
   def __init__(self, rom, type, value, name, group):
@@ -56,10 +56,35 @@ def remote_config():
       r = requests.get(url,headers={'Content-Type':'application/json', 'Authorization': f'Bearer {server_api_key}'},verify=False)
       config = r.json()
 
-      with open('remote.conf', 'w+') as yamlfile:
+      temp_file = 'temp_remote.conf'
+      remote_file = 'remote.conf'
+
+      with open(temp_file, 'w+') as yamlfile:
          data = yaml.dump(config, yamlfile)
-      print("[ nettemp client ] [remote config saved]")
-      return True
+
+      from deepdiff import DeepDiff
+
+      def yaml_as_dict(my_file):
+          my_dict = {}
+          with open(my_file, 'r') as fp:
+              docs = yaml.safe_load_all(fp)
+              for doc in docs:
+                  for key, value in doc.items():
+                      my_dict[key] = value
+          return my_dict
+
+      if not os.path.isfile(remote_file):
+        with open('remote.conf', 'w+') as yamlfile:
+          data = yaml.dump(config, yamlfile)
+        print("[ nettemp client ] [remote config saved]")
+        return True
+      else:
+        a = yaml_as_dict(temp_file)
+        b = yaml_as_dict(remote_file)
+        ddiff = DeepDiff(a, b, ignore_order=True)
+        print(ddiff)
+        return True
+      
     except:
       print("[ nettemp client ] [cannot connect or no config]")
       return False

@@ -177,17 +177,16 @@ if config["lm_sensors"]["enabled"] and config["lm_sensors"]["read_in_sec"]:
   sched.add_job(lm_sensors, 'interval', seconds = config["lm_sensors"]["read_in_sec"])
 
 while True:
-    sleep(120)
+    sleep(60)
     ## sprawdac czy nowszy pojawil się plik
     ## auto file name!
     try:
       check = remote_config()
       if check:
         print("[ nettemp client ] [ new remote config, restarting ]")
-        #os.execv(sys.executable, ["/home/przemek/nettemp_client/venv/bin/python3"] + sys.argv)
         os.execv(sys.executable, [sys.executable] + sys.argv)
     except:
-      pass
+      print("[ nettemp client ] [ new remote config, problem ]")
 
 
 
