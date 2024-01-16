@@ -59,5 +59,6 @@ def remote_config():
       with open('remote.conf', 'w+') as yamlfile:
          data = yaml.dump(config, yamlfile)
       print("[ nettemp client ] [remote config saved]")
+      exit()
     except:
       print("[ nettemp client ] [cannot connect or no config]")

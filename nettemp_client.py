@@ -181,9 +181,6 @@ if config["lm_sensors"]["enabled"] and config["lm_sensors"]["read_in_sec"]:
   sched.add_job(lm_sensors, 'interval', seconds = config["lm_sensors"]["read_in_sec"])
 
 while True:
-    job = sched.get_job(job_id="ping")
-    print(job)
-    #job.modify(seconds=10)
     sleep(300)
 
 
