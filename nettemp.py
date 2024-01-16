@@ -44,6 +44,7 @@ class insert2:
 
     r = requests.post(url,headers={'Content-Type':'application/json', 'Authorization': f'Bearer {server_api_key}'},json=data, verify=False)
     print (r.content)
+    print (r.text)
     print(f"[ nettemp client ] {data}")
     # except:
     #   print(f"[ nettemp client ] [cannot connect to local] {data}")
