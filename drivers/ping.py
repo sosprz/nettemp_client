@@ -18,10 +18,6 @@ def ping():
         if config["ping"]["enabled"] and config["ping"]["read_in_sec"]:
             print(config["ping"]["hosts"])
 
-            job = sched.get_job(job_id="ping")
-            print(job)
-            job.modify(trigger='interval', seconds=10)
-
             ping_parser = pingparsing.PingParsing()
             transmitter = pingparsing.PingTransmitter()
             for name in config["ping"]["hosts"]:
