@@ -25,11 +25,13 @@ def ping():
             result = transmitter.ping()
             out = json.dumps(ping_parser.parse(result).as_dict(), indent=4)
             jout = json.loads(out)
-            value = jout['rtt_avg']
-            if value:
+    
+            if jout['rtt_avg']:
+                value = jout['rtt_avg']
                 value = '{0:0.2f}'.format(value)
             else:
                 value = 0
+                
             print(name, value)
             rom=group+'_'+name
             type='host'
