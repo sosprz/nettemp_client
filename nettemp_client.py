@@ -24,6 +24,7 @@ try:
     print("[ nettemp client ] [ remote config: Enabled ]")
   else:
     config = yaml.load(open("configd.conf"), Loader=yaml.FullLoader)
+    print("[ nettemp client ] [ remote config: Disabled ]")
 except:
   config = yaml.load(open("configd.conf"), Loader=yaml.FullLoader)
   print("[ nettemp client ] [ remote config: Disabled ]")
