@@ -3,16 +3,25 @@
 
 from time import sleep
 import yaml, os, time, smbus, sys, hashlib
-from nettemp import remote_config
+from nettemp import download_remote_config
 os.chdir(os.path.dirname(__file__))
 from apscheduler.schedulers.background import BackgroundScheduler
 sched = BackgroundScheduler({'apscheduler.timezone': 'Europe/London'})
 
 
+def config_remote_config():
+  config_file = open("config.conf")
+  config = yaml.load(config_file, Loader=yaml.FullLoader)
+  if config["remote_config"]:
+    return True
+  else:
+    return False
+
 sched.start()
 
 try:
-  config = yaml.load(open("remote.conf"), Loader=yaml.FullLoader)
+  if config_remote_config:
+    config = yaml.load(open("remote.conf"), Loader=yaml.FullLoader)
 except:
   config = yaml.load(open("configd.conf"), Loader=yaml.FullLoader)
 
@@ -179,13 +188,16 @@ if config["lm_sensors"]["enabled"] and config["lm_sensors"]["read_in_sec"]:
 with open('configd.conf', 'rb') as file_obj:
   configd_md5_hash = hashlib.md5(file_obj.read()).hexdigest()
 
+with open('config.conf', 'rb') as file_obj:
+  config_md5_hash = hashlib.md5(file_obj.read()).hexdigest()
+
 while True:
     sleep(60)
     try:
-      check = remote_config()
-      if check:
-        print("[ nettemp client ] [ new remote config, restarting ]")
-        os.execv(sys.executable, [sys.executable] + sys.argv)
+      if config_remote_config():
+        if download_remote_config():
+          print("[ nettemp client ] [ new remote config, restarting ]")
+          os.execv(sys.executable, [sys.executable] + sys.argv)
     except:
       print("[ nettemp client ] [ new remote config, problem ]")
     
@@ -193,6 +205,13 @@ while True:
       new_configd_md5_hash = hashlib.md5(file_obj.read()).hexdigest()
     
     if configd_md5_hash != new_configd_md5_hash:
+      print("[ nettemp client ] [ new local configd, restarting ]")
+      os.execv(sys.executable, [sys.executable] + sys.argv)
+
+    with open('config.conf', 'rb') as file_obj:
+      new_config_md5_hash = hashlib.md5(file_obj.read()).hexdigest()
+
+    if config_md5_hash != new_config_md5_hash:
       print("[ nettemp client ] [ new local config, restarting ]")
       os.execv(sys.executable, [sys.executable] + sys.argv)
 

@@ -24,7 +24,8 @@ def configInit():
 
     config = {
       'server': 'https://nettemp_ip',
-      'server_api_key': 'y8k76HDjmuQqJDKIaFwf8rk55sa8jIh1zCzZJ6sJZ8c'
+      'server_api_key': 'y8k76HDjmuQqJDKIaFwf8rk55sa8jIh1zCzZJ6sJZ8c',
+      'remote_config': 'true'
       }
 
     if (os.path.exists("configd.conf") == False):

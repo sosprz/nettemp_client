@@ -44,7 +44,7 @@ class insert2:
     except:
       print(f"[ nettemp client ] [cannot connect to local] {data}")
 
-def remote_config():
+def download_remote_config():
     config_file = open("config.conf")
     config = yaml.load(config_file, Loader=yaml.FullLoader)
     server = config["server"]
