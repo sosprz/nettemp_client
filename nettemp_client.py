@@ -201,7 +201,6 @@ with open(configm, 'rb') as file_obj:
   config_md5_hash = hashlib.md5(file_obj.read()).hexdigest()
 
 while True:
-    sleep(60)
     try:
       if config_remote_config():
         if download_remote_config():
@@ -214,7 +213,7 @@ while True:
       new_configd_md5_hash = hashlib.md5(file_obj.read()).hexdigest()
     
     if configd_md5_hash != new_configd_md5_hash:
-      print("[ nettemp client ] [ new local configd, restarting ]")
+      print("[ nettemp client ] [ new local driver config, restarting ]")
       os.execv(sys.executable, [sys.executable] + sys.argv)
 
     with open(configm, 'rb') as file_obj:
@@ -223,7 +222,8 @@ while True:
     if config_md5_hash != new_config_md5_hash:
       print("[ nettemp client ] [ new local config, restarting ]")
       os.execv(sys.executable, [sys.executable] + sys.argv)
-
+      
+    sleep(60)
 
 
 
