@@ -35,6 +35,7 @@ else:
   print("[ nettemp client ] [ no remote config using local ]")
 
 # zastanowic sie czy zostawic!!!!! ping
+# sprawdzanie czy poprawny konfig
   
 if config["ping"]["enabled"] and config["ping"]["read_in_sec"]:
   from drivers.ping import ping
