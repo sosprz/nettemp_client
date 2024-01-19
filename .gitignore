@@ -3,3 +3,5 @@ __pycache__/
 venv
 config.conf
 configd.conf
+drivers.conf
+remote.conf

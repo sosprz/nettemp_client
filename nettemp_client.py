@@ -1,23 +1,43 @@
 
+#!/usr/bin/env python
+
 from time import sleep
-import yaml, os, time, smbus
+import yaml, os, time, smbus, sys, hashlib
+from nettemp import download_remote_config
 os.chdir(os.path.dirname(__file__))
 from apscheduler.schedulers.background import BackgroundScheduler
 sched = BackgroundScheduler({'apscheduler.timezone': 'Europe/London'})
 
+configm = "config.conf"
+config_remote = "remote.conf"
+configd = "drivers.conf"
+
+def config_remote_config():
+  config = yaml.load(open(configm), Loader=yaml.FullLoader)
+  if config["remote_config"]['enabled']:
+    return True
+  else:
+    return False
+
 sched.start()
 
-config_file = open("configd.conf")
-config = yaml.load(config_file, Loader=yaml.FullLoader)
-
+if config_remote_config():
+  print("[ nettemp client ] [ remote config: Enabled ]")
+  if os.path.isfile(config_remote):
+    config = yaml.load(open(config_remote), Loader=yaml.FullLoader)
+    print("[ nettemp client ] [ remote config exist ]")
+  else:
+    config = yaml.load(open(configd), Loader=yaml.FullLoader)
+    print("[ nettemp client ] [ no remote config using local  ]")
+else:
+  print("[ nettemp client ] [ remote config: Disabled ]")
+  config = yaml.load(open(configd), Loader=yaml.FullLoader)
+  print("[ nettemp client ] [ no remote config using local ]")
+ 
 if config["ping"]["enabled"] and config["ping"]["read_in_sec"]:
   from drivers.ping import ping
-  try:
-    ping()
-  except Exception as e:
-    pass
-    print("\n[WARN] Error \n\tArgs: '%s'" % (str(e.args)))
-  sched.add_job(ping, 'interval', seconds = config["ping"]["read_in_sec"])
+  ping()
+  sched.add_job(ping, 'interval', seconds = config["ping"]["read_in_sec"], id="ping")
 
 if config["dht22"]["enabled"] and config["dht22"]["read_in_sec"] and config["dht22"]["gpio_pin"]:
   from drivers.dht22 import dht22
@@ -173,8 +193,37 @@ if config["lm_sensors"]["enabled"] and config["lm_sensors"]["read_in_sec"]:
     print("\n[WARN] Error \n\tArgs: '%s'" % (str(e.args)))
   sched.add_job(lm_sensors, 'interval', seconds = config["lm_sensors"]["read_in_sec"])
 
+with open(configd, 'rb') as file_obj:
+  configd_md5_hash = hashlib.md5(file_obj.read()).hexdigest()
+
+with open(configm, 'rb') as file_obj:
+  config_md5_hash = hashlib.md5(file_obj.read()).hexdigest()
+
 while True:
-    sleep(1)
+    try:
+      if config_remote_config():
+        if download_remote_config():
+          print("[ nettemp client ] [ new remote config, restarting ]")
+          os.execv(sys.executable, [sys.executable] + sys.argv)
+    except:
+      print("[ nettemp client ] [ new remote config, problem ]")
+    
+    with open(configd, 'rb') as file_obj:
+      new_configd_md5_hash = hashlib.md5(file_obj.read()).hexdigest()
+    
+    if configd_md5_hash != new_configd_md5_hash:
+      print("[ nettemp client ] [ new local driver config, restarting ]")
+      os.execv(sys.executable, [sys.executable] + sys.argv)
+
+    with open(configm, 'rb') as file_obj:
+      new_config_md5_hash = hashlib.md5(file_obj.read()).hexdigest()
+
+    if config_md5_hash != new_config_md5_hash:
+      print("[ nettemp client ] [ new local config, restarting ]")
+      os.execv(sys.executable, [sys.executable] + sys.argv)
+      
+    sleep(60)
+
 
 
 
