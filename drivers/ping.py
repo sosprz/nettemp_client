@@ -35,6 +35,7 @@ def ping():
                 value = '{0:0.2f}'.format(request_time)
             else:
                 value = 0
+            type='url'
         
         else:
             transmitter.destination = name
@@ -48,13 +49,13 @@ def ping():
                 value = '{0:0.2f}'.format(value)
             else:
                 value = 0
+            type='host'
     
         print(f"[ nettemp ][ ping ] {name} Request completed in {value}ms")
 
         name = name.replace("https://","")
         name = name.replace("http://","")
         rom=group+'_'+name
-        type='host'
         data.append({"rom":rom,"type":type, "value":value,"name":name, "group":group})
 
     data=insert2(data)
