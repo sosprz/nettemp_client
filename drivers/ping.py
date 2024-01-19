@@ -5,8 +5,7 @@ import pingparsing, requests, time
 requests.packages.urllib3.disable_warnings() 
 
 def ping():
-    print("PING")
-    # try:
+    print("[ nettemp ][ ping ] start")
 
     group = socket.gethostname()
     data = []
@@ -49,10 +48,7 @@ def ping():
                 value = '{0:0.2f}'.format(value)
             else:
                 value = 0
-        
-        
-            
-        #print(name, value)
+    
         print(f"[ nettemp ][ ping ] {name} Request completed in {value}ms")
 
         name = name.replace("https://","")
@@ -62,7 +58,5 @@ def ping():
         data.append({"rom":rom,"type":type, "value":value,"name":name, "group":group})
 
     data=insert2(data)
-    print(data)
     data.request()
-    # except:
-    #     print("Error PING")
+    print("[ nettemp ][ ping ] End")
