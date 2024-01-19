@@ -1,7 +1,8 @@
 import yaml, socket
 from nettemp import insert2
 import json
-import pingparsing
+import pingparsing, requests, time
+requests.packages.urllib3.disable_warnings() 
 
 def ping():
     print("PING")
@@ -20,19 +21,35 @@ def ping():
         ping_parser = pingparsing.PingParsing()
         transmitter = pingparsing.PingTransmitter()
         for name in config["ping"]["hosts"]:
-            transmitter.destination = name
-            transmitter.count = 3
-            result = transmitter.ping()
-            out = json.dumps(ping_parser.parse(result).as_dict(), indent=4)
-            jout = json.loads(out)
-    
-            if jout['rtt_avg']:
-                value = jout['rtt_avg']
-                value = '{0:0.2f}'.format(value)
+            
+            if name.startswith(('http://', 'https://')):
+                start = time.perf_counter()
+                r = requests.get(name, verify=False)
+                request_time = time.perf_counter() - start
+                
+                if r.status_code == 200: 
+                    value = '{0:0.2f}'.format(request_time)
+                else:
+                    value = 0
+            
             else:
-                value = 0
+                transmitter.destination = name
+                transmitter.count = 3
+                result = transmitter.ping()
+                out = json.dumps(ping_parser.parse(result).as_dict(), indent=4)
+                jout = json.loads(out)
+        
+                if jout['rtt_avg']:
+                    value = jout['rtt_avg']
+                    value = '{0:0.2f}'.format(value)
+                else:
+                    value = 0
+            
+            
                 
             print(name, value)
+            print(f"[ nettemp ][ ping ] {name} Request completed in {value}ms")
+
             rom=group+'_'+name
             type='host'
             data.append({"rom":rom,"type":type, "value":value,"name":name, "group":group})
