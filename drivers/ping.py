@@ -50,6 +50,8 @@ def ping():
             print(name, value)
             print(f"[ nettemp ][ ping ] {name} Request completed in {value}ms")
 
+            name = name.replace("https://","")
+            name = name.replace("http://","")
             rom=group+'_'+name
             type='host'
             data.append({"rom":rom,"type":type, "value":value,"name":name, "group":group})
