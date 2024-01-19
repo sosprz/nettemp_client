@@ -24,10 +24,15 @@ def ping():
         
         if name.startswith(('http://', 'https://')):
             start = time.perf_counter()
-            r = requests.get(name, verify=False)
+            try:
+                r = requests.get(name, verify=False)
+                code = r.status_code
+            except:
+                code = 0
+                
             request_time = time.perf_counter() - start
             
-            if r.status_code == 200: 
+            if code == 200: 
                 value = '{0:0.2f}'.format(request_time)
             else:
                 value = 0
