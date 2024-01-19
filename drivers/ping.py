@@ -54,6 +54,7 @@ def ping():
             name = name.replace("http://","")
             rom=group+'_'+name
             type='host'
+            print(data)
             data.append({"rom":rom,"type":type, "value":value,"name":name, "group":group})
 
         data=insert2(data)
