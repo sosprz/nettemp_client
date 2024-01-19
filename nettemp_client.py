@@ -39,6 +39,7 @@ else:
   
 if config["ping"]["enabled"] and config["ping"]["read_in_sec"]:
   from drivers.ping import ping
+  ping()
   sched.add_job(ping, 'interval', seconds = config["ping"]["read_in_sec"], id="ping")
 
 if config["dht22"]["enabled"] and config["dht22"]["read_in_sec"] and config["dht22"]["gpio_pin"]:
