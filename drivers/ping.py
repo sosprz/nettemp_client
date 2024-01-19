@@ -58,6 +58,7 @@ def ping():
             data.append({"rom":rom,"type":type, "value":value,"name":name, "group":group})
 
         data=insert2(data)
+        print(data)
         data.request()
     except:
-        print("No PING")
+        print("Error PING")
