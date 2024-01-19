@@ -1,7 +1,7 @@
 #!/bin/bash
 
 sudo apt-get update
-sudo apt-get -y install python3-pip python3-venv
+sudo apt-get -y install python3-pip python3-venv lm-sensors
 
 python3 -m venv venv
 . venv/bin/activate

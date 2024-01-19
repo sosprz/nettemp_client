@@ -32,11 +32,14 @@ nano drivers.conf
 ```
 ```
 w1_kernel:
-    enabled: yes
+    enabled: true
+    read_in_sec: 60
+system:
+    enabled: true
     read_in_sec: 60
 
-    enabled: no
-    read_in_sec: 60
+...
+...
 
 ```
 
