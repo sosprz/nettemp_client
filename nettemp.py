@@ -45,6 +45,17 @@ class insert2:
       print(f"[ nettemp client ] [cannot connect to local] {data}")
 
 def download_remote_config():
+    from deepdiff import DeepDiff
+
+    def yaml_as_dict(my_file):
+      my_dict = {}
+      with open(my_file, 'r') as fp:
+          docs = yaml.safe_load_all(fp)
+          for doc in docs:
+              for key, value in doc.items():
+                  my_dict[key] = value
+      return my_dict
+      
     config_file = open("config.conf")
     config = yaml.load(config_file, Loader=yaml.FullLoader)
     server = config["server"]
@@ -63,17 +74,7 @@ def download_remote_config():
       # 1. get remote json, convert yaml and save to temp file
       with open(temp_file, 'w+') as yamlfile:
          data = yaml.dump(remote_joson, yamlfile)
-
-      from deepdiff import DeepDiff
-
-      def yaml_as_dict(my_file):
-          my_dict = {}
-          with open(my_file, 'r') as fp:
-              docs = yaml.safe_load_all(fp)
-              for doc in docs:
-                  for key, value in doc.items():
-                      my_dict[key] = value
-          return my_dict
+   
       # 2. if remote.conf not exist create yaml from json request
       if not os.path.isfile(local_file):
         with open('remote.conf', 'w+') as yamlfile:
@@ -92,6 +93,7 @@ def download_remote_config():
           os.rename(temp_file, local_file)
           return True
         else:
+          os.remove(temp_file)
           return False      
       
     except:

@@ -12,7 +12,7 @@ configm = "config.conf"
 config_remote = "remote.conf"
 configd = "drivers.conf"
 
-def config_remote_config():
+def remote_config():
   config = yaml.load(open(configm), Loader=yaml.FullLoader)
   if config["remote_config"]['enabled']:
     return True
@@ -21,7 +21,7 @@ def config_remote_config():
 
 sched.start()
 
-if config_remote_config():
+if remote_config():
   print("[ nettemp client ] [ remote config: Enabled ]")
   if os.path.isfile(config_remote):
     config = yaml.load(open(config_remote), Loader=yaml.FullLoader)
@@ -33,6 +33,8 @@ else:
   print("[ nettemp client ] [ remote config: Disabled ]")
   config = yaml.load(open(configd), Loader=yaml.FullLoader)
   print("[ nettemp client ] [ no remote config using local ]")
+  
+# drivers
  
 if config["ping"]["enabled"] and config["ping"]["read_in_sec"]:
   from drivers.ping import ping
@@ -201,7 +203,7 @@ with open(configm, 'rb') as file_obj:
 
 while True:
     try:
-      if config_remote_config():
+      if remote_config():
         if download_remote_config():
           print("[ nettemp client ] [ new remote config, restarting ]")
           os.execv(sys.executable, [sys.executable] + sys.argv)
