@@ -88,24 +88,24 @@ sensor_configs = [
 
 # Iterate over sensor configurations
 for sensor_config in sensor_configs:
-    sensor_name = sensor_config["name"]
-    sensor_module = sensor_config["module"]
-    extra_args = sensor_config.get("extra_args", [])
+  sensor_name = sensor_config["name"]
+  sensor_module = sensor_config["module"]
+  extra_args = sensor_config.get("extra_args", [])
 
-    if config[sensor_name]["enabled"] and config[sensor_name]["read_in_sec"]:
-        try:
-            module = __import__(sensor_module, fromlist=[sensor_name])
-            getattr(module, sensor_name)(*extra_args)
-        except Exception as e:
-            pass
-            print(f"\n[WARN] {sensor_name} Error \n\tArgs: '{str(e.args)}'")
-        else:
-            sched.add_job(
-                getattr(module, sensor_name),
-                'interval',
-                seconds=config[sensor_name]["read_in_sec"],
-                args=extra_args
-            )
+  if sensor_name in config and config[sensor_name]["enabled"] and config[sensor_name]["read_in_sec"]:
+    try:
+        module = __import__(sensor_module, fromlist=[sensor_name])
+        getattr(module, sensor_name)(*extra_args)
+    except Exception as e:
+        pass
+        print(f"\n[WARN] {sensor_name} Error \n\tArgs: '{str(e.args)}'")
+    else:
+        sched.add_job(
+            getattr(module, sensor_name),
+            'interval',
+            seconds=config[sensor_name]["read_in_sec"],
+            args=extra_args
+        )
             
 
 # Main loop for config checking and restart
