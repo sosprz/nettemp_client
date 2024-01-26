@@ -205,23 +205,23 @@ while True:
     try:
       if remote_config():
         if download_remote_config():
-          print("[ nettemp client ] [ new remote config, restarting ]")
+          print("[ nettemp client ][ new remote config, restarting ]")
           os.execv(sys.executable, [sys.executable] + sys.argv)
     except:
-      print("[ nettemp client ] [ new remote config, problem ]")
+      print("[ nettemp client ][ new remote config, problem ]")
     
     with open(configd, 'rb') as file_obj:
       new_configd_md5_hash = hashlib.md5(file_obj.read()).hexdigest()
     
     if configd_md5_hash != new_configd_md5_hash:
-      print("[ nettemp client ] [ new local driver config, restarting ]")
+      print("[ nettemp client ][ new local driver config, restarting ]")
       os.execv(sys.executable, [sys.executable] + sys.argv)
 
     with open(configm, 'rb') as file_obj:
       new_config_md5_hash = hashlib.md5(file_obj.read()).hexdigest()
 
     if config_md5_hash != new_config_md5_hash:
-      print("[ nettemp client ] [ new local config, restarting ]")
+      print("[ nettemp client ][ new local config, restarting ]")
       os.execv(sys.executable, [sys.executable] + sys.argv)
       
     sleep(60)
