@@ -102,5 +102,5 @@ def download_remote_config():
           return False      
       
     except:
-      print("[ nettemp client ][ cannot connect or no config ]")
+      print("[ nettemp client ][ Failed to connect or remote not configured. ]")
       return False
