@@ -39,6 +39,7 @@ class insert2:
     rom=group+self.rom
 
     data = self.data
+    print(data)
     data["group"] = group
     data['rom'] = str(group) + str(self.rom)
 
