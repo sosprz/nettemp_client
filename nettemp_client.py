@@ -53,12 +53,16 @@ with open(configm, 'rb') as file_obj:
 # drivers
 
 # exception for ds2482
-if config["w1_kernel"]["enabled"] and config["w1_kernel"]["read_in_sec"]:
-  try:
-    os.system('sudo bash drivers/ds2482.sh')
-  except Exception as e:
-    pass
-    print("\n[WARN] Error \n\tArgs: '%s'" % (str(e.args)))
+try:
+  if config["w1_kernel"]["enabled"] and config["w1_kernel"]["read_in_sec"]:
+    try:
+      os.system('sudo bash drivers/ds2482.sh')
+    except Exception as e:
+      pass
+      print("\n[WARN] Error \n\tArgs: '%s'" % (str(e.args)))
+except Exception as e:
+  pass
+  print("\n[WARN] Error \n\tArgs: '%s'" % (str(e.args)))
 
 # List of sensor configurations
 sensor_configs = [
