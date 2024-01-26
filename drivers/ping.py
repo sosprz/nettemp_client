@@ -5,7 +5,7 @@ import pingparsing, requests, time
 requests.packages.urllib3.disable_warnings() 
 
 def ping():
-    print("[ nettemp ][ ping ] start")
+    print("[ nettemp client ][ ping ] start")
 
     group = socket.gethostname()
     data = []
@@ -58,10 +58,10 @@ def ping():
         rom=group+'_'+name
         if value != 0:
             data.append({"rom":rom,"type":type, "value":value,"name":name, "group":group})
-            print(f"[ nettemp ][ ping ] {name} Request completed in {value}ms")
+            print(f"[ nettemp client ][ ping ] {name} Request completed in {value}ms")
         else:
-            print(f"[ nettemp ][ ping ] {name} no connection!")
+            print(f"[ nettemp client ][ ping ] {name} no connection!")
 
     data=insert2(data)
     data.request()
-    print("[ nettemp ][ ping ] End")
+    print("[ nettemp client ][ ping ] End")

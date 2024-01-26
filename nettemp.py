@@ -21,7 +21,6 @@ class insert:
     try:
         url = f'{server}'
         r = requests.post(url,headers={'Content-Type':'application/json', 'Authorization': f'Bearer {server_api_key}'},json=data, verify=False)
-        print (r.content)
         print("[ nettemp client ] Sensor %s value: %s" % (self.rom, self.value))
     except:
       print("[ nettemp client ] [cannot connect to local] Sensor %s value: %s" % (self.rom, self.value))

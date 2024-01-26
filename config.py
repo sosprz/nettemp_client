@@ -29,18 +29,18 @@ def configInit():
       }
 
     if (os.path.exists("drivers.conf") == False):
-      print("[ nettemp ][ config ] NEW driver configd creating!")
+      print("[ nettemp client ][ config ] NEW driver configd creating!")
       with open('drivers.conf', 'a+') as yamlfile:
          data = yaml.dump(configd, yamlfile)
     else:
-      print("[ nettemp ][ config ] Configd already exist!")
+      print("[ nettemp client ][ config ] Configd already exist!")
 
     if (os.path.exists("config.conf") == False):
-      print("[ nettemp ][ config ] NEW configd creating!")
+      print("[ nettemp client ][ config ] NEW configd creating!")
       with open('config.conf', 'a+') as yamlfile:
          data = yaml.dump(config, yamlfile)
     else:
-      print("[ nettemp ][ config ] Configd already exist!")
+      print("[ nettemp client ][ config ] Configd already exist!")
        
     #with open("drivers.conf", "r") as yamlfile:
     # data = yaml.load(yamlfile, Loader=yaml.FullLoader)
