@@ -39,8 +39,10 @@ class insert2:
   
     data = self.data
     print(data)
-    data["group"] = group
-    data['rom'] = group + data['rom']
+    for d in data:
+      d["group"] = group
+      d['rom'] = str(group) + d['rom']
+    print(data)
 
     try:
       url = f'{server}'
