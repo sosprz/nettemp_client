@@ -8,190 +8,41 @@ os.chdir(os.path.dirname(__file__))
 from apscheduler.schedulers.background import BackgroundScheduler
 sched = BackgroundScheduler({'apscheduler.timezone': 'Europe/London'})
 
+
+# Load initial configurations
+
 configm = "config.conf"
 config_remote = "remote.conf"
 configd = "drivers.conf"
 
-def config_remote_config():
+def remote_config():
   config = yaml.load(open(configm), Loader=yaml.FullLoader)
   if config["remote_config"]['enabled']:
     return True
   else:
     return False
 
+def load_md5_hash(file_path):
+    with open(file_path, 'rb') as file_obj:
+        return hashlib.md5(file_obj.read()).hexdigest()
+      
+def load_config(file_path):
+    return yaml.safe_load(open(file_path, 'r'))
+
 sched.start()
 
-if config_remote_config():
-  print("[ nettemp client ] [ remote config: Enabled ]")
-  if os.path.isfile(config_remote):
-    config = yaml.load(open(config_remote), Loader=yaml.FullLoader)
-    print("[ nettemp client ] [ remote config exist ]")
-  else:
-    config = yaml.load(open(configd), Loader=yaml.FullLoader)
-    print("[ nettemp client ] [ no remote config using local  ]")
+if remote_config():
+    print("[ nettemp client ][ remote config: Enabled ]")
+    if os.path.isfile(config_remote):
+        config = load_config(config_remote)
+        print("[ nettemp client ][ remote config exist ]")
+    else:
+        config = load_config(configd)
+        print("[ nettemp client ][ no remote config using local  ]")
 else:
-  print("[ nettemp client ] [ remote config: Disabled ]")
-  config = yaml.load(open(configd), Loader=yaml.FullLoader)
-  print("[ nettemp client ] [ no remote config using local ]")
- 
-if config["ping"]["enabled"] and config["ping"]["read_in_sec"]:
-  from drivers.ping import ping
-  ping()
-  sched.add_job(ping, 'interval', seconds = config["ping"]["read_in_sec"], id="ping")
-
-if config["dht22"]["enabled"] and config["dht22"]["read_in_sec"] and config["dht22"]["gpio_pin"]:
-  from drivers.dht22 import dht22
-  try:
-    dht22(config["dht22"]["gpio_pin"])
-  except Exception as e:
-    pass
-    print("\n[WARN] Error \n\tArgs: '%s'" % (str(e.args)))
-  sched.add_job(dht22, 'interval', seconds = config["dht22"]["read_in_sec"], args=[config["dht22"]["gpio_pin"]])
-
-if config["dht11"]["enabled"] and config["dht11"]["read_in_sec"] and config["dht11"]["gpio_pin"]:
-  from drivers.dht11 import dht11
-  try:
-    dht11(config["dht11"]["gpio_pin"])
-  except Exception as e:
-    pass
-    print("\n[WARN] Error \n\tArgs: '%s'" % (str(e.args)))
-  sched.add_job(dht11, 'interval', seconds = config["dht11"]["read_in_sec"], args=[config["dht11"]["gpio_pin"]])
-
-if config["mpl3115a2"]["enabled"] and config["mpl3115a2"]["read_in_sec"]:
-  from drivers.mpl3115a2 import mpl3115a2
-  try:
-    mpl3115a2()
-  except Exception as e:
-    pass
-    print("\n[WARN] Error \n\tArgs: '%s'" % (str(e.args)))
-  sched.add_job(mpl3115a2, 'interval', seconds = config["mpl3115a2"]["read_in_sec"])
-
-if config["tsl2561"]["enabled"] and config["tsl2561"]["read_in_sec"]:
-  from drivers.tsl2561 import tsl2561 
-  try:
-    tsl2561()
-  except Exception as e:
-    pass
-    print("\n[WARN] Error \n\tArgs: '%s'" % (str(e.args)))
-  sched.add_job(tsl2561, 'interval', seconds = config["tsl2561"]["read_in_sec"])
-
-if config["hih6130"]["enabled"] and config["hih6130"]["read_in_sec"]:
-  from drivers.hih6130 import hih6130 
-  try:
-    hih6130()
-  except Exception as e:
-    pass
-    print("\n[WARN] Error \n\tArgs: '%s'" % (str(e.args)))
-  sched.add_job(hih6130, 'interval', seconds = config["hih6130"]["read_in_sec"])
-
-if config["bh1750"]["enabled"] and config["bh1750"]["read_in_sec"]:
-  from drivers.bh1750 import bh1750 
-  try:
-    bh1750()
-  except Exception as e:
-    pass
-    print("\n[WARN] Error \n\tArgs: '%s'" % (str(e.args)))
-  sched.add_job(bh1750, 'interval', seconds = config["bh1750"]["read_in_sec"])
-
-if config["adxl345"]["enabled"] and config["adxl345"]["read_in_sec"]:
-  from drivers.adxl345 import adxl345
-  try:
-    adxl345()
-  except Exception as e:
-    pass
-    print("\n[WARN] Error \n\tArgs: '%s'" % (str(e.args)))
-  sched.add_job(adxl345, 'interval', seconds = config["adxl345"]["read_in_sec"])
-
-if config["vl53l0x"]["enabled"] and config["vl53l0x"]["read_in_sec"]:
-  from drivers.vl53l0x import vl53l0x
-  try:
-    vl53l0x()
-  except Exception as e:
-    pass
-    print("\n[WARN] Error \n\tArgs: '%s'" % (str(e.args)))
-  sched.add_job(vl53l0x, 'interval', seconds = config["vl53l0x"]["read_in_sec"])
-
-if config["system"]["enabled"] and config["system"]["read_in_sec"]:
-  from drivers.system import system 
-  try:
-    system()
-  except Exception as e:
-    pass
-    print("\n[WARN] Error \n\tArgs: '%s'" % (str(e.args)))
-  sched.add_job(system, 'interval', seconds = config["system"]["read_in_sec"])
-
-if config["tmp102"]["enabled"] and config["tmp102"]["read_in_sec"]:
-  from drivers.tmp102 import tmp102 
-  try:
-    tmp102()
-  except Exception as e:
-    pass
-    print("\n[WARN] Error \n\tArgs: '%s'" % (str(e.args)))
-  sched.add_job(tmp102, 'interval', seconds = config["tmp102"]["read_in_sec"])
-
-if config["rpi"]["enabled"] and config["rpi"]["read_in_sec"]:
-  from drivers.rpi import rpi 
-  try:
-    rpi()
-  except Exception as e:
-    pass
-    print("\n[WARN] Error \n\tArgs: '%s'" % (str(e.args)))
-  sched.add_job(rpi, 'interval', seconds = config["rpi"]["read_in_sec"])
-
-if config["bmp180"]["enabled"] and config["bmp180"]["read_in_sec"]:
-  from drivers.bmp180 import bmp180 
-  try:
-    bmp180()
-  except Exception as e:
-    pass
-    print("\n[WARN] Error \n\tArgs: '%s'" % (str(e.args)))
-  sched.add_job(bmp180, 'interval', seconds = config["bmp180"]["read_in_sec"])
-
-if config["bme280"]["enabled"] and config["bme280"]["read_in_sec"]:
-  from drivers.bme280 import bme280 
-  try:
-    bme280()
-  except Exception as e:
-    pass
-    print("\n[WARN] Error \n\tArgs: '%s'" % (str(e.args)))
-  sched.add_job(bme280, 'interval', seconds = config["bme280"]["read_in_sec"])
-
-if config["htu21d"]["enabled"] and config["htu21d"]["read_in_sec"]:
-  from drivers.htu21d import htu21d 
-  try:
-    htu21d()
-  except Exception as e:
-    pass
-    print("\n[WARN] Error \n\tArgs: '%s'" % (str(e.args)))
-  sched.add_job(htu21d, 'interval', seconds = config["htu21d"]["read_in_sec"])
-
-if config["w1_kernel_gpio"]["enabled"] and config["w1_kernel_gpio"]["read_in_sec"]:
-  from drivers.w1_kernel_gpio import w1_kernel_gpio
-  try:
-    w1_kernel_gpio()
-  except Exception as e:
-    pass
-    print("\n[WARN] Error \n\tArgs: '%s'" % (str(e.args)))
-  sched.add_job(w1_kernel_gpio, 'interval', seconds = config["w1_kernel_gpio"]["read_in_sec"])
-
-if config["w1_kernel"]["enabled"] and config["w1_kernel"]["read_in_sec"]:
-  from drivers.w1_kernel import w1_kernel
-  try:
-    os.system('sudo bash drivers/ds2482.sh')
-    w1_kernel()
-  except Exception as e:
-    pass
-    print("\n[WARN] Error \n\tArgs: '%s'" % (str(e.args)))
-  sched.add_job(w1_kernel, 'interval', seconds = config["w1_kernel"]["read_in_sec"])
-
-if config["lm_sensors"]["enabled"] and config["lm_sensors"]["read_in_sec"]:
-  from drivers.lm_sensors import lm_sensors
-  try:
-    lm_sensors()
-  except Exception as e:
-    pass
-    print("\n[WARN] Error \n\tArgs: '%s'" % (str(e.args)))
-  sched.add_job(lm_sensors, 'interval', seconds = config["lm_sensors"]["read_in_sec"])
+    print("[ nettemp client ][ remote config: Disabled ]")
+    config = load_config(configd)
+    print("[ nettemp client ][ no remote config using local ]")
 
 with open(configd, 'rb') as file_obj:
   configd_md5_hash = hashlib.md5(file_obj.read()).hexdigest()
@@ -199,30 +50,89 @@ with open(configd, 'rb') as file_obj:
 with open(configm, 'rb') as file_obj:
   config_md5_hash = hashlib.md5(file_obj.read()).hexdigest()
 
-while True:
+# drivers
+
+# exception for ds2482
+try:
+  if config["w1_kernel"]["enabled"] and config["w1_kernel"]["read_in_sec"]:
     try:
-      if config_remote_config():
-        if download_remote_config():
-          print("[ nettemp client ] [ new remote config, restarting ]")
-          os.execv(sys.executable, [sys.executable] + sys.argv)
-    except:
-      print("[ nettemp client ] [ new remote config, problem ]")
-    
-    with open(configd, 'rb') as file_obj:
-      new_configd_md5_hash = hashlib.md5(file_obj.read()).hexdigest()
-    
-    if configd_md5_hash != new_configd_md5_hash:
-      print("[ nettemp client ] [ new local driver config, restarting ]")
+      os.system('sudo bash drivers/ds2482.sh')
+    except Exception as e:
+      pass
+      print("\n[WARN] Error \n\tArgs: '%s'" % (str(e.args)))
+except Exception as e:
+  pass
+  print("\n[WARN] Error \n\tArgs: '%s'" % (str(e.args)))
+
+# List of sensor configurations
+sensor_configs = [
+    {"name": "ping", "module": "drivers.ping", "extra_args": []},
+    {"name": "dht22", "module": "drivers.dht22", "extra_args": ["gpio_pin"]},
+    {"name": "dht11", "module": "drivers.dht11", "extra_args": ["gpio_pin"]},
+    {"name": "mpl3115a2", "module": "drivers.mpl3115a2", "extra_args": []},
+    {"name": "tsl2561", "module": "drivers.tsl2561", "extra_args": []},
+    {"name": "hih6130", "module": "drivers.hih6130", "extra_args": []},
+    {"name": "bh1750", "module": "drivers.bh1750", "extra_args": []},
+    {"name": "adxl345", "module": "drivers.adxl345", "extra_args": []},
+    {"name": "vl53l0x", "module": "drivers.vl53l0x", "extra_args": []},
+    {"name": "system", "module": "drivers.system", "extra_args": []},
+    {"name": "tmp102", "module": "drivers.tmp102", "extra_args": []},
+    {"name": "rpi", "module": "drivers.rpi", "extra_args": []},
+    {"name": "bmp180", "module": "drivers.bmp180", "extra_args": []},
+    {"name": "bme280", "module": "drivers.bme280", "extra_args": []},
+    {"name": "htu21d", "module": "drivers.htu21d", "extra_args": []},
+    {"name": "w1_kernel_gpio", "module": "drivers.w1_kernel_gpio", "extra_args": []},
+    {"name": "lm_sensors", "module": "drivers.lm_sensors", "extra_args": []},
+    {"name": "w1_kernel", "module": "drivers.w1_kernel", "extra_args": []},
+]
+
+# Iterate over sensor configurations
+for sensor_config in sensor_configs:
+    sensor_name = sensor_config["name"]
+    sensor_module = sensor_config["module"]
+    extra_args = sensor_config.get("extra_args", [])
+
+    # Check if the sensor_name key exists in the config dictionary
+    if sensor_name in config and config[sensor_name]["enabled"] and config[sensor_name]["read_in_sec"]:
+        try:
+            module = __import__(sensor_module, fromlist=[sensor_name])
+            getattr(module, sensor_name)(*extra_args)
+        except Exception as e:
+            pass
+            print(f"\n[WARN] {sensor_name} Error \n\tArgs: '{str(e.args)}'")
+        else:
+            sched.add_job(
+                getattr(module, sensor_name),
+                'interval',
+                seconds=config[sensor_name]["read_in_sec"],
+                args=extra_args
+            )
+            
+
+# Main loop for config checking and restart
+
+while True:
+  try:
+    if remote_config() and download_remote_config():
+      print("[ nettemp client ][ new remote config, restarting ]")
+      os.execv(sys.executable, [sys.executable] + sys.argv)
+  except:
+    print("[ nettemp client ][ new remote config, problem ]")
+  
+  
+  new_configd_md5_hash = load_md5_hash(configd)
+
+  if configd_md5_hash != new_configd_md5_hash:
+      print("[ nettemp client ][ new local driver config, restarting ]")
       os.execv(sys.executable, [sys.executable] + sys.argv)
 
-    with open(configm, 'rb') as file_obj:
-      new_config_md5_hash = hashlib.md5(file_obj.read()).hexdigest()
+  new_config_md5_hash = load_md5_hash(configm)
 
-    if config_md5_hash != new_config_md5_hash:
-      print("[ nettemp client ] [ new local config, restarting ]")
+  if config_md5_hash != new_config_md5_hash:
+      print("[ nettemp client ][ new local config, restarting ]")
       os.execv(sys.executable, [sys.executable] + sys.argv)
-      
-    sleep(60)
+    
+  sleep(60)
 
 
 

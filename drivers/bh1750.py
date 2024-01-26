@@ -56,12 +56,12 @@ def bh1750():
       return convertToNumber(data)
     
     #print(readLight())
-    group = socket.gethostname()
-    rom = group+"_i2c_23_lux"
+    
+    rom = "_i2c_23_lux"
     value = '{0:0.2f}'.format(readLight())
     name = 'bh1750_lux'
     type = 'lux'
-    data=insert(rom, type, value, name, group)
+    data=insert(rom, type, value, name)
     data.request()
 
   except:

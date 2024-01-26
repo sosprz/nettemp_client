@@ -50,15 +50,15 @@ def tsl2561():
     #print("Broadband = {}".format(broadband))
     #print("Infrared = {}".format(infrared))
     #print("Lux = {}".format(lux))
-    group = socket.gethostname()
-    rom = group+"_i2c_39_lux"
+    
+    rom = "_i2c_39_lux"
     if lux:
       value = '{0:0.2f}'.format(lux)
     else:
       value = 0
     name = 'tsl2561_lux'
     type = 'lux'
-    data=insert(rom, type, value, name, group)
+    data=insert(rom, type, value, name)
     data.request()
   except: 
     print ("No TSL2561")

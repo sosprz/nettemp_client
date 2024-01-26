@@ -68,26 +68,26 @@ def mpl3115a2():
     alti = '{0:0.2f}'.format(altitude)
     temp = '{0:0.2f}'.format(cTemp)
 
-    group = socket.gethostname()
+    
     data = []
 
-    rom = group+"_i2c_60_temp"
+    rom = "_i2c_60_temp"
     value = temp
     name = 'mpl3115a2_temp'
     type = 'temp'
-    data.append({"rom":rom,"type":type, "value":value,"name":name, "group":group})
+    data.append({"rom":rom,"type":type, "value":value,"name":name})
 
-    rom = group+"_i2c_60_alti"
+    rom = "_i2c_60_alti"
     value = alti
     name = 'mpl3115a2_alti'
     type = 'alti'
-    data.append({"rom":rom,"type":type, "value":value,"name":name, "group":group})
+    data.append({"rom":rom,"type":type, "value":value,"name":name})
 
-    rom = group+"_i2c_60_press"
+    rom = "_i2c_60_press"
     value = press
     name = 'mpl3115a2_press'
     type = 'press'
-    data.append({"rom":rom,"type":type, "value":value,"name":name, "group":group})
+    data.append({"rom":rom,"type":type, "value":value,"name":name})
 
     data=insert2(data)
     data.request()

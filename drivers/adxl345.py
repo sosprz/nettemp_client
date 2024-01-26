@@ -26,32 +26,32 @@ def adxl345():
       y = '{0:0.2f}'.format(data[1])
       z = '{0:0.2f}'.format(data[2])
 
-      group = socket.gethostname()
+      
       data = []
 
-      rom = group+"_i2c_53_acce_x"
+      rom = "_i2c_53_acce_x"
       value = x
       name = 'adxl345_x'
       type = 'accel'
-      data.append({"rom":rom,"type":type, "value":value,"name":name, "group":group})
+      data.append({"rom":rom,"type":type, "value":value,"name":name})
 
-      rom = group+"_i2c_53_acce_y"
+      rom = "_i2c_53_acce_y"
       value = y
       name = 'adxl345_y'
       type = 'accel'
-      data.append({"rom":rom,"type":type, "value":value,"name":name, "group":group})
+      data.append({"rom":rom,"type":type, "value":value,"name":name})
 
-      rom = group+"_i2c_53_acce_z"
+      rom = "_i2c_53_acce_z"
       value = z
       name = 'adxl345_z'
       type = 'accel'
-      data.append({"rom":rom,"type":type, "value":value,"name":name, "group":group})
+      data.append({"rom":rom,"type":type, "value":value,"name":name})
 
-      rom = group+"_i2c_53_moti"
+      rom = "_i2c_53_moti"
       value = '{0:0.2f}'.format(motion)
       name = 'adxl345_motion'
       type = 'motion'
-      data.append({"rom":rom,"type":type, "value":value,"name":name, "group":group})
+      data.append({"rom":rom,"type":type, "value":value,"name":name})
 
       data=insert2(data)
       data.request()

@@ -5,9 +5,9 @@ import pingparsing, requests, time
 requests.packages.urllib3.disable_warnings() 
 
 def ping():
-    print("[ nettemp ][ ping ] start")
+    print("[ nettemp client ][ ping ] start")
 
-    group = socket.gethostname()
+    
     data = []
 
     try:
@@ -15,7 +15,7 @@ def ping():
     except:
         config = yaml.load(open("drivers.conf"), Loader=yaml.FullLoader)
 
-    print(config["ping"]["hosts"])
+    #print(config["ping"]["hosts"])
 
     ping_parser = pingparsing.PingParsing()
     transmitter = pingparsing.PingTransmitter()
@@ -50,14 +50,17 @@ def ping():
             else:
                 value = 0
             type='host'
-    
-        print(f"[ nettemp ][ ping ] {name} Request completed in {value}ms")
+         
 
         name = name.replace("https://","")
         name = name.replace("http://","")
-        rom=group+'_'+name
-        data.append({"rom":rom,"type":type, "value":value,"name":name, "group":group})
+        rom='_'+name
+        if value != 0:
+            data.append({"rom":rom,"type":type, "value":value,"name":name})
+            print(f"[ nettemp client ][ ping ] {name} Request completed in {value}ms")
+        else:
+            print(f"[ nettemp client ][ ping ] {name} no connection!")
 
     data=insert2(data)
     data.request()
-    print("[ nettemp ][ ping ] End")
+    print("[ nettemp client ][ ping ] End")
