@@ -15,7 +15,7 @@ def ping():
     except:
         config = yaml.load(open("drivers.conf"), Loader=yaml.FullLoader)
 
-    print(config["ping"]["hosts"])
+    #print(config["ping"]["hosts"])
 
     ping_parser = pingparsing.PingParsing()
     transmitter = pingparsing.PingTransmitter()
