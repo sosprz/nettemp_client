@@ -43,164 +43,67 @@ else:
   
 # drivers
  
-if config["ping"]["enabled"] and config["ping"]["read_in_sec"]:
-  from drivers.ping import ping
-  ping()
-  sched.add_job(ping, 'interval', seconds = config["ping"]["read_in_sec"], id="ping")
+def setup_sensor_driver(driver_name, driver_module, extra_args=None):
+    driver_config = config.get(driver_name, {})
 
-if config["dht22"]["enabled"] and config["dht22"]["read_in_sec"] and config["dht22"]["gpio_pin"]:
-  from drivers.dht22 import dht22
-  try:
-    dht22(config["dht22"]["gpio_pin"])
-  except Exception as e:
-    pass
-    print("\n[WARN] Error \n\tArgs: '%s'" % (str(e.args)))
-  sched.add_job(dht22, 'interval', seconds = config["dht22"]["read_in_sec"], args=[config["dht22"]["gpio_pin"]])
+    if not (driver_config.get("enabled") and driver_config.get("read_in_sec")):
+        return
 
-if config["dht11"]["enabled"] and config["dht11"]["read_in_sec"] and config["dht11"]["gpio_pin"]:
-  from drivers.dht11 import dht11
-  try:
-    dht11(config["dht11"]["gpio_pin"])
-  except Exception as e:
-    pass
-    print("\n[WARN] Error \n\tArgs: '%s'" % (str(e.args)))
-  sched.add_job(dht11, 'interval', seconds = config["dht11"]["read_in_sec"], args=[config["dht11"]["gpio_pin"]])
+    # Handle additional arguments like GPIO pins
+    args = [driver_config.get("gpio_pin")] if extra_args else []
 
-if config["mpl3115a2"]["enabled"] and config["mpl3115a2"]["read_in_sec"]:
-  from drivers.mpl3115a2 import mpl3115a2
-  try:
-    mpl3115a2()
-  except Exception as e:
-    pass
-    print("\n[WARN] Error \n\tArgs: '%s'" % (str(e.args)))
-  sched.add_job(mpl3115a2, 'interval', seconds = config["mpl3115a2"]["read_in_sec"])
+    try:
+        getattr(driver_module, driver_name)(*args)
+    except Exception as e:
+        print(f"\n[WARN] {driver_name} Error \n\tArgs: '{str(e.args)}'")
+    else:
+        sched.add_job(
+            getattr(driver_module, driver_name), 
+            'interval', 
+            seconds=driver_config["read_in_sec"],
+            args=args
+        )
 
-if config["tsl2561"]["enabled"] and config["tsl2561"]["read_in_sec"]:
-  from drivers.tsl2561 import tsl2561 
-  try:
-    tsl2561()
-  except Exception as e:
-    pass
-    print("\n[WARN] Error \n\tArgs: '%s'" % (str(e.args)))
-  sched.add_job(tsl2561, 'interval', seconds = config["tsl2561"]["read_in_sec"])
+# Usage
+from drivers import dht22, dht11, mpl3115a2, tsl2561, hih6130, bh1750, adxl345, vl53l0x, system, tmp102, rpi, bmp180, bme280, htu21d, w1_kernel, w1_kernel_gpio, lm_sensors, ping
 
-if config["hih6130"]["enabled"] and config["hih6130"]["read_in_sec"]:
-  from drivers.hih6130 import hih6130 
-  try:
-    hih6130()
-  except Exception as e:
-    pass
-    print("\n[WARN] Error \n\tArgs: '%s'" % (str(e.args)))
-  sched.add_job(hih6130, 'interval', seconds = config["hih6130"]["read_in_sec"])
+sensor_drivers = {
+    "dht22": (dht22, True),
+    "dht11": (dht11, True),
+    "mpl3115a2": mpl3115a2,
+    "tsl2561": tsl2561,
+    "hih6130": hih6130,
+    "bh1750": bh1750,
+    "adxl345": adxl345,
+    "vl53l0x": vl53l0x,
+    "system": system,
+    "tmp102": tmp102,
+    "rpi": rpi,
+    "bmp180": bmp180,
+    "bme280": bme280,
+    "htu21d": htu21d,
+    "w1_kernel": w1_kernel,
+    "w1_kernel_gpio": w1_kernel_gpio,
+    "lm_sensors": lm_sensors,
+    "ping": ping,
+}
 
-if config["bh1750"]["enabled"] and config["bh1750"]["read_in_sec"]:
-  from drivers.bh1750 import bh1750 
-  try:
-    bh1750()
-  except Exception as e:
-    pass
-    print("\n[WARN] Error \n\tArgs: '%s'" % (str(e.args)))
-  sched.add_job(bh1750, 'interval', seconds = config["bh1750"]["read_in_sec"])
-
-if config["adxl345"]["enabled"] and config["adxl345"]["read_in_sec"]:
-  from drivers.adxl345 import adxl345
-  try:
-    adxl345()
-  except Exception as e:
-    pass
-    print("\n[WARN] Error \n\tArgs: '%s'" % (str(e.args)))
-  sched.add_job(adxl345, 'interval', seconds = config["adxl345"]["read_in_sec"])
-
-if config["vl53l0x"]["enabled"] and config["vl53l0x"]["read_in_sec"]:
-  from drivers.vl53l0x import vl53l0x
-  try:
-    vl53l0x()
-  except Exception as e:
-    pass
-    print("\n[WARN] Error \n\tArgs: '%s'" % (str(e.args)))
-  sched.add_job(vl53l0x, 'interval', seconds = config["vl53l0x"]["read_in_sec"])
-
-if config["system"]["enabled"] and config["system"]["read_in_sec"]:
-  from drivers.system import system 
-  try:
-    system()
-  except Exception as e:
-    pass
-    print("\n[WARN] Error \n\tArgs: '%s'" % (str(e.args)))
-  sched.add_job(system, 'interval', seconds = config["system"]["read_in_sec"])
-
-if config["tmp102"]["enabled"] and config["tmp102"]["read_in_sec"]:
-  from drivers.tmp102 import tmp102 
-  try:
-    tmp102()
-  except Exception as e:
-    pass
-    print("\n[WARN] Error \n\tArgs: '%s'" % (str(e.args)))
-  sched.add_job(tmp102, 'interval', seconds = config["tmp102"]["read_in_sec"])
-
-if config["rpi"]["enabled"] and config["rpi"]["read_in_sec"]:
-  from drivers.rpi import rpi 
-  try:
-    rpi()
-  except Exception as e:
-    pass
-    print("\n[WARN] Error \n\tArgs: '%s'" % (str(e.args)))
-  sched.add_job(rpi, 'interval', seconds = config["rpi"]["read_in_sec"])
-
-if config["bmp180"]["enabled"] and config["bmp180"]["read_in_sec"]:
-  from drivers.bmp180 import bmp180 
-  try:
-    bmp180()
-  except Exception as e:
-    pass
-    print("\n[WARN] Error \n\tArgs: '%s'" % (str(e.args)))
-  sched.add_job(bmp180, 'interval', seconds = config["bmp180"]["read_in_sec"])
-
-if config["bme280"]["enabled"] and config["bme280"]["read_in_sec"]:
-  from drivers.bme280 import bme280 
-  try:
-    bme280()
-  except Exception as e:
-    pass
-    print("\n[WARN] Error \n\tArgs: '%s'" % (str(e.args)))
-  sched.add_job(bme280, 'interval', seconds = config["bme280"]["read_in_sec"])
-
-if config["htu21d"]["enabled"] and config["htu21d"]["read_in_sec"]:
-  from drivers.htu21d import htu21d 
-  try:
-    htu21d()
-  except Exception as e:
-    pass
-    print("\n[WARN] Error \n\tArgs: '%s'" % (str(e.args)))
-  sched.add_job(htu21d, 'interval', seconds = config["htu21d"]["read_in_sec"])
-
-if config["w1_kernel_gpio"]["enabled"] and config["w1_kernel_gpio"]["read_in_sec"]:
-  from drivers.w1_kernel_gpio import w1_kernel_gpio
-  try:
-    w1_kernel_gpio()
-  except Exception as e:
-    pass
-    print("\n[WARN] Error \n\tArgs: '%s'" % (str(e.args)))
-  sched.add_job(w1_kernel_gpio, 'interval', seconds = config["w1_kernel_gpio"]["read_in_sec"])
-
+# exception for ds2482
 if config["w1_kernel"]["enabled"] and config["w1_kernel"]["read_in_sec"]:
-  from drivers.w1_kernel import w1_kernel
   try:
     os.system('sudo bash drivers/ds2482.sh')
-    w1_kernel()
   except Exception as e:
     pass
     print("\n[WARN] Error \n\tArgs: '%s'" % (str(e.args)))
-  sched.add_job(w1_kernel, 'interval', seconds = config["w1_kernel"]["read_in_sec"])
 
-if config["lm_sensors"]["enabled"] and config["lm_sensors"]["read_in_sec"]:
-  from drivers.lm_sensors import lm_sensors
-  try:
-    lm_sensors()
-  except Exception as e:
-    pass
-    print("\n[WARN] Error \n\tArgs: '%s'" % (str(e.args)))
-  sched.add_job(lm_sensors, 'interval', seconds = config["lm_sensors"]["read_in_sec"])
+# rest 
+
+for driver_name, driver_info in sensor_drivers.items():
+    if isinstance(driver_info, tuple):
+        setup_sensor_driver(driver_name, driver_info[0], extra_args=driver_info[1])
+    else:
+        setup_sensor_driver(driver_name, driver_info)
+
 
 with open(configd, 'rb') as file_obj:
   configd_md5_hash = hashlib.md5(file_obj.read()).hexdigest()
