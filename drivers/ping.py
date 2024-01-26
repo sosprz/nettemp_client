@@ -50,8 +50,7 @@ def ping():
             else:
                 value = 0
             type='host'
-    
-        
+         
 
         name = name.replace("https://","")
         name = name.replace("http://","")

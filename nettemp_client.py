@@ -19,20 +19,27 @@ def remote_config():
   else:
     return False
 
+def load_md5_hash(file_path):
+    with open(file_path, 'rb') as file_obj:
+        return hashlib.md5(file_obj.read()).hexdigest()
+      
+def load_config(file_path):
+    return yaml.safe_load(open(file_path, 'r'))
+
 sched.start()
 
 if remote_config():
-  print("[ nettemp client ][ remote config: Enabled ]")
-  if os.path.isfile(config_remote):
-    config = yaml.load(open(config_remote), Loader=yaml.FullLoader)
-    print("[ nettemp client ][ remote config exist ]")
-  else:
-    config = yaml.load(open(configd), Loader=yaml.FullLoader)
-    print("[ nettemp client ][ no remote config using local  ]")
+    print("[ nettemp client ][ remote config: Enabled ]")
+    if os.path.isfile(config_remote):
+        config = load_config(config_remote)
+        print("[ nettemp client ][ remote config exist ]")
+    else:
+        config = load_config(configd)
+        print("[ nettemp client ][ no remote config using local  ]")
 else:
-  print("[ nettemp client ][ remote config: Disabled ]")
-  config = yaml.load(open(configd), Loader=yaml.FullLoader)
-  print("[ nettemp client ][ no remote config using local ]")
+    print("[ nettemp client ][ remote config: Disabled ]")
+    config = load_config(configd)
+    print("[ nettemp client ][ no remote config using local ]")
   
 # drivers
  
@@ -202,29 +209,27 @@ with open(configm, 'rb') as file_obj:
   config_md5_hash = hashlib.md5(file_obj.read()).hexdigest()
 
 while True:
-    try:
-      if remote_config():
-        if download_remote_config():
-          print("[ nettemp client ][ new remote config, restarting ]")
-          os.execv(sys.executable, [sys.executable] + sys.argv)
-    except:
-      print("[ nettemp client ][ new remote config, problem ]")
-    
-    with open(configd, 'rb') as file_obj:
-      new_configd_md5_hash = hashlib.md5(file_obj.read()).hexdigest()
-    
-    if configd_md5_hash != new_configd_md5_hash:
+  try:
+    if remote_config() and download_remote_config():
+      print("[ nettemp client ][ new remote config, restarting ]")
+      os.execv(sys.executable, [sys.executable] + sys.argv)
+  except:
+    print("[ nettemp client ][ new remote config, problem ]")
+  
+  
+  new_configd_md5_hash = load_md5_hash(configd)
+
+  if configd_md5_hash != new_configd_md5_hash:
       print("[ nettemp client ][ new local driver config, restarting ]")
       os.execv(sys.executable, [sys.executable] + sys.argv)
 
-    with open(configm, 'rb') as file_obj:
-      new_config_md5_hash = hashlib.md5(file_obj.read()).hexdigest()
+  new_config_md5_hash = load_md5_hash(configm)
 
-    if config_md5_hash != new_config_md5_hash:
+  if config_md5_hash != new_config_md5_hash:
       print("[ nettemp client ][ new local config, restarting ]")
       os.execv(sys.executable, [sys.executable] + sys.argv)
-      
-    sleep(60)
+    
+  sleep(60)
 
 
 
