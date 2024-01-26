@@ -43,7 +43,13 @@ else:
     print("[ nettemp client ][ remote config: Disabled ]")
     config = load_config(configd)
     print("[ nettemp client ][ no remote config using local ]")
-  
+
+with open(configd, 'rb') as file_obj:
+  configd_md5_hash = hashlib.md5(file_obj.read()).hexdigest()
+
+with open(configm, 'rb') as file_obj:
+  config_md5_hash = hashlib.md5(file_obj.read()).hexdigest()
+
 # drivers
 
 # exception for ds2482
