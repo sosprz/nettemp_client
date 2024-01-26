@@ -22,17 +22,17 @@ def remote_config():
 sched.start()
 
 if remote_config():
-  print("[ nettemp client ] [ remote config: Enabled ]")
+  print("[ nettemp client ][ remote config: Enabled ]")
   if os.path.isfile(config_remote):
     config = yaml.load(open(config_remote), Loader=yaml.FullLoader)
-    print("[ nettemp client ] [ remote config exist ]")
+    print("[ nettemp client ][ remote config exist ]")
   else:
     config = yaml.load(open(configd), Loader=yaml.FullLoader)
-    print("[ nettemp client ] [ no remote config using local  ]")
+    print("[ nettemp client ][ no remote config using local  ]")
 else:
-  print("[ nettemp client ] [ remote config: Disabled ]")
+  print("[ nettemp client ][ remote config: Disabled ]")
   config = yaml.load(open(configd), Loader=yaml.FullLoader)
-  print("[ nettemp client ] [ no remote config using local ]")
+  print("[ nettemp client ][ no remote config using local ]")
   
 # drivers
  
