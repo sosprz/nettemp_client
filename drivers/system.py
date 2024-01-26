@@ -2,7 +2,7 @@ import psutil, socket
 from nettemp import insert2
 
 def system():
-    print("[ nettemp client ] system")
+    print("[ nettemp client ][ system ] start")
 
     group = socket.gethostname()
     data = []
@@ -25,4 +25,4 @@ def system():
     data=insert2(data)
     data.request()
     #print(f"[ nettemp client ] {data}")
-    print("[ nettemp client ] End system")
+    print("[ nettemp client ][ system ] End")

@@ -23,7 +23,7 @@ class insert:
         r = requests.post(url,headers={'Content-Type':'application/json', 'Authorization': f'Bearer {server_api_key}'},json=data, verify=False)
         print("[ nettemp client ] Sensor %s value: %s" % (self.rom, self.value))
     except:
-      print("[ nettemp client ] [cannot connect to local] Sensor %s value: %s" % (self.rom, self.value))
+      print("[ nettemp client ] [cannot connect to server] Sensor %s value: %s" % (self.rom, self.value))
 
 class insert2:
   def __init__(self, data):
@@ -41,7 +41,7 @@ class insert2:
       r = requests.post(url,headers={'Content-Type':'application/json', 'Authorization': f'Bearer {server_api_key}'},json=data, verify=False)
       print(f"[ nettemp client ] {data}")
     except:
-      print(f"[ nettemp client ] [cannot connect to local] {data}")
+      print(f"[ nettemp client ] [cannot connect to server] {data}")
 
 def download_remote_config():
     from deepdiff import DeepDiff
