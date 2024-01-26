@@ -7,7 +7,7 @@ requests.packages.urllib3.disable_warnings()
 def ping():
     print("[ nettemp client ][ ping ] start")
 
-    group = socket.gethostname()
+    
     data = []
 
     try:
@@ -54,9 +54,9 @@ def ping():
 
         name = name.replace("https://","")
         name = name.replace("http://","")
-        rom=group+'_'+name
+        rom='_'+name
         if value != 0:
-            data.append({"rom":rom,"type":type, "value":value,"name":name, "group":group})
+            data.append({"rom":rom,"type":type, "value":value,"name":name})
             print(f"[ nettemp client ][ ping ] {name} Request completed in {value}ms")
         else:
             print(f"[ nettemp client ][ ping ] {name} no connection!")

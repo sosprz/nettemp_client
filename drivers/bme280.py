@@ -484,26 +484,26 @@ def bme280():
         press = '{0:0.2f}'.format(hectopascals)
         humid = '{0:0.2f}'.format(humidity)
 
-        group = socket.gethostname()
+        
         data = []
 
-        rom = group+"_i2c_76_temp"
+        rom = "_i2c_76_temp"
         value = temp
         name = 'bme280_temp'
         type = 'temp'
-        data.append({"rom":rom,"type":type, "value":value,"name":name, "group":group})
+        data.append({"rom":rom,"type":type, "value":value,"name":name})
 
-        rom = group+"_i2c_76_press"
+        rom = "_i2c_76_press"
         value = press
         name = 'bme280_press'
         type = 'press'
-        data.append({"rom":rom,"type":type, "value":value,"name":name, "group":group})
+        data.append({"rom":rom,"type":type, "value":value,"name":name})
 
-        rom = group+"i2c_76_humid"
+        rom = "i2c_76_humid"
         value = humid
         name = 'bme280_humid'
         type = 'humid'
-        data.append({"rom":rom,"type":type, "value":value,"name":name, "group":group})
+        data.append({"rom":rom,"type":type, "value":value,"name":name})
 
         data=insert2(data)
         data.request()

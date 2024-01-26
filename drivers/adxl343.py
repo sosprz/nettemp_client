@@ -24,7 +24,7 @@ try:
   y = '{0:0.2f}'.format(data[1])
   z = '{0:0.2f}'.format(data[2])
 
-  group = socket.gethostname()
+  
 
   rom = "i2c_53_acce_x"
   value = x

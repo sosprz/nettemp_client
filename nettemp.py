@@ -3,12 +3,11 @@ requests.packages.urllib3.disable_warnings()
 import yaml, socket, json, os
 
 class insert:
-  def __init__(self, rom, type, value, name, group):
+  def __init__(self, rom, type, value, name):
     self.rom = rom
     self.type = type
     self.value = value
     self.name = name
-    self.group = group
 
   def request(self):
 
@@ -16,8 +15,10 @@ class insert:
     config = yaml.load(config_file, Loader=yaml.FullLoader)
     server = config["server"]
     server_api_key = config["server_api_key"]
+    group = socket.gethostname()
+    rom=group+self.rom
 
-    data = [{"rom":self.rom,"type":self.type, "device":"","value":self.value,"name":self.name, "group":self.group}]
+    data = [{"rom":rom,"type":self.type, "device":"","value":self.value,"name":self.name, "group":group}]
     try:
         url = f'{server}'
         r = requests.post(url,headers={'Content-Type':'application/json', 'Authorization': f'Bearer {server_api_key}'},json=data, verify=False)
@@ -34,8 +35,13 @@ class insert2:
     config = yaml.load(config_file, Loader=yaml.FullLoader)
     server = config["server"]
     server_api_key = config["server_api_key"]
+    group = socket.gethostname()
+    rom=group+self.rom
 
     data = self.data
+    data["group"] = group
+    data['rom'] = str(group) + str(self.rom)
+
     try:
       url = f'{server}'
       r = requests.post(url,headers={'Content-Type':'application/json', 'Authorization': f'Bearer {server_api_key}'},json=data, verify=False)
@@ -59,7 +65,6 @@ def download_remote_config():
     config = yaml.load(config_file, Loader=yaml.FullLoader)
     server = config["server"]
     server_api_key = config["server_api_key"]
-    group = socket.gethostname()
 
     try:
       url = f'{server}/api/clients/{group}'

@@ -8,12 +8,12 @@ def rpi():
         print("Rpi")
         from gpiozero import CPUTemperature
         cpu = CPUTemperature()
-        group = socket.gethostname()
+        
         value = cpu.temperature
-        rom = group+'_raspberrypi'
+        rom = '_raspberrypi'
         type = 'temp'
-        name = group+'_raspberrypi'
-        data=insert(rom, type, value, name, group)
+        name = '_raspberrypi'
+        data=insert(rom, type, value, name)
         data.request()
     except Exception as e:
         print("\n[WARN] Error \n\tArgs: '%s'" % (str(e.args)))
