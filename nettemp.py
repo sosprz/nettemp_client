@@ -23,7 +23,7 @@ class insert:
         r = requests.post(url,headers={'Content-Type':'application/json', 'Authorization': f'Bearer {server_api_key}'},json=data, verify=False)
         print("[ nettemp client ] Sensor %s value: %s" % (self.rom, self.value))
     except:
-      print("[ nettemp client ] [cannot connect to server] Sensor %s value: %s" % (self.rom, self.value))
+      print("[ nettemp client ][cannot connect to server] Sensor %s value: %s" % (self.rom, self.value))
 
 class insert2:
   def __init__(self, data):
@@ -41,7 +41,7 @@ class insert2:
       r = requests.post(url,headers={'Content-Type':'application/json', 'Authorization': f'Bearer {server_api_key}'},json=data, verify=False)
       print(f"[ nettemp client ] {data}")
     except:
-      print(f"[ nettemp client ] [cannot connect to server] {data}")
+      print(f"[ nettemp client ][cannot connect to server] {data}")
 
 def download_remote_config():
     from deepdiff import DeepDiff
@@ -65,7 +65,7 @@ def download_remote_config():
       url = f'{server}/api/clients/{group}'
       r = requests.get(url,headers={'Content-Type':'application/json', 'Authorization': f'Bearer {server_api_key}'},verify=False)
       remote_joson = r.json()
-      print(f"[ nettemp client ] [ connection to remote server: {r.status_code} ]")
+      print(f"[ nettemp client ][ connection to remote server: {r.status_code} ]")
 
       temp_file = 'temp_remote.conf'
       local_file = 'remote.conf'
@@ -78,7 +78,7 @@ def download_remote_config():
       if not os.path.isfile(local_file):
         with open('remote.conf', 'w+') as yamlfile:
           data = yaml.dump(remote_joson, yamlfile)
-        print("[ nettemp client ] [ remote config saved ]")
+        print("[ nettemp client ][ remote config saved ]")
         return True
       else:
         # 3. if remote exist check if temp is newer
@@ -87,7 +87,7 @@ def download_remote_config():
         ddiff = DeepDiff(a, b, ignore_order=True)
         if ddiff:
           # if diff exist write new remote.conf
-          print(f"[ nettemp client ] [ new remote config: {ddiff} ]")
+          print(f"[ nettemp client ][ new remote config: {ddiff} ]")
           os.remove(local_file)
           os.rename(temp_file, local_file)
           return True
@@ -96,5 +96,5 @@ def download_remote_config():
           return False      
       
     except:
-      print("[ nettemp client ] [ cannot connect or no config ]")
+      print("[ nettemp client ][ cannot connect or no config ]")
       return False
