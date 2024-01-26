@@ -38,11 +38,9 @@ class insert2:
     group = socket.gethostname()
   
     data = self.data
-    print(data)
     for d in data:
       d["group"] = group
       d['rom'] = str(group) + d['rom']
-    print(data)
 
     try:
       url = f'{server}'
@@ -67,6 +65,7 @@ def download_remote_config():
     config = yaml.load(config_file, Loader=yaml.FullLoader)
     server = config["server"]
     server_api_key = config["server_api_key"]
+    group = socket.gethostname()
 
     try:
       url = f'{server}/api/clients/{group}'
