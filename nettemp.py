@@ -36,12 +36,11 @@ class insert2:
     server = config["server"]
     server_api_key = config["server_api_key"]
     group = socket.gethostname()
-    rom=group
-
+  
     data = self.data
     print(data)
     data["group"] = group
-    data['rom'] = str(group) + data['rom']
+    data['rom'] = group + data['rom']
 
     try:
       url = f'{server}'
