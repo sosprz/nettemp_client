@@ -41,7 +41,7 @@ class insert2:
     data = self.data
     print(data)
     data["group"] = group
-    data['rom'] = str(group) + str(data['rom'])
+    data['rom'] = str(group) + data['rom']
 
     try:
       url = f'{server}'
