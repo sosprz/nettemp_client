@@ -8,6 +8,9 @@ os.chdir(os.path.dirname(__file__))
 from apscheduler.schedulers.background import BackgroundScheduler
 sched = BackgroundScheduler({'apscheduler.timezone': 'Europe/London'})
 
+
+# Load initial configurations
+
 configm = "config.conf"
 config_remote = "remote.conf"
 configd = "drivers.conf"
@@ -42,51 +45,6 @@ else:
     print("[ nettemp client ][ no remote config using local ]")
   
 # drivers
- 
-def setup_sensor_driver(driver_name, driver_module, extra_args=None):
-    driver_config = config.get(driver_name, {})
-
-    if not (driver_config.get("enabled") and driver_config.get("read_in_sec")):
-        return
-
-    # Handle additional arguments like GPIO pins
-    args = [driver_config.get("gpio_pin")] if extra_args else []
-
-    try:
-        getattr(driver_module, driver_name)(*args)
-    except Exception as e:
-        print(f"\n[WARN] {driver_name} Error \n\tArgs: '{str(e.args)}'")
-    else:
-        sched.add_job(
-            getattr(driver_module, driver_name), 
-            'interval', 
-            seconds=driver_config["read_in_sec"],
-            args=args
-        )
-
-# Usage
-from drivers import dht22, dht11, mpl3115a2, tsl2561, hih6130, bh1750, adxl345, vl53l0x, system, tmp102, rpi, bmp180, bme280, htu21d, w1_kernel, w1_kernel_gpio, lm_sensors, ping
-
-sensor_drivers = {
-    "dht22": (dht22, True),
-    "dht11": (dht11, True),
-    "mpl3115a2": mpl3115a2,
-    "tsl2561": tsl2561,
-    "hih6130": hih6130,
-    "bh1750": bh1750,
-    "adxl345": adxl345,
-    "vl53l0x": vl53l0x,
-    "system": system,
-    "tmp102": tmp102,
-    "rpi": rpi,
-    "bmp180": bmp180,
-    "bme280": bme280,
-    "htu21d": htu21d,
-    "w1_kernel": w1_kernel,
-    "w1_kernel_gpio": w1_kernel_gpio,
-    "lm_sensors": lm_sensors,
-    "ping": ping,
-}
 
 # exception for ds2482
 if config["w1_kernel"]["enabled"] and config["w1_kernel"]["read_in_sec"]:
@@ -96,20 +54,51 @@ if config["w1_kernel"]["enabled"] and config["w1_kernel"]["read_in_sec"]:
     pass
     print("\n[WARN] Error \n\tArgs: '%s'" % (str(e.args)))
 
-# rest 
+# List of sensor configurations
+sensor_configs = [
+    {"name": "ping", "module": "drivers.ping", "extra_args": []},
+    {"name": "dht22", "module": "drivers.dht22", "extra_args": ["gpio_pin"]},
+    {"name": "dht11", "module": "drivers.dht11", "extra_args": ["gpio_pin"]},
+    {"name": "mpl3115a2", "module": "drivers.mpl3115a2", "extra_args": []},
+    {"name": "tsl2561", "module": "drivers.tsl2561", "extra_args": []},
+    {"name": "hih6130", "module": "drivers.hih6130", "extra_args": []},
+    {"name": "bh1750", "module": "drivers.bh1750", "extra_args": []},
+    {"name": "adxl345", "module": "drivers.adxl345", "extra_args": []},
+    {"name": "vl53l0x", "module": "drivers.vl53l0x", "extra_args": []},
+    {"name": "system", "module": "drivers.system", "extra_args": []},
+    {"name": "tmp102", "module": "drivers.tmp102", "extra_args": []},
+    {"name": "rpi", "module": "drivers.rpi", "extra_args": []},
+    {"name": "bmp180", "module": "drivers.bmp180", "extra_args": []},
+    {"name": "bme280", "module": "drivers.bme280", "extra_args": []},
+    {"name": "htu21d", "module": "drivers.htu21d", "extra_args": []},
+    {"name": "w1_kernel_gpio", "module": "drivers.w1_kernel_gpio", "extra_args": []},
+    {"name": "lm_sensors", "module": "drivers.lm_sensors", "extra_args": []},
+    {"name": "w1_kernel", "module": "drivers.w1_kernel", "extra_args": []},
+]
 
-for driver_name, driver_info in sensor_drivers.items():
-    if isinstance(driver_info, tuple):
-        setup_sensor_driver(driver_name, driver_info[0], extra_args=driver_info[1])
-    else:
-        setup_sensor_driver(driver_name, driver_info)
+# Iterate over sensor configurations
+for sensor_config in sensor_configs:
+    sensor_name = sensor_config["name"]
+    sensor_module = sensor_config["module"]
+    extra_args = sensor_config.get("extra_args", [])
 
+    if config[sensor_name]["enabled"] and config[sensor_name]["read_in_sec"]:
+        try:
+            module = __import__(sensor_module, fromlist=[sensor_name])
+            getattr(module, sensor_name)(*extra_args)
+        except Exception as e:
+            pass
+            print(f"\n[WARN] {sensor_name} Error \n\tArgs: '{str(e.args)}'")
+        else:
+            sched.add_job(
+                getattr(module, sensor_name),
+                'interval',
+                seconds=config[sensor_name]["read_in_sec"],
+                args=extra_args
+            )
+            
 
-with open(configd, 'rb') as file_obj:
-  configd_md5_hash = hashlib.md5(file_obj.read()).hexdigest()
-
-with open(configm, 'rb') as file_obj:
-  config_md5_hash = hashlib.md5(file_obj.read()).hexdigest()
+# Main loop for config checking and restart
 
 while True:
   try:
