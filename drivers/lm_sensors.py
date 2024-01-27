@@ -18,7 +18,7 @@ def lm_sensors():
                     value = '{0:0.1f}'.format(lmdata[item][name][sens])
                     rom = '_'+item+'_'+name
                     type = 'temp'
-                    name = rom
+                    name = item+'_'+name
                     data.append({"rom":rom,"type":type, "value":value,"name":name})
 
     data=insert2(data)
