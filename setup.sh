@@ -5,11 +5,7 @@ sudo apt-get -y install python3-pip python3-venv lm-sensors
 
 python3 -m venv venv
 . venv/bin/activate
-pip3 install w1thermsensor requests apscheduler pyaml psutil smbus gpiozero
-pip3 install git+https://github.com/nicmcd/vcgencmd.git
-pip3 install adafruit-circuitpython-htu21d adafruit-circuitpython-tsl2561 Adafruit-BMP adafruit-circuitpython-adxl34x \
- adafruit-circuitpython-dht adafruit-circuitpython-vl53l0x
-pip3 install pingparsing deepdiff
+pip3 install -r requirements.txt
 python3 config.py
 
 deactivate

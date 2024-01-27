@@ -1,0 +1,16 @@
+w1thermsensor 
+requests
+apscheduler
+pyaml
+psutil
+smbus
+gpiozero
+adafruit-circuitpython-htu21d
+adafruit-circuitpython-tsl2561
+Adafruit-BMP
+adafruit-circuitpython-adxl34x
+adafruit-circuitpython-dht
+adafruit-circuitpython-vl53l0x
+pingparsing
+deepdiff
+git+https://github.com/nicmcd/vcgencmd.git
