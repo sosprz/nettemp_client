@@ -17,7 +17,7 @@ class insert:
     server_api_key = config["server_api_key"]
     group = socket.gethostname()
     rom=group+self.rom
-    name=group+self.name
+    name=self.name
 
     data = [{"rom":rom,"type":self.type, "device":"","value":self.value,"name":name, "group":group}]
     try:
@@ -42,8 +42,7 @@ class insert2:
     for d in data:
       d["group"] = group
       d['rom'] = str(group) + d['rom']
-      d['name'] = str(group) + d['name']
-
+  
     try:
       url = f'{server}'
       r = requests.post(url,headers={'Content-Type':'application/json', 'Authorization': f'Bearer {server_api_key}'},json=data, verify=False)
