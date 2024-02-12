@@ -47,9 +47,9 @@ class insert2:
     try:
       url = f'{server}'
       r = requests.post(url,headers={'Content-Type':'application/json', 'Authorization': f'Bearer {server_api_key}'},json=data, verify=False, timeout=5)
-      print(f"[ nettemp client ][ data package ] {data}")
+      print(f"[ nettemp client ][ data package ]")
     except:
-      print(f"[ nettemp client ][ cannot connect to server ] {data}")
+      print(f"[ nettemp client ][ cannot connect to server ]")
 
 def download_remote_config():
     from deepdiff import DeepDiff
