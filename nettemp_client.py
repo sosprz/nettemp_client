@@ -32,17 +32,17 @@ def load_config(file_path):
 sched.start()
 
 if remote_config():
-    print("[ nettemp client ][ remote config: Enabled ]")
+    print(f"[ nettemp client ][ remote config: Enabled in main {configm} ]")
     if os.path.isfile(config_remote):
         config = load_config(config_remote)
-        print("[ nettemp client ][ remote config exist ]")
+        print(f"[ nettemp client ][ remote config exist: {config_remote} ]")
     else:
         config = load_config(configd)
-        print("[ nettemp client ][ no remote config using local  ]")
+        print(f"[ nettemp client ][ no remote config using local {configd} ]")
 else:
-    print("[ nettemp client ][ remote config: Disabled ]")
+    print(f"[ nettemp client ][ remote config: Disabled in main {configm} ]")
     config = load_config(configd)
-    print("[ nettemp client ][ no remote config using local ]")
+    print(f"[ nettemp client ][ no remote config using local {configd} ]")
 
 with open(configd, 'rb') as file_obj:
   configd_md5_hash = hashlib.md5(file_obj.read()).hexdigest()
@@ -114,22 +114,22 @@ for sensor_config in sensor_configs:
 while True:
   try:
     if remote_config() and download_remote_config():
-      print("[ nettemp client ][ new remote config, restarting ]")
+      print(f"[ nettemp client ][ new remote config {config_remote}, restarting ]")
       os.execv(sys.executable, [sys.executable] + sys.argv)
   except:
-    print("[ nettemp client ][ new remote config, problem ]")
+    print(f"[ nettemp client ][ new remote config {config_remote}, problem (rm remote.conf can help) ]")
   
   
   new_configd_md5_hash = load_md5_hash(configd)
 
   if configd_md5_hash != new_configd_md5_hash:
-      print("[ nettemp client ][ new local driver config, restarting ]")
+      print(f"[ nettemp client ][ new local driver config {configd}, restarting ]")
       os.execv(sys.executable, [sys.executable] + sys.argv)
 
   new_config_md5_hash = load_md5_hash(configm)
 
   if config_md5_hash != new_config_md5_hash:
-      print("[ nettemp client ][ new local config, restarting ]")
+      print(f"[ nettemp client ][ new local config {configd}, restarting ]")
       os.execv(sys.executable, [sys.executable] + sys.argv)
     
   sleep(60)
