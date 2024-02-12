@@ -24,7 +24,7 @@ def ping():
         if name.startswith(('http://', 'https://')):
             start = time.perf_counter()
             try:
-                r = requests.get(name, verify=False)
+                r = requests.get(name, verify=False, timeout=5)
                 code = r.status_code
             except:
                 code = 0

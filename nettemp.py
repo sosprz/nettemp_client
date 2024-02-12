@@ -23,7 +23,7 @@ class insert:
     data = [{"rom":rom,"type":self.type, "device":"","value":self.value,"name":name, "group":group}]
     try:
         url = f'{server}'
-        r = requests.post(url,headers={'Content-Type':'application/json', 'Authorization': f'Bearer {server_api_key}'},json=data, verify=False)
+        r = requests.post(url,headers={'Content-Type':'application/json', 'Authorization': f'Bearer {server_api_key}'},json=data, verify=False, timeout=5)
         print("[ nettemp client ] Sensor %s value: %s" % (self.rom, self.value))
     except:
       print("[ nettemp client ][ cannot connect to server ] Sensor %s value: %s" % (self.rom, self.value))
@@ -46,7 +46,7 @@ class insert2:
   
     try:
       url = f'{server}'
-      r = requests.post(url,headers={'Content-Type':'application/json', 'Authorization': f'Bearer {server_api_key}'},json=data, verify=False)
+      r = requests.post(url,headers={'Content-Type':'application/json', 'Authorization': f'Bearer {server_api_key}'},json=data, verify=False, timeout=5)
       print(f"[ nettemp client ][ data package ] {data}")
     except:
       print(f"[ nettemp client ][ cannot connect to server ] {data}")
@@ -71,7 +71,7 @@ def download_remote_config():
 
     try:
         url = f'{server}/api/clients/{group}'
-        r = requests.get(url, headers={'Content-Type': 'application/json', 'Authorization': f'Bearer {server_api_key}'}, verify=False)
+        r = requests.get(url, headers={'Content-Type': 'application/json', 'Authorization': f'Bearer {server_api_key}'}, verify=False, timeout=5)
         # If the response was successful, no Exception will be raised
         r.raise_for_status()
     except HTTPError as http_err:
