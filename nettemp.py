@@ -35,6 +35,7 @@ class insert:
 
 class insert2:
   def __init__(self, data):
+    self.logger = logging.getLogger(self.__class__.__name__)
     self.data = data
 
   def request(self):
@@ -45,8 +46,7 @@ class insert2:
     group = config["group"]
   
     data = self.data
-    self.ogging.debug(data)
-    print(data)
+    self.logging.debug(data)
     for d in data:
       d["group"] = group
       d['rom'] = str(group) + d['rom']
