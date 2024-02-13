@@ -26,7 +26,7 @@ else:
     log_level = logging.INFO
 
 # Setup logging
-logging.basicConfig(level=logging.DEBUG, format='[%(asctime)s] %(levelname)s: %(message)s', datefmt='%Y-%m-%d %H:%M:%S')
+logging.basicConfig(level=log_level, format='[%(asctime)s] %(levelname)s: %(message)s', datefmt='%Y-%m-%d %H:%M:%S')
 
 # Constants
 CONFIG_MAIN = "config.conf"
