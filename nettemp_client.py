@@ -137,7 +137,7 @@ def main():
 
 
     while True:
-        time.sleep(60)  # Check every minute
+        
 
         # Re-check the configuration hashes
         new_hashes = {
@@ -154,6 +154,8 @@ def main():
             if remote_config_enabled():
                 config_main = load_yaml(os.path.join(CONFIG_DIRECTORY, CONFIG_MAIN))
                 download_remote_config(config_main["server"], config_main["server_api_key"], config_main.get("group", "default"))
-
+                
+        time.sleep(60)  # Check every minute
+        
 if __name__ == "__main__":
     main()
