@@ -34,7 +34,6 @@ CONFIG_REMOTE = "remote.conf"
 CONFIG_LOCAL = "local.conf"
 CONFIG_DIRECTORY = os.path.dirname(os.path.abspath(__file__))
 
-print(CONFIG_DIRECTORY)
 
 # Scheduler setup
 sched = BackgroundScheduler({'apscheduler.timezone': 'Europe/Warsaw'})
@@ -156,7 +155,7 @@ def main():
         CONFIG_REMOTE: file_md5_hash(os.path.join(CONFIG_DIRECTORY, CONFIG_REMOTE))
     }
     
-    # Attempt to load remote config, fallback to drivers config if unavailable
+    # Attempt to load remote config, fallback to local config if unavailable
     config = load_yaml(os.path.join(CONFIG_DIRECTORY, CONFIG_REMOTE)) or load_yaml(os.path.join(CONFIG_DIRECTORY, CONFIG_LOCAL))
     if config:
         drivers(config)
