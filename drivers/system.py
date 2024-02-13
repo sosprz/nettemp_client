@@ -25,7 +25,6 @@ def system():
     name='Memory'
     data.append({"rom":rom,"type":type, "value":value,"name":name})
 
-    logging.debug(data)
     data=insert2(data)
     data.request()
 

@@ -1,6 +1,6 @@
 import requests
 requests.packages.urllib3.disable_warnings() 
-import yaml, json, os
+import yaml, json, os, socket
 import logging
 
 logging.basicConfig(level=logging.INFO, format='[%(asctime)s] %(levelname)s: %(message)s', datefmt='%Y-%m-%d %H:%M:%S')
@@ -19,13 +19,17 @@ class insert:
     config = yaml.load(config_file, Loader=yaml.FullLoader)
     server = config["server"]
     server_api_key = config["server_api_key"]
-    group = config["group"]
+    
+    try:
+      group = config["group"]
+    except:
+      group = socket.gethostname()
+      
     rom=group+self.rom
     name=self.name
 
     data = [{"rom":rom,"type":self.type, "device":"","value":self.value,"name":name, "group":group}]
     self.logging.debug(data)
-    print(data)
     try:
         url = f'{server}'
         r = requests.post(url,headers={'Content-Type':'application/json', 'Authorization': f'Bearer {server_api_key}'},json=data, verify=False)
@@ -43,7 +47,11 @@ class insert2:
     config = yaml.load(config_file, Loader=yaml.FullLoader)
     server = config["server"]
     server_api_key = config["server_api_key"]
-    group = config["group"]
+    
+    try:
+      group = config["group"]
+    except:
+      group = socket.gethostname()
   
     data = self.data
     self.logging.debug(data)
