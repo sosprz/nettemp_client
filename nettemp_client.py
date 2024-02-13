@@ -56,7 +56,6 @@ with open(configm, 'rb') as file_obj:
 try:
   if config["w1_kernel"]["enabled"] and config["w1_kernel"]["read_in_sec"]:
     try:
-      os.system('sudo bash drivers/ds2482.sh')
       import drivers.ds2482
     except Exception as e:
       pass
