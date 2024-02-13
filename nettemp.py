@@ -3,6 +3,8 @@ requests.packages.urllib3.disable_warnings()
 import yaml, json, os
 import logging
 
+logging.basicConfig(level=logging.INFO, format='[%(asctime)s] %(levelname)s: %(message)s', datefmt='%Y-%m-%d %H:%M:%S')
+
 class insert:
   def __init__(self, rom, type, value, name):
     self.logger = logging.getLogger(self.__class__.__name__)
