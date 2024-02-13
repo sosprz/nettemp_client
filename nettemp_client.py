@@ -19,6 +19,8 @@ CONFIG_REMOTE = "remote.conf"
 CONFIG_LOCAL = "local.conf"
 CONFIG_DIRECTORY = os.path.dirname(os.path.abspath(__file__))
 
+print(CONFIG_DIRECTORY)
+
 # Scheduler setup
 sched = BackgroundScheduler({'apscheduler.timezone': 'Europe/London'})
 sched.start()
