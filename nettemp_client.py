@@ -179,7 +179,7 @@ def main():
             # Optionally, check for remote configuration updates
             if remote_config_enabled():
                 config_main = load_yaml(os.path.join(CONFIG_DIRECTORY, CONFIG_MAIN))
-                download_remote_config(config_main["server"], config_main["server_api_key"], config_main.get("group", "default"))
+                download_remote_config(config_main["server"], config_main["server_api_key"], config_main.get("group", "nettemp_client_1"))
                 
         time.sleep(60)  # Check every minute
         
