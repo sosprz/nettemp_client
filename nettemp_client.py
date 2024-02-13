@@ -50,9 +50,7 @@ def download_remote_config(server, api_key, group):
     r.raise_for_status()
     remote_config = r.json()
     local_config_path = os.path.join(CONFIG_DIRECTORY, CONFIG_REMOTE)
-    print(local_config_path)
     existing_config = load_yaml(local_config_path)
-    print(existing_config)
     
     if existing_config != remote_config:
         save_yaml(remote_config, local_config_path)
@@ -136,11 +134,16 @@ def main():
         CONFIG_MAIN: file_md5_hash(os.path.join(CONFIG_DIRECTORY, CONFIG_MAIN)),
         CONFIG_LOCAL: file_md5_hash(os.path.join(CONFIG_DIRECTORY, CONFIG_LOCAL))
     }
-
+    
+    # Attempt to load remote config, fallback to drivers config if unavailable
+    config = load_yaml(os.path.join(CONFIG_DIRECTORY, CONFIG_REMOTE)) or load_yaml(os.path.join(CONFIG_DIRECTORY, CONFIG_LOCAL))
+    if config:
+        drivers(config)
+    else:
+        logging.error("[nettemp client] Unable to load any configuration.")
 
     while True:
         
-
         # Re-check the configuration hashes
         new_hashes = {
             CONFIG_MAIN: file_md5_hash(os.path.join(CONFIG_DIRECTORY, CONFIG_MAIN)),
