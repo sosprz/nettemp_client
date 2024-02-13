@@ -8,6 +8,7 @@ def rpi():
         print("Rpi")
         from gpiozero import CPUTemperature
         cpu = CPUTemperature()
+        data = []
         
         value = cpu.temperature
         rom = '_raspberrypi'
