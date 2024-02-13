@@ -25,8 +25,8 @@ def configInit():
         }
 
     config = {
-      'server': 'https://nettemp_ip',
-      'server_api_key': 'y8k76HDjmuQqJDKIaFwf8rk55sa8jIh1zCzZJ6sJZ8c',
+      'server': 'https://default_server',
+      'server_api_key': 'default_key',
       'remote_config': {'enabled': 'true'},
       'group': 'nettemp_client1'
       }

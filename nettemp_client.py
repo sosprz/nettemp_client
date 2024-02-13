@@ -46,39 +46,50 @@ sched.start()
 
 # Helper functions
 
-def check_config_parameters(config_path, default_values):
+def check_config(config_path):
+
+    # Define the expected parameters and their default values to check against
+    expected_parameters = {
+        'server': 'https://default_server',
+        'server_api_key': 'default_key'
+    }
+    
+    # Define all expected parameter names (including nested ones)
+    all_expected_names = [
+        'group',
+        'remote_config.enabled',
+        'server',
+        'server_api_key'
+    ]
+
     try:
         with open(config_path, 'r') as file:
             config = yaml.safe_load(file)
+        
+        # Check for 'server' and 'server_api_key' specifically
+        for key, default_value in expected_parameters.items():
+            value = config.get(key)
+            if not value or value == default_value:
+                print(f"Parameter '{key}' is missing or set to its default value.")
+                return False
 
-        # Check each parameter in default_values
-        for param, default in default_values.items():
-            # Split parameter into parts in case of nested parameters
+        # Check for the existence of all parameter names
+        for param in all_expected_names:
             parts = param.split('.')
             temp_config = config
             for part in parts:
                 if part in temp_config:
                     temp_config = temp_config[part]
                 else:
-                    # Parameter does not exist
+                    print(f"Parameter '{param}' does not exist.")
                     return False
-            
-            # Check if parameter is set to its default value
-            if temp_config == default:
-                return False
 
     except Exception as e:
-        print(f"Error checking configuration parameters: {e}")
+        print(f"Error reading or parsing {config_path}: {e}")
         return False
 
     return True
 
-default_values = {
-    'group': 'nettemp_client1',
-    'remote_config.enabled': 'true',  # Use dot notation for nested parameters
-    'server': 'https://nettemp_ip',
-    'server_api_key': 'y8k76HDjmuQqJDKIaFwf8rk55sa8jIh1zCzZJ6sJZ8c'
-}
 
 def load_yaml(file_path):
     try:
@@ -126,7 +137,8 @@ def file_md5_hash(file_path):
     except FileNotFoundError:
         return None 
 
-if not check_config_parameters(CONFIG_MAIN, default_values):
+if not check_config(CONFIG_MAIN):
+    print("")
     print("Some parameters are missing on config.conf or set to default values.")
     exit()
 
