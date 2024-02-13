@@ -2,6 +2,7 @@ import psutil, socket
 from nettemp import insert2
 import logging
 
+logging.basicConfig(level=logging.INFO, format='[%(asctime)s] %(levelname)s: %(message)s', datefmt='%Y-%m-%d %H:%M:%S')
 
 def system():
     logging.info("[ nettemp client ][ system ] start")
@@ -24,6 +25,7 @@ def system():
     name='Memory'
     data.append({"rom":rom,"type":type, "value":value,"name":name})
 
+    logging.debug(data)
     data=insert2(data)
     data.request()
 
