@@ -1,6 +1,8 @@
 import requests
 requests.packages.urllib3.disable_warnings() 
 import yaml, socket, json, os
+import logging
+
 
 class insert:
   def __init__(self, rom, type, value, name):
@@ -23,9 +25,9 @@ class insert:
     try:
         url = f'{server}'
         r = requests.post(url,headers={'Content-Type':'application/json', 'Authorization': f'Bearer {server_api_key}'},json=data, verify=False)
-        print("[  nettemp client  ] Sensor %s value: %s" % (self.rom, self.value))
+        logging.info("[  nettemp client  ] Sensor %s value: %s" % (self.rom, self.value))
     except:
-      print("[  nettemp client  ][ cannot connect to server ] Sensor %s value: %s" % (self.rom, self.value))
+      logging.info("[  nettemp client  ][ cannot connect to server ] Sensor %s value: %s" % (self.rom, self.value))
 
 class insert2:
   def __init__(self, data):
@@ -46,7 +48,7 @@ class insert2:
     try:
       url = f'{server}'
       r = requests.post(url,headers={'Content-Type':'application/json', 'Authorization': f'Bearer {server_api_key}'},json=data, verify=False, timeout=5)
-      print(f"[  nettemp client  ][ data package ] ")
+      logging.info(f"[  nettemp client  ][ data package ] ")
     except:
-      print(f"[  nettemp client  ][ cannot connect to server ] ")
+      logging.info(f"[  nettemp client  ][ cannot connect to server ] ")
 

@@ -59,18 +59,21 @@ def save_yaml(data, file_path):
 def download_remote_config(server, api_key, group):
     url = f'{server}/api/clients/{group}'
     headers = {'Content-Type': 'application/json', 'Authorization': f'Bearer {api_key}'}
-
-    r = requests.get(url, headers=headers, verify=False, timeout=5)
-    r.raise_for_status()
-    remote_config = r.json()
-    local_config_path = os.path.join(CONFIG_DIRECTORY, CONFIG_REMOTE)
-    existing_config = load_yaml(local_config_path)
+    try:
+        r = requests.get(url, headers=headers, verify=False, timeout=5)
+        r.raise_for_status()
+        
+        
+        remote_config = r.json()
+        local_config_path = os.path.join(CONFIG_DIRECTORY, CONFIG_REMOTE)
+        existing_config = load_yaml(local_config_path)
     
-    if existing_config != remote_config or {}:
-        save_yaml(remote_config, local_config_path)
-        logging.info("[nettemp client] Remote configuration updated.")
-        return True
-    return False
+        if existing_config != remote_config or {}:
+            save_yaml(remote_config, local_config_path)
+            logging.info("[nettemp client] Remote configuration updated.")
+            return True
+    except:
+        return False
 
 
 def remote_config_enabled():
