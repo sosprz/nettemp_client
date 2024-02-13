@@ -1,5 +1,5 @@
 import io, sys, os, socket
-from nettemp import insert
+from nettemp import insert2
 
 
 
@@ -8,12 +8,15 @@ def rpi():
         print("Rpi")
         from gpiozero import CPUTemperature
         cpu = CPUTemperature()
+        data = []
         
         value = cpu.temperature
         rom = '_raspberrypi'
         type = 'temp'
-        name = '_raspberrypi'
-        data=insert(rom, type, value, name)
+        name = 'raspberrypi'
+
+        data.append({"rom":rom,"type":type, "value":value,"name":name})
+        data=insert2(data)
         data.request()
     except Exception as e:
         print("\n[WARN] Error \n\tArgs: '%s'" % (str(e.args)))

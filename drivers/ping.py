@@ -2,10 +2,14 @@ import yaml, socket
 from nettemp import insert2
 import json
 import pingparsing, requests, time
-requests.packages.urllib3.disable_warnings() 
+requests.packages.urllib3.disable_warnings()
+import logging
+
+logging.basicConfig(level=logging.INFO, format='[%(asctime)s] %(levelname)s: %(message)s', datefmt='%Y-%m-%d %H:%M:%S')
+
 
 def ping():
-    print("[ nettemp client ][ ping ] start")
+    logging.info("[  nettemp client  ][ ping ] start")
 
     
     data = []
@@ -24,7 +28,7 @@ def ping():
         if name.startswith(('http://', 'https://')):
             start = time.perf_counter()
             try:
-                r = requests.get(name, verify=False)
+                r = requests.get(name, verify=False, timeout=5)
                 code = r.status_code
             except:
                 code = 0
@@ -57,10 +61,10 @@ def ping():
         rom = '_'+name
         if value != 0:
             data.append({"rom":rom,"type":type,"value":value,"name":name})
-            print(f"[ nettemp client ][ ping ] {name} Request completed in {value}ms")
+            logging.info(f"[  nettemp client  ][ ping ] {name} Request completed in {value}ms")
         else:
-            print(f"[ nettemp client ][ ping ] {name} no connection!")
+            logging.info(f"[  nettemp client  ][ ping ] {name} no connection!")
 
     data=insert2(data)
     data.request()
-    print("[ nettemp client ][ ping ] End")
+    logging.info("[  nettemp client  ][ ping ] End")

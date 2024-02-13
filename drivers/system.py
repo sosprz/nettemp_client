@@ -1,8 +1,11 @@
 import psutil, socket
 from nettemp import insert2
+import logging
+
+logging.basicConfig(level=logging.INFO, format='[%(asctime)s] %(levelname)s: %(message)s', datefmt='%Y-%m-%d %H:%M:%S')
 
 def system():
-    print("[ nettemp client ][ system ] start")
+    logging.info("[ nettemp client ][ system ] start")
 
     
     data = []
@@ -24,5 +27,5 @@ def system():
 
     data=insert2(data)
     data.request()
-    #print(f"[ nettemp client ] {data}")
-    print("[ nettemp client ][ system ] End")
+
+    logging.info("[  nettemp client  ][ system ] End")
