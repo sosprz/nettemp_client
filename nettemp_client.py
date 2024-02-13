@@ -7,6 +7,7 @@ import yaml
 import hashlib
 import logging
 import requests
+requests.packages.urllib3.disable_warnings() 
 from apscheduler.schedulers.background import BackgroundScheduler
 from requests.exceptions import RequestException
 
@@ -22,7 +23,7 @@ CONFIG_DIRECTORY = os.path.dirname(os.path.abspath(__file__))
 print(CONFIG_DIRECTORY)
 
 # Scheduler setup
-sched = BackgroundScheduler({'apscheduler.timezone': 'Europe/London'})
+sched = BackgroundScheduler({'apscheduler.timezone': 'Europe/Warsaw'})
 sched.start()
 
 # Helper functions
@@ -133,6 +134,7 @@ def main():
         CONFIG_MAIN: file_md5_hash(os.path.join(CONFIG_DIRECTORY, CONFIG_MAIN)),
         CONFIG_LOCAL: file_md5_hash(os.path.join(CONFIG_DIRECTORY, CONFIG_LOCAL))
     }
+
 
     while True:
         time.sleep(60)  # Check every minute
