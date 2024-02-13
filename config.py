@@ -25,25 +25,23 @@ def configInit():
     config = {
       'server': 'https://nettemp_ip',
       'server_api_key': 'y8k76HDjmuQqJDKIaFwf8rk55sa8jIh1zCzZJ6sJZ8c',
-      'remote_config': {'enabled': 'true'}
+      'remote_config': {'enabled': 'true'},
+      'group': 'nettemp_client1'
       }
 
-    if (os.path.exists("drivers.conf") == False):
-      print("[ nettemp client ][ config ] NEW driver configd creating!")
-      with open('drivers.conf', 'a+') as yamlfile:
+    if (os.path.exists("local.conf") == False):
+      print("[  nettemp client  ][ config ] NEW driver configd creating!")
+      with open('local.conf', 'a+') as yamlfile:
          data = yaml.dump(configd, yamlfile)
     else:
-      print("[ nettemp client ][ config ] Configd already exist!")
+      print("[  nettemp client  ][ config ] Configd already exist!")
 
     if (os.path.exists("config.conf") == False):
-      print("[ nettemp client ][ config ] NEW configd creating!")
+      print("[  nettemp client  ][ config ] NEW configd creating!")
       with open('config.conf', 'a+') as yamlfile:
          data = yaml.dump(config, yamlfile)
     else:
-      print("[ nettemp client ][ config ] Configd already exist!")
+      print("[  nettemp client  ][ config ] Configd already exist!")
        
-    #with open("drivers.conf", "r") as yamlfile:
-    # data = yaml.load(yamlfile, Loader=yaml.FullLoader)
-    #print(data)
 
 configInit()

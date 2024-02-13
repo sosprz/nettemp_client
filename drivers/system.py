@@ -24,5 +24,5 @@ def system():
 
     data=insert2(data)
     data.request()
-    #print(f"[ nettemp client ] {data}")
-    print("[ nettemp client ][ system ] End")
+    #print(f"[  nettemp client  ] {data}")
+    print("[  nettemp client  ][ system ] End")

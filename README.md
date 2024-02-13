@@ -1,9 +1,9 @@
 
 ##### General info
 
-Nettemp client using python3 and virtual enviroment.
+Nettemp client uses python3 and virtual enviroment.
 Remember turn on I2C and 1wire on raspberry pi devices over raspi-config. 
-Drivers like ds2482 needs root perms (on raspberry pi no action needed)
+Drivers like ds2482 require root perms. On raspberry pi no action required or system where user has sudo.
 
 ##### Download and setup nettemp_client
 
