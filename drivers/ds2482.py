@@ -4,7 +4,7 @@ import time
 
 # Function to find the first available I2C bus
 def find_nbus():
-    for i in range(4):
+    for i in range(6):
         if os.path.exists(f'/dev/i2c-{i}'):
             return f"i2c-{i}"
     return None

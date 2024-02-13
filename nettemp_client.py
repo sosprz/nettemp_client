@@ -99,7 +99,6 @@ for sensor_config in sensor_configs:
             getattr(module, sensor_name)(*extra_args)
         except Exception as e:
             pass
-            print(f"\n[WARN] {sensor_name} Error \n\tArgs: '{str(e.args)}'")
         else:
             sched.add_job(
                 getattr(module, sensor_name),
