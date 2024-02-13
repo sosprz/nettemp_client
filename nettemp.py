@@ -22,14 +22,14 @@ class insert:
     name=self.name
 
     data = [{"rom":rom,"type":self.type, "device":"","value":self.value,"name":name, "group":group}]
-    logging.debug(data)
+    self.logging.debug(data)
     print(data)
     try:
         url = f'{server}'
         r = requests.post(url,headers={'Content-Type':'application/json', 'Authorization': f'Bearer {server_api_key}'},json=data, verify=False)
-        logging.info("[  nettemp client  ] Sensor %s value: %s" % (self.rom, self.value))
+        self.logging.info("[  nettemp client  ] Sensor %s value: %s" % (self.rom, self.value))
     except:
-      logging.info("[  nettemp client  ][ cannot connect to server ] Sensor %s value: %s" % (self.rom, self.value))
+       self.logging.info("[  nettemp client  ][ cannot connect to server ] Sensor %s value: %s" % (self.rom, self.value))
 
 class insert2:
   def __init__(self, data):
@@ -43,7 +43,7 @@ class insert2:
     group = config["group"]
   
     data = self.data
-    logging.debug(data)
+    self.ogging.debug(data)
     print(data)
     for d in data:
       d["group"] = group
@@ -52,7 +52,7 @@ class insert2:
     try:
       url = f'{server}'
       r = requests.post(url,headers={'Content-Type':'application/json', 'Authorization': f'Bearer {server_api_key}'},json=data, verify=False, timeout=5)
-      logging.info(f"[  nettemp client  ][ data package ] ")
+      self.logging.info(f"[  nettemp client  ][ data package ] ")
     except:
-      logging.info(f"[  nettemp client  ][ cannot connect to server ] ")
+      self.logging.info(f"[  nettemp client  ][ cannot connect to server ] ")
 
