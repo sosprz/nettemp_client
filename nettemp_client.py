@@ -70,6 +70,7 @@ def check_config(config_path):
         for key, default_value in expected_parameters.items():
             value = config.get(key)
             if not value or value == default_value:
+                print()
                 print(f"Parameter '{key}' is missing or set to its default value.")
                 return False
 
@@ -81,6 +82,7 @@ def check_config(config_path):
                 if part in temp_config:
                     temp_config = temp_config[part]
                 else:
+                    print()
                     print(f"Parameter '{param}' does not exist.")
                     return False
 
@@ -138,8 +140,6 @@ def file_md5_hash(file_path):
         return None 
 
 if not check_config(CONFIG_MAIN):
-    print("")
-    print("Some parameters are missing on config.conf or set to default values.")
     exit()
 
 # Your drivers function here
