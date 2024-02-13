@@ -22,6 +22,7 @@ class insert:
     name=self.name
 
     data = [{"rom":rom,"type":self.type, "device":"","value":self.value,"name":name, "group":group}]
+    logging.debug(data)
     try:
         url = f'{server}'
         r = requests.post(url,headers={'Content-Type':'application/json', 'Authorization': f'Bearer {server_api_key}'},json=data, verify=False)
@@ -41,6 +42,7 @@ class insert2:
     group = config["group"]
   
     data = self.data
+    logging.debug(data)
     for d in data:
       d["group"] = group
       d['rom'] = str(group) + d['rom']
