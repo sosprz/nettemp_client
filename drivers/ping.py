@@ -5,7 +5,7 @@ import pingparsing, requests, time
 requests.packages.urllib3.disable_warnings() 
 
 def ping():
-    print("[  nettemp client  ][ ping ] start")
+    logging.info("[  nettemp client  ][ ping ] start")
 
     
     data = []

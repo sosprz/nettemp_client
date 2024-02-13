@@ -52,7 +52,7 @@ def download_remote_config(server, api_key, group):
     local_config_path = os.path.join(CONFIG_DIRECTORY, CONFIG_REMOTE)
     existing_config = load_yaml(local_config_path)
     
-    if existing_config != remote_config:
+    if existing_config != remote_config or {}:
         save_yaml(remote_config, local_config_path)
         logging.info("[nettemp client] Remote configuration updated.")
         return True
@@ -132,7 +132,8 @@ def main():
     # Load main and local configuration hashes
     config_hashes = {
         CONFIG_MAIN: file_md5_hash(os.path.join(CONFIG_DIRECTORY, CONFIG_MAIN)),
-        CONFIG_LOCAL: file_md5_hash(os.path.join(CONFIG_DIRECTORY, CONFIG_LOCAL))
+        CONFIG_LOCAL: file_md5_hash(os.path.join(CONFIG_DIRECTORY, CONFIG_LOCAL)),
+        CONFIG_REMOTE: file_md5_hash(os.path.join(CONFIG_DIRECTORY, CONFIG_REMOTE))
     }
     
     # Attempt to load remote config, fallback to drivers config if unavailable
@@ -144,10 +145,11 @@ def main():
 
     while True:
         
-        # Re-check the configuration hashes
+        # Check if configurations have changed
         new_hashes = {
             CONFIG_MAIN: file_md5_hash(os.path.join(CONFIG_DIRECTORY, CONFIG_MAIN)),
-            CONFIG_LOCAL: file_md5_hash(os.path.join(CONFIG_DIRECTORY, CONFIG_LOCAL))
+            CONFIG_LOCAL: file_md5_hash(os.path.join(CONFIG_DIRECTORY, CONFIG_LOCAL)),
+            CONFIG_REMOTE: file_md5_hash(os.path.join(CONFIG_DIRECTORY, CONFIG_REMOTE))
         }
         
         # If any configuration has changed, restart the daemon
