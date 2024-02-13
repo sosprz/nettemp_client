@@ -32,7 +32,7 @@ def load_yaml(file_path):
         with open(file_path, 'r') as file:
             return yaml.safe_load(file)
     except yaml.YAMLError as e:
-        logging.error(f"Error loading YAML file {file_path}: {e}")
+        #logging.error(f"Error loading YAML file {file_path}: {e}")
         return None
 
 def save_yaml(data, file_path):
