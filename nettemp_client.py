@@ -7,9 +7,23 @@ import yaml
 import hashlib
 import logging
 import requests
+import argparse
 requests.packages.urllib3.disable_warnings() 
 from apscheduler.schedulers.background import BackgroundScheduler
 from requests.exceptions import RequestException
+
+# Setup argument parser
+parser = argparse.ArgumentParser(description='nettemp_client')
+parser.add_argument('--debug', help='Enable debug logging', action='store_true')
+
+# Parse arguments
+args = parser.parse_args()
+
+# Determine the logging level
+if args.debug:
+    log_level = logging.DEBUG
+else:
+    log_level = logging.INFO
 
 # Setup logging
 logging.basicConfig(level=logging.DEBUG, format='[%(asctime)s] %(levelname)s: %(message)s', datefmt='%Y-%m-%d %H:%M:%S')
