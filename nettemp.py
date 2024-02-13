@@ -1,6 +1,6 @@
 import requests
 requests.packages.urllib3.disable_warnings() 
-import yaml, socket, json, os
+import yaml, json, os
 import logging
 
 
@@ -17,7 +17,7 @@ class insert:
     config = yaml.load(config_file, Loader=yaml.FullLoader)
     server = config["server"]
     server_api_key = config["server_api_key"]
-    group = socket.gethostname()
+    group = config["group"]
     rom=group+self.rom
     name=self.name
 
@@ -38,7 +38,7 @@ class insert2:
     config = yaml.load(config_file, Loader=yaml.FullLoader)
     server = config["server"]
     server_api_key = config["server_api_key"]
-    group = socket.gethostname()
+    group = config["group"]
   
     data = self.data
     for d in data:
