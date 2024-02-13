@@ -11,7 +11,7 @@ from apscheduler.schedulers.background import BackgroundScheduler
 from requests.exceptions import RequestException
 
 # Setup logging
-logging.basicConfig(level=logging.INFO, format='[%(asctime)s] %(levelname)s: %(message)s', datefmt='%Y-%m-%d %H:%M:%S')
+logging.basicConfig(level=logging.DEBUG, format='[%(asctime)s] %(levelname)s: %(message)s', datefmt='%Y-%m-%d %H:%M:%S')
 
 # Constants
 CONFIG_MAIN = "config.conf"
