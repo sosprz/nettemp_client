@@ -5,6 +5,8 @@ import pingparsing, requests, time
 requests.packages.urllib3.disable_warnings()
 import logging
 
+logging.basicConfig(level=logging.INFO, format='[%(asctime)s] %(levelname)s: %(message)s', datefmt='%Y-%m-%d %H:%M:%S')
+
 
 def ping():
     logging.info("[  nettemp client  ][ ping ] start")
