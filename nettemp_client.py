@@ -31,6 +31,15 @@ def load_config(file_path):
 
 sched.start()
 
+
+try:
+  if remote_config() and download_remote_config():
+    print(f"[ nettemp client ][ new remote config {config_remote}, restarting ]")
+    os.execv(sys.executable, [sys.executable] + sys.argv)
+except:
+  print(f"[ nettemp client ][ new remote config {config_remote}, problem (rm remote.conf can help) ]")
+
+
 if remote_config():
     print(f"[ nettemp client ][ remote config: Enabled in main {configm} ]")
     if os.path.isfile(config_remote):
@@ -62,7 +71,7 @@ try:
       #print("\n[WARN] Error \n\tArgs: '%s'" % (str(e.args)))
 except Exception as e:
   pass
-  print("\n[WARN] Error \n\tArgs: '%s'" % (str(e.args)))
+  #print("\n[WARN] Error \n\tArgs: '%s'" % (str(e.args)))
 
 # List of sensor configurations
 sensor_configs = [
