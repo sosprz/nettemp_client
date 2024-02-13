@@ -81,8 +81,11 @@ def remote_config_enabled():
     return config and config.get("remote_config", {}).get("enabled", False)
 
 def file_md5_hash(file_path):
-    with open(file_path, 'rb') as file:
-        return hashlib.md5(file.read()).hexdigest()
+    try:
+        with open(file_path, 'rb') as file:
+            return hashlib.md5(file.read()).hexdigest()
+    except FileNotFoundError:
+        return None 
 
 # Your drivers function here
 
