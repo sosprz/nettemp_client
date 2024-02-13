@@ -50,7 +50,9 @@ def download_remote_config(server, api_key, group):
     r.raise_for_status()
     remote_config = r.json()
     local_config_path = os.path.join(CONFIG_DIRECTORY, CONFIG_REMOTE)
+    print(local_config_path)
     existing_config = load_yaml(local_config_path) or {}
+    print(existing_config)
     
     if existing_config != remote_config:
         save_yaml(remote_config, local_config_path)
