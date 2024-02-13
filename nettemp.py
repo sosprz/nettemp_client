@@ -1,13 +1,9 @@
 import requests
 requests.packages.urllib3.disable_warnings() 
 import yaml, json, os, socket
-import logging
-
-logging.basicConfig(level=logging.INFO, format='[%(asctime)s] %(levelname)s: %(message)s', datefmt='%Y-%m-%d %H:%M:%S')
 
 class insert:
   def __init__(self, rom, type, value, name):
-    self.logger = logging.getLogger(self.__class__.__name__)
     self.rom = rom
     self.type = type
     self.value = value
@@ -29,17 +25,15 @@ class insert:
     name=self.name
 
     data = [{"rom":rom,"type":self.type, "device":"","value":self.value,"name":name, "group":group}]
-    self.logging.debug(data)
     try:
         url = f'{server}'
-        r = requests.post(url,headers={'Content-Type':'application/json', 'Authorization': f'Bearer {server_api_key}'},json=data, verify=False)
-        self.logging.info("[  nettemp client  ] Sensor %s value: %s" % (self.rom, self.value))
+        r = requests.post(url,headers={'Content-Type':'application/json', 'Authorization': f'Bearer {server_api_key}'},json=data, verify=False, timeout=5),
+        print("[  nettemp client  ] Sensor %s value: %s" % (self.rom, self.value))
     except:
-       self.logging.info("[  nettemp client  ][ cannot connect to server ] Sensor %s value: %s" % (self.rom, self.value))
+        print("[  nettemp client  ][ cannot connect to server ] Sensor %s value: %s" % (self.rom, self.value))
 
 class insert2:
   def __init__(self, data):
-    self.logger = logging.getLogger(self.__class__.__name__)
     self.data = data
 
   def request(self):
@@ -54,7 +48,6 @@ class insert2:
       group = socket.gethostname()
   
     data = self.data
-    self.logging.debug(data)
     for d in data:
       d["group"] = group
       d['rom'] = str(group) + d['rom']
@@ -62,7 +55,7 @@ class insert2:
     try:
       url = f'{server}'
       r = requests.post(url,headers={'Content-Type':'application/json', 'Authorization': f'Bearer {server_api_key}'},json=data, verify=False, timeout=5)
-      self.logging.info(f"[  nettemp client  ][ data package ] ")
+      print(f"[  nettemp client  ][ data package ] ")
     except:
-      self.logging.info(f"[  nettemp client  ][ cannot connect to server ] ")
+      print(f"[  nettemp client  ][ cannot connect to server ] ")
 
