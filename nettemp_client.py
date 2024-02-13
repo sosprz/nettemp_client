@@ -59,7 +59,7 @@ try:
       import drivers.ds2482
     except Exception as e:
       pass
-      print("\n[WARN] Error \n\tArgs: '%s'" % (str(e.args)))
+      #print("\n[WARN] Error \n\tArgs: '%s'" % (str(e.args)))
 except Exception as e:
   pass
   print("\n[WARN] Error \n\tArgs: '%s'" % (str(e.args)))
