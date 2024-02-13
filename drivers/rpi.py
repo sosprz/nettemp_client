@@ -13,7 +13,7 @@ def rpi():
         value = cpu.temperature
         rom = '_raspberrypi'
         type = 'temp'
-        name = '_raspberrypi'
+        name = 'raspberrypi'
 
         data.append({"rom":rom,"type":type, "value":value,"name":name})
         data=insert2(data)
