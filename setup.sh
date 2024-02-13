@@ -25,8 +25,10 @@ echo "### end crontab"
 echo "### Add $USER to I2C group"
 sudo usermod $USER -aG i2c
 
-echo "### 1. edit config.conf to add server IP and api key token"
-echo "### 2. edit drivers.conf to enable drivers for sensors"
+echo "### 1. edit config.conf to add server IP and api key token and group"
+echo "### 2. edit local.conf to enable drivers for sensors or:"
+echo "### 3. go to nettemp to enable drivers from GUI"
+
 
 
 
