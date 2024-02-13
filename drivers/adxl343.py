@@ -30,28 +30,28 @@ try:
   value = x
   name = 'adxl343_x'
   type = 'accel'
-  data=insert(rom, type, value, name, group)
+  data=insert(rom, type, value, name)
   data.request()
 
   rom = "i2c_53_acce_y"
   value = y
   name = 'adxl343_y'
   type = 'accel'
-  data=insert(rom, type, value, name, group)
+  data=insert(rom, type, value, name)
   data.request()
 
   rom = "i2c_53_acce_z"
   value = z
   name = 'adxl343_z'
   type = 'accel'
-  data=insert(rom, type, value, name, group)
+  data=insert(rom, type, value, name)
   data.request()
 
   rom = "i2c_53_moti"
   value = '{0:0.2f}'.format(motion)
   name = 'adxl343_motion'
   type = 'motion'
-  data=insert(rom, type, value, name, group)
+  data=insert(rom, type, value, name)
   data.request()
 except:
   print ("No ADXL34x")
