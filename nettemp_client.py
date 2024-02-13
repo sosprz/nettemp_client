@@ -35,12 +35,51 @@ CONFIG_REMOTE = "remote.conf"
 CONFIG_LOCAL = "local.conf"
 CONFIG_DIRECTORY = os.path.dirname(os.path.abspath(__file__))
 
+# check config params
+
+
+
 
 # Scheduler setup
 sched = BackgroundScheduler({'apscheduler.timezone': 'Europe/Warsaw'})
 sched.start()
 
 # Helper functions
+
+def check_config_parameters(config_path, default_values):
+    try:
+        with open(config_path, 'r') as file:
+            config = yaml.safe_load(file)
+
+        # Check each parameter in default_values
+        for param, default in default_values.items():
+            # Split parameter into parts in case of nested parameters
+            parts = param.split('.')
+            temp_config = config
+            for part in parts:
+                if part in temp_config:
+                    temp_config = temp_config[part]
+                else:
+                    # Parameter does not exist
+                    return False
+            
+            # Check if parameter is set to its default value
+            if temp_config == default:
+                return False
+
+    except Exception as e:
+        print(f"Error checking configuration parameters: {e}")
+        return False
+
+    return True
+
+default_values = {
+    'group': 'nettemp_client1',
+    'remote_config.enabled': 'true',  # Use dot notation for nested parameters
+    'server': 'https://nettemp_ip',
+    'server_api_key': 'y8k76HDjmuQqJDKIaFwf8rk55sa8jIh1zCzZJ6sJZ8c'
+}
+
 def load_yaml(file_path):
     try:
         with open(file_path, 'r') as file:
@@ -86,6 +125,10 @@ def file_md5_hash(file_path):
             return hashlib.md5(file.read()).hexdigest()
     except FileNotFoundError:
         return None 
+
+if not check_config_parameters(CONFIG_MAIN, default_values):
+    print("Some parameters are missing on config.conf or set to default values.")
+    exit()
 
 # Your drivers function here
 
