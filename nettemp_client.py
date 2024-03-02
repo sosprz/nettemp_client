@@ -9,6 +9,7 @@ import logging
 import requests
 import argparse
 import socket
+from datetime import datetime
 requests.packages.urllib3.disable_warnings() 
 from apscheduler.schedulers.background import BackgroundScheduler
 from requests.exceptions import RequestException
@@ -107,12 +108,18 @@ def save_yaml(data, file_path):
             yaml.safe_dump(data, file)
     except yaml.YAMLError as e:
         logging.error(f"Error saving YAML file {file_path}: {e}")
+        
+def version():
+    version = 0.91
+    return version
 
 def download_remote_config(server, api_key, group):
     url = f'{server}/api/clients/{group}'
     headers = {'Content-Type': 'application/json', 'Authorization': f'Bearer {api_key}'}
     try:
-        r = requests.get(url, headers=headers, verify=False, timeout=5)
+        current_time = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+        data = {"version":version(), "time":f"{current_time}"}
+        r = requests.post(url,json=data, headers=headers, verify=False, timeout=5)
         r.raise_for_status()
         
         
@@ -124,7 +131,8 @@ def download_remote_config(server, api_key, group):
             save_yaml(remote_config, local_config_path)
             logging.info("[nettemp client] Remote configuration updated.")
             return True
-    except:
+    except Exception as e:
+        print(f"An error occurred: {e}")
         return False
 
 

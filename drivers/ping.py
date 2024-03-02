@@ -23,7 +23,7 @@ def perform_ping(name):
 
         request_time = time.perf_counter() - start
 
-        if code == 200:
+        if code in [200]:
             value = '{0:0.2f}'.format(request_time)
         else:
             value = 0
@@ -43,13 +43,11 @@ def perform_ping(name):
             value = 0
         type = 'host'
 
-    name = name.replace("https://", "").replace("http://", "")
-    rom = '_' + name
-    if value != 0:
-        data = {"rom": rom, "type": type, "value": value, "name": name}
-        logging.info(f"[  nettemp client  ][ ping ] {name} Request completed in {value}ms")
-    else:
-        logging.info(f"[  nettemp client  ][ ping ] {name} no connection!")
+    name4r = name.replace("://", "_")
+    rom = '_' + type + '_' + name4r
+
+    data = {"rom": rom, "type": type, "value": value, "name": name}
+    logging.info(f"[  nettemp client  ][ ping ] {name} Request completed in {value}ms")
 
     return data
 
