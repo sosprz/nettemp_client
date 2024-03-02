@@ -1,9 +1,10 @@
 
 # General info
 
-Nettemp client uses python3 and virtual enviroment.
-Remember turn on I2C and 1wire on raspberry pi devices over raspi-config. 
-Drivers like ds2482 require root perms. On raspberry pi no action required or system where user has sudo.
+The Nettemp client is designed for Python 3 and utilizes a virtual environment. Ensure that I2C and 1-Wire are enabled on Raspberry Pi devices through the raspi-config tool.
+
+Please note that drivers such as ds2482 may require root permissions. On Raspberry Pi, no additional action is needed, or on systems where the user has sudo privileges.
+
 
 # Download and setup nettemp_client
 
@@ -15,7 +16,7 @@ bash ./setup.sh
 
 # Set server IP and API key in config file.  
 
-Go to nettemp anf get token
+Go to nettemp and get token
 
 ![alt text](img/image.png)
 
@@ -35,28 +36,6 @@ server_api_key: y8k76HDjmuQqJDKIaFwf8rk55sa8jIh1zCzZJ6sJZ8c
 
 ![alt text](img/image2.png)
 
-# Enable sensors in config
-
-```
-nano drivers.conf
-```
-```
-w1_kernel:
-    enabled: true
-    read_in_sec: 60
-system:
-    enabled: true
-    read_in_sec: 60
-ping:
-  enabled: true
-  hosts:
-  - wp.pl
-  - google.com
-  read_in_sec: 60
-
-etc...
-
-```
 
 # Run app:
 
