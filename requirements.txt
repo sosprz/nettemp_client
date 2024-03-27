@@ -13,4 +13,6 @@ adafruit-circuitpython-dht
 adafruit-circuitpython-vl53l0x
 pingparsing
 deepdiff
+paho-mqtt
 git+https://github.com/nicmcd/vcgencmd.git
+sdm_modbus

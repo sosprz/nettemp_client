@@ -5,7 +5,7 @@ import logging
 logging.basicConfig(level=logging.INFO, format='[%(asctime)s] %(levelname)s: %(message)s', datefmt='%Y-%m-%d %H:%M:%S')
 
 def system():
-    logging.info("[ nettemp client ][ system ] start")
+    logging.info("[ system ] start")
 
     
     data = []
@@ -28,4 +28,4 @@ def system():
     data=insert2(data)
     data.request()
 
-    logging.info("[  nettemp client  ][ system ] End")
+    logging.info("[ system ] End")

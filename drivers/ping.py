@@ -5,6 +5,7 @@ import pingparsing
 import requests
 import time
 import json
+import os
 from concurrent.futures import ThreadPoolExecutor
 requests.packages.urllib3.disable_warnings()
 
@@ -47,21 +48,26 @@ def perform_ping(name):
     rom = '_' + type + '_' + name4r
 
     data = {"rom": rom, "type": type, "value": value, "name": name}
-    logging.info(f"[  nettemp client  ][ ping ] {name} Request completed in {value}ms")
+    logging.info(f"[ ping ] {name} Request completed in {value}ms")
 
     return data
 
 def ping():
-    logging.info("[  nettemp client  ][ ping ] start")
+    logging.info("[ ping ] start")
+    
+    dir = os.path.dirname(os.path.abspath(__file__))
+    parent_dir = os.path.dirname(dir)
+    remote_config = os.path.join(parent_dir, "remote.conf")
+    local_config = os.path.join(parent_dir, "local.conf")
 
     try:
-        config = yaml.load(open("remote.conf"), Loader=yaml.FullLoader)
+        config = yaml.load(open(remote_config), Loader=yaml.FullLoader)
     except Exception as e:
         logging.error(f"Failed to load configuration: {e}")
-        config = yaml.load(open("local.conf"), Loader=yaml.FullLoader)
+        config = yaml.load(open(local_config), Loader=yaml.FullLoader)
 
     hosts = config["ping"]["hosts"]
-
+    
     # Use ThreadPoolExecutor to perform ping in parallel
     with ThreadPoolExecutor(max_workers=len(hosts)) as executor:
         results = list(executor.map(perform_ping, hosts))
@@ -75,5 +81,5 @@ def ping():
         processed_data = insert2(data)
         processed_data.request()
 
-    logging.info("[  nettemp client  ][ ping ] End")
+    logging.info("[ ping ] End")
 

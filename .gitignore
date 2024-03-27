@@ -5,3 +5,4 @@ config.conf
 configd.conf
 drivers.conf
 remote.conf
+local.conf

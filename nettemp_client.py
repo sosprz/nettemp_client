@@ -33,8 +33,9 @@ logging.basicConfig(level=log_level, format='[%(asctime)s] %(levelname)s: %(mess
 # Constants
 CONFIG_MAIN = "config.conf"
 CONFIG_REMOTE = "remote.conf"
-CONFIG_LOCAL = "local.conf"
+# CONFIG_LOCAL = "local.conf"
 CONFIG_DIRECTORY = os.path.dirname(os.path.abspath(__file__))
+logging.info(CONFIG_DIRECTORY)
 
 # check config params
 
@@ -58,7 +59,7 @@ def check_config(config_path):
     # Define all expected parameter names (including nested ones)
     all_expected_names = [
         'group',
-        'remote_config.enabled',
+        # 'remote_config.enabled',
         'server',
         'server_api_key'
     ]
@@ -110,7 +111,7 @@ def save_yaml(data, file_path):
         logging.error(f"Error saving YAML file {file_path}: {e}")
         
 def version():
-    version = 0.91
+    version = 0.92
     return version
 
 def download_remote_config(server, api_key, group):
@@ -136,9 +137,9 @@ def download_remote_config(server, api_key, group):
         return False
 
 
-def remote_config_enabled():
-    config = load_yaml(os.path.join(CONFIG_DIRECTORY, CONFIG_MAIN))
-    return config and config.get("remote_config", {}).get("enabled", False)
+# def remote_config_enabled():
+#     config = load_yaml(os.path.join(CONFIG_DIRECTORY, CONFIG_MAIN))
+#     return config and config.get("remote_config", {}).get("enabled", False)
 
 def file_md5_hash(file_path):
     try:
@@ -147,7 +148,8 @@ def file_md5_hash(file_path):
     except FileNotFoundError:
         return None 
 
-if not check_config(CONFIG_MAIN):
+config_main = os.path.join(CONFIG_DIRECTORY, CONFIG_MAIN)
+if not check_config(config_main):
     exit()
 
 # Your drivers function here
@@ -186,6 +188,7 @@ def drivers(config):
         {"name": "w1_kernel_gpio", "module": "drivers.w1_kernel_gpio", "extra_args": []},
         {"name": "lm_sensors", "module": "drivers.lm_sensors", "extra_args": []},
         {"name": "w1_kernel", "module": "drivers.w1_kernel", "extra_args": []},
+        {"name": "sdm120", "module": "drivers.sdm120", "extra_args": []},
     ]
 
     # Iterate over sensor configurations
@@ -215,23 +218,23 @@ def main():
     # Load main and local configuration hashes
     config_hashes = {
         CONFIG_MAIN: file_md5_hash(os.path.join(CONFIG_DIRECTORY, CONFIG_MAIN)),
-        CONFIG_LOCAL: file_md5_hash(os.path.join(CONFIG_DIRECTORY, CONFIG_LOCAL)),
+        # CONFIG_LOCAL: file_md5_hash(os.path.join(CONFIG_DIRECTORY, CONFIG_LOCAL)),
         CONFIG_REMOTE: file_md5_hash(os.path.join(CONFIG_DIRECTORY, CONFIG_REMOTE))
     }
     
     # Attempt to load remote config, fallback to local config if unavailable
-    config = load_yaml(os.path.join(CONFIG_DIRECTORY, CONFIG_REMOTE)) or load_yaml(os.path.join(CONFIG_DIRECTORY, CONFIG_LOCAL))
+    config = load_yaml(os.path.join(CONFIG_DIRECTORY, CONFIG_REMOTE)) #or load_yaml(os.path.join(CONFIG_DIRECTORY, CONFIG_LOCAL))
     if config:
         drivers(config)
     else:
-        logging.error("[nettemp client] Unable to load any configuration.")
+        logging.error("[nettemp client] Unable to load remote.conf")
 
     while True:
         
         # Check if configurations have changed
         new_hashes = {
             CONFIG_MAIN: file_md5_hash(os.path.join(CONFIG_DIRECTORY, CONFIG_MAIN)),
-            CONFIG_LOCAL: file_md5_hash(os.path.join(CONFIG_DIRECTORY, CONFIG_LOCAL)),
+            # CONFIG_LOCAL: file_md5_hash(os.path.join(CONFIG_DIRECTORY, CONFIG_LOCAL)),
             CONFIG_REMOTE: file_md5_hash(os.path.join(CONFIG_DIRECTORY, CONFIG_REMOTE))
         }
         
@@ -241,13 +244,13 @@ def main():
             os.execv(sys.executable, [sys.executable] + sys.argv)
         else:
             # Optionally, check for remote configuration updates
-            if remote_config_enabled():
-                config_main = load_yaml(os.path.join(CONFIG_DIRECTORY, CONFIG_MAIN))
-                try:
-                  group = config["group"]
-                except:
-                  group = socket.gethostname()
-                download_remote_config(config_main["server"], config_main["server_api_key"], config_main.get("group", group))
+            #if remote_config_enabled():
+            config_main = load_yaml(os.path.join(CONFIG_DIRECTORY, CONFIG_MAIN))
+            try:
+                group = config["group"]
+            except:
+                group = socket.gethostname()
+            download_remote_config(config_main["server"], config_main["server_api_key"], config_main.get("group", group))
                 
         time.sleep(60)  # Check every minute
         
