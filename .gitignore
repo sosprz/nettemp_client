@@ -3,6 +3,7 @@ venv/
 
 # Config files (may contain secrets)
 config.conf
+drivers_config.yaml
 test_config.conf
 
 # Buffers and cache

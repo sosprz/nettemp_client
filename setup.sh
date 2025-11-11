@@ -22,6 +22,20 @@ pip3 install -r requirements.txt
 
 # Initialize config
 echo "[4/6] Initializing configuration..."
+if [ ! -f config.conf ]; then
+    cp example_config.conf config.conf
+    echo "✓ Created config.conf from example"
+else
+    echo "✓ config.conf already exists (preserved)"
+fi
+
+if [ ! -f drivers_config.yaml ]; then
+    cp example_drivers_config.yaml drivers_config.yaml
+    echo "✓ Created drivers_config.yaml from example"
+else
+    echo "✓ drivers_config.yaml already exists (preserved)"
+fi
+
 python3 -c "from driver_loader import DriverLoader; print('Config check OK')" || echo "Warning: Config check failed"
 
 deactivate
@@ -60,11 +74,13 @@ echo "   - Set your device name (group)"
 echo "   - Add server URL (cloud_server) - use your self-hosted instance"
 echo "   - Add your API token (cloud_api_key)"
 echo "   Note: Nettemp Cloud (managed service) coming soon!"
+echo "   Note: Your config.conf won't be overwritten during git pull"
 echo ""
 echo "2. Edit drivers_config.yaml:"
 echo "   - Enable sensors you have"
 echo "   - Set reading intervals"
 echo "   - Configure sensor parameters (GPIO pins, I2C addresses, etc.)"
+echo "   Note: Your drivers_config.yaml won't be overwritten during git pull"
 echo ""
 echo "3. Test the setup:"
 echo "   source venv/bin/activate"
