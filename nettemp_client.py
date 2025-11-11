@@ -122,6 +122,14 @@ class NettempClient:
             except Exception as e:
                 logging.error(f'Failed to schedule {name}: {e}')
 
+    def _restart_process(self):
+        """Restart the current process (exec into new instance)."""
+        try:
+            python = sys.executable
+            os.execv(python, [python] + sys.argv)
+        except Exception:
+            logging.exception('Failed to restart process')
+
     def start(self):
         self.schedule_drivers()
         self.scheduler.start()
@@ -135,11 +143,20 @@ class NettempClient:
         except Exception:
             drivers_mtime = None
 
+        # track config.conf mtime so we can restart to apply changes
+        conf_path = Path(self.config_file)
+        conf_mtime = None
+        try:
+            if conf_path.exists():
+                conf_mtime = conf_path.stat().st_mtime
+        except Exception:
+            conf_mtime = None
+
         try:
             while True:
                 time.sleep(1)
 
-                # poll config file for changes and reschedule if changed
+                # poll drivers_config.yaml for changes and reschedule if changed
                 try:
                     if self.loader.config_file.exists():
                         new_m = self.loader.config_file.stat().st_mtime
@@ -149,6 +166,20 @@ class NettempClient:
                             self._reschedule_drivers()
                 except Exception as e:
                     logging.error(f'Error watching drivers config: {e}')
+
+                # watch config.conf for changes and restart automatically (no prompt)
+                try:
+                    if conf_path.exists():
+                        newc = conf_path.stat().st_mtime
+                        if conf_mtime is None:
+                            conf_mtime = newc
+                        elif newc > conf_mtime:
+                            conf_mtime = newc
+                            logging.info('Detected change in config.conf — restarting to apply changes')
+                            # restart process to pick up new config
+                            self._restart_process()
+                except Exception as e:
+                    logging.error(f'Error watching config.conf: {e}')
         except KeyboardInterrupt:
             logging.info('Stopping runner')
             self.scheduler.shutdown()
