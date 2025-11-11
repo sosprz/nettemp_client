@@ -83,6 +83,11 @@ bme280:
 
 ## Available Drivers
 
+<div align="center">
+<img src="img/nettemp-raspi.jpg" alt="Nettemp Raspberry Pi HAT" width="360" style="margin:8px" />
+<img src="img/nettemp-sensors1.jpg" alt="Nettemp sensors" width="360" style="margin:8px" />
+</div>
+
 **System:**
 - `system` - CPU, RAM usage
 - `rpi` - Raspberry Pi CPU temperature
@@ -236,6 +241,16 @@ w1_kernel:
 ```
 The DS2482 bridge allows connecting many 1-Wire sensors over I2C. Hardware is initialized automatically on startup.
 
+Note about the Nettemp Pi HAT / DS2482 addon
+-------------------------------------------
+There was a Nettemp Pi HAT (DS2482-based 1-Wire bridge) sold previously via Kamami. The product page (now withdrawn) is available for historical reference:
+
+https://kamami.pl/wycofane-z-oferty/559377-nettemp-pi-hat-modul-nettemp-dla-komputera-raspberry-pi.html
+
+This specific HAT appears to be discontinued from that supplier. If you need the same functionality today, you can use any compatible DS2482 I2C-to-1-Wire bridge breakout (for example modules labeled DS2482-800) or run multiple DS18B20 sensors directly on the Pi's 1-Wire GPIO (if wiring allows).
+
+To enable DS2482 support in this client, set `ds2482: true` under `w1_kernel` in `drivers_config.yaml` (example above). The driver will attempt to initialize the DS2482 bridge on startup.
+
 ## Troubleshooting
 
 **No sensors found:**
@@ -306,11 +321,8 @@ rm -rf /path/to/nettemp_cloud/client
 ### ☁️ Nettemp Cloud *(Coming Soon)*
 - ✅ Fully managed service
 - ✅ No server setup required
-- ✅ Auto-scaling & global CDN
-- ✅ Free tier available
 - 🚧 Currently in development
 
-**Sign up for early access:** https://github.com/sosprz/nettemp_client/issues
 
 ### 🏠 Self-Hosted *(Available Now)*
 - ✅ Full control over your data
@@ -318,6 +330,30 @@ rm -rf /path/to/nettemp_cloud/client
 - ✅ No external dependencies
 - ✅ LAN-only option (offline mode)
 - ✅ Deploy to any server/VPS
+
+Docker image
+------------
+A Docker image is available for easier self-hosted deployment: przemeksdocker/nettemp. You can run the client or the server in a container if you prefer containerized deployments. Check the Docker Hub or the `przemeksdocker/nettemp` repository for usage examples and tags.
+
+Docker Hub
+----------
+Pull or inspect the published image on Docker Hub:
+
+https://hub.docker.com/r/przemeksdocker/nettemp
+
+Community
+---------
+Join the project Discord server for help, discussions, and announcements:
+
+https://discord.gg/S4egxNvQHM
+
+Nettemp Docker repository
+------------------------
+The main Nettemp project includes Docker deployment examples and images — see the repository for server and containerized setups:
+
+https://github.com/sosprz/nettemp
+
+Use that repository for Docker Compose examples and instructions to run Nettemp (server) and the client in containers.
 
 **Quick start:** Clone the backend repository and follow deployment instructions.
 
