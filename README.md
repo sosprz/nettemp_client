@@ -126,23 +126,77 @@ Runs automatically on boot via cron.
 python3 demo_all_sensors.py
 ```
 
+## Updating
+
+### Quick Update (Recommended)
+
+```bash
+cd nettemp_client
+./update.sh
+```
+
+The update script automatically:
+- Stops the running client
+- Pulls latest changes from GitHub
+- Updates Python dependencies
+- Restarts the client
+- Preserves your configurations
+
+### Manual Update
+
+```bash
+# Navigate to installation directory
+cd nettemp_client
+
+# Stop the running client (if running interactively)
+# Press Ctrl+C to stop
+
+# Pull latest changes
+git pull origin main
+
+# Update Python dependencies
+source venv/bin/activate
+pip3 install -r requirements.txt --upgrade
+
+# Restart the client
+python3 nettemp_client.py
+
+# Or reboot to restart via cron
+sudo reboot
+```
+
+**Your configurations are safe:**
+- `config.conf` - Your device settings are preserved
+- `drivers_config.yaml` - Your sensor configurations are preserved
+
+The update only modifies:
+- Code files (*.py)
+- Example templates (`example_config.conf`, `example_drivers_config.yaml`)
+- Documentation
+- Default driver files
+
+**Note:** If new configuration options are added, check `example_config.conf` or `example_drivers_config.yaml` for reference.
+
 ## File Structure
 
 ```
 client/
-├── setup.sh                    # Installation script
-├── config.conf                 # Device & cloud settings
-├── drivers_config.yaml         # Sensor configuration
-├── nettemp_client.py          # Production runner (scheduled)
-├── nettemp.py                 # Cloud client library
-├── driver_loader.py           # Driver management
-├── demo_all_sensors.py        # Test with fake data
-├── drivers/                    # Sensor drivers
+├── setup.sh                       # Installation script
+├── update.sh                      # Update script
+├── example_config.conf            # Config template (tracked in git)
+├── example_drivers_config.yaml    # Drivers template (tracked in git)
+├── config.conf                    # Your device settings (git ignored)
+├── drivers_config.yaml            # Your sensor config (git ignored)
+├── nettemp_client.py             # Production runner (scheduled)
+├── nettemp.py                    # Cloud client library
+├── driver_loader.py              # Driver management
+├── demo_all_sensors.py           # Test with fake data
+├── drivers/                       # Sensor drivers
 │   ├── system.py
 │   ├── dht22.py
 │   ├── bme280.py
 │   └── ...
-└── requirements.txt           # Python dependencies
+└── requirements.txt              # Python dependencies
 ```
 
 ## Hardware Setup
