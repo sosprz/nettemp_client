@@ -68,11 +68,13 @@ def remove_pidfile():
 
 
 class NettempClient:
-    def __init__(self, config_file='config.conf', drivers_config='drivers_config.yaml'):
+    def __init__(self, config_file='config.conf', drivers_config='drivers_config.yaml', bg_mode: bool = False):
         if BackgroundScheduler is None:
             raise RuntimeError('apscheduler is required: pip install apscheduler')
         self.loader = DriverLoader(config_file=drivers_config)
         self.cloud_client = CloudClient(config_file)
+        self.config_file = config_file
+        self.bg_mode = bg_mode
         self.scheduler = BackgroundScheduler()
 
     def read_and_send(self, driver_name, driver_config):
@@ -97,13 +99,56 @@ class NettempClient:
             self.scheduler.add_job(self.read_and_send, 'interval', seconds=interval, args=[name, cfg], id=name)
             logging.info(f'Scheduled {name} every {interval}s')
 
+    def _reschedule_drivers(self):
+        """Reload driver config and reschedule jobs to match enabled drivers."""
+        # reload config from disk
+        new_config = self.loader.load_config()
+        self.loader.config = new_config
+
+        # remove all existing driver jobs
+        for job in list(self.scheduler.get_jobs()):
+            try:
+                self.scheduler.remove_job(job.id)
+                logging.info(f'Removed job: {job.id}')
+            except Exception:
+                logging.debug(f'Failed to remove job: {job.id}')
+
+        # schedule according to new config
+        enabled = self.loader.load_drivers_from_config(new_config)
+        for name, cfg, interval in enabled:
+            try:
+                self.scheduler.add_job(self.read_and_send, 'interval', seconds=int(interval), args=[name, cfg], id=name)
+                logging.info(f'Scheduled {name} every {int(interval)}s')
+            except Exception as e:
+                logging.error(f'Failed to schedule {name}: {e}')
+
     def start(self):
         self.schedule_drivers()
         self.scheduler.start()
         logging.info('Runner started')
+
+        # track drivers_config.yaml mtime for reloads
+        drivers_mtime = None
+        try:
+            if self.loader.config_file.exists():
+                drivers_mtime = self.loader.config_file.stat().st_mtime
+        except Exception:
+            drivers_mtime = None
+
         try:
             while True:
                 time.sleep(1)
+
+                # poll config file for changes and reschedule if changed
+                try:
+                    if self.loader.config_file.exists():
+                        new_m = self.loader.config_file.stat().st_mtime
+                        if drivers_mtime is None or new_m > drivers_mtime:
+                            drivers_mtime = new_m
+                            logging.info('Detected change in drivers_config.yaml — reloading and rescheduling drivers')
+                            self._reschedule_drivers()
+                except Exception as e:
+                    logging.error(f'Error watching drivers config: {e}')
         except KeyboardInterrupt:
             logging.info('Stopping runner')
             self.scheduler.shutdown()
@@ -127,7 +172,7 @@ def main():
         try:
             while True:
                 try:
-                    client = NettempClient(config_file='config.conf', drivers_config='drivers_config.yaml')
+                    client = NettempClient(config_file='config.conf', drivers_config='drivers_config.yaml', bg_mode=True)
                     client.start()
                     break
                 except KeyboardInterrupt:
@@ -159,7 +204,7 @@ def main():
     # Run in foreground for debugging
     write_pidfile(os.getpid())
     try:
-        client = NettempClient(config_file='config.conf', drivers_config='drivers_config.yaml')
+        client = NettempClient(config_file='config.conf', drivers_config='drivers_config.yaml', bg_mode=False)
         client.start()
     finally:
         remove_pidfile()
