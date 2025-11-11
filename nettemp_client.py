@@ -1,119 +1,177 @@
 #!/usr/bin/env python3
 """
-Nettemp Client - Production client with local config
-Reads drivers_config.yaml and runs enabled drivers on schedule
+Nettemp client — automatic foreground/background behavior (no switches required)
+
+Behavior:
+- If you run the script interactively and a background instance is running, the
+  foreground run will automatically stop the background instance, run in the
+  terminal for debugging, and when it exits it will re-spawn a detached
+  background instance so the client keeps running.
+- Background mode is implemented by launching the same script with the
+  environment variable NETTEMP_CLIENT_BG=1 (this is internal; you don't need
+  to set it yourself).
 """
 import sys
 import time
 import logging
+import os
+import signal
+import argparse
+import subprocess
 from pathlib import Path
-from apscheduler.schedulers.background import BackgroundScheduler
+
+try:
+    from apscheduler.schedulers.background import BackgroundScheduler
+except Exception:
+    BackgroundScheduler = None
 
 sys.path.insert(0, str(Path(__file__).parent))
 
 from nettemp import CloudClient, insert2
 from driver_loader import DriverLoader
 
-logging.basicConfig(level=logging.INFO, format='[%(asctime)s] %(levelname)s: %(message)s', datefmt='%Y-%m-%d %H:%M:%S')
+logging.basicConfig(level=logging.INFO, format='[%(asctime)s] %(levelname)s: %(message)s')
+
+PIDFILE = Path(__file__).parent / '.nettemp_client.pid'
+
+
+def is_process_running(pid: int) -> bool:
+    try:
+        os.kill(pid, 0)
+    except OSError:
+        return False
+    return True
+
+
+def read_pidfile() -> int | None:
+    try:
+        if PIDFILE.exists():
+            return int(PIDFILE.read_text().strip())
+    except Exception:
+        return None
+    return None
+
+
+def write_pidfile(pid: int):
+    try:
+        PIDFILE.write_text(str(pid))
+    except Exception as e:
+        logging.warning(f'Could not write pidfile: {e}')
+
+
+def remove_pidfile():
+    try:
+        if PIDFILE.exists():
+            PIDFILE.unlink()
+    except Exception as e:
+        logging.debug(f'Failed to remove pidfile: {e}')
 
 
 class NettempClient:
-    """Run sensors based on local config and send to cloud"""
-
     def __init__(self, config_file='config.conf', drivers_config='drivers_config.yaml'):
+        if BackgroundScheduler is None:
+            raise RuntimeError('apscheduler is required: pip install apscheduler')
         self.loader = DriverLoader(config_file=drivers_config)
         self.cloud_client = CloudClient(config_file)
-        self.scheduler = BackgroundScheduler({'apscheduler.timezone': 'UTC'})
+        self.scheduler = BackgroundScheduler()
 
     def read_and_send(self, driver_name, driver_config):
-        """Read sensor and send to cloud"""
-        logging.info(f"Reading: {driver_name}")
-
-        # Run driver
+        logging.info(f'Reading: {driver_name}')
         readings = self.loader.run_driver(driver_name, driver_config)
-
         if not readings:
-            logging.warning(f"No readings from {driver_name}")
+            logging.warning(f'No readings from {driver_name}')
             return
-
-        # Send data as-is - backend will handle normalization and units
         try:
             sender = insert2(readings)
             sender.request()
-            logging.info(f"✓ {driver_name}: Sent {len(readings)} readings")
+            logging.info(f'Sent {len(readings)} readings for {driver_name}')
         except Exception as e:
-            logging.error(f"Failed to send {driver_name}: {e}")
+            logging.error(f'Failed to send {driver_name}: {e}')
 
-    def initialize_hardware(self):
-        """Initialize hardware that requires one-time setup"""
-        # Check if w1_kernel driver has ds2482 enabled
-        w1_config = self.loader.config.get('w1_kernel', {})
-        if isinstance(w1_config, dict) and w1_config.get('ds2482'):
-            logging.info("DS2482 initialization requested in w1_kernel config")
-            try:
-                from drivers.ds2482 import ds2482_init
-                success = ds2482_init(w1_config)
-                if success:
-                    logging.info("✓ DS2482 initialized successfully")
-                else:
-                    logging.error("✗ DS2482 initialization failed")
-            except Exception as e:
-                logging.error(f"✗ DS2482 initialization error: {e}")
+    def schedule_drivers(self):
+        enabled = self.loader.get_enabled_drivers()
+        for name, cfg in enabled:
+            interval = int(cfg.get('read_in_sec', 60))
+            if self.scheduler.get_job(name):
+                continue
+            self.scheduler.add_job(self.read_and_send, 'interval', seconds=interval, args=[name, cfg], id=name)
+            logging.info(f'Scheduled {name} every {interval}s')
 
     def start(self):
-        """Start scheduled sensor reading"""
-        # Run hardware initialization first
-        self.initialize_hardware()
-
-        enabled_drivers = self.loader.get_enabled_drivers()
-
-        if not enabled_drivers:
-            logging.warning("No enabled drivers in config!")
-            return
-
-        logging.info(f"Starting runner with {len(enabled_drivers)} enabled drivers")
-
-        # Schedule each enabled driver
-        for driver_name, driver_config in enabled_drivers:
-            interval = driver_config.get('read_in_sec', 60)
-
-            self.scheduler.add_job(
-                self.read_and_send,
-                'interval',
-                seconds=interval,
-                args=[driver_name, driver_config],
-                id=driver_name
-            )
-
-            logging.info(f"Scheduled: {driver_name} every {interval}s")
-
-        # Start scheduler
+        self.schedule_drivers()
         self.scheduler.start()
-        logging.info("Runner started. Press Ctrl+C to stop.")
-
+        logging.info('Runner started')
         try:
             while True:
                 time.sleep(1)
         except KeyboardInterrupt:
-            logging.info("Stopping runner...")
+            logging.info('Stopping runner')
             self.scheduler.shutdown()
-            logging.info("Runner stopped")
 
 
 def main():
-    print("=" * 60)
-    print("Nettemp Client")
-    print("Reading from: drivers_config.yaml")
-    print("=" * 60)
-    print()
+    # Keep an optional hidden flag for compatibility only; normal behavior is automatic
+    parser = argparse.ArgumentParser()
+    parser.add_argument('--autorespawn', action='store_true', help=argparse.SUPPRESS)
+    args = parser.parse_args()
 
-    client = NettempClient(
-        config_file='config.conf',
-        drivers_config='drivers_config.yaml'
-    )
+    # Determine background mode automatically:
+    # - If started without a controlling TTY (e.g. from cron/@reboot or with &), treat as background.
+    # - If started interactively (tty present), treat as foreground.
+    bg_mode = not os.isatty(0)
 
-    client.start()
+    # Background mode: run detached loop and restart on crash. This covers cron @reboot
+    # entries (they run without a TTY) and manual starts with & where stdin is not a TTY.
+    if bg_mode:
+        write_pidfile(os.getpid())
+        try:
+            while True:
+                try:
+                    client = NettempClient(config_file='config.conf', drivers_config='drivers_config.yaml')
+                    client.start()
+                    break
+                except KeyboardInterrupt:
+                    break
+                except Exception:
+                    logging.exception('Background client crashed, restarting in 2s')
+                    time.sleep(2)
+        finally:
+            remove_pidfile()
+        return
+
+    # Foreground interactive run: stop any background instance and remember to restart it after
+    restart_background_after = False
+    existing = read_pidfile()
+    if existing and is_process_running(existing):
+        if os.isatty(0):
+            logging.info(f'Detected background instance (pid {existing}) — stopping it to run locally')
+            try:
+                os.kill(existing, signal.SIGTERM)
+                restart_background_after = True
+                time.sleep(1)
+            except Exception:
+                logging.exception(f'Failed to stop background instance {existing} — aborting')
+                return
+        else:
+            logging.error('Client already running in background; aborting')
+            return
+
+    # Run in foreground for debugging
+    write_pidfile(os.getpid())
+    try:
+        client = NettempClient(config_file='config.conf', drivers_config='drivers_config.yaml')
+        client.start()
+    finally:
+        remove_pidfile()
+
+        # After local debug session, restore background if we stopped one earlier
+        if restart_background_after:
+            env = os.environ.copy()
+            env['NETTEMP_CLIENT_BG'] = '1'
+            with open(os.devnull, 'wb') as devnull:
+                subprocess.Popen([sys.executable, __file__], stdout=devnull, stderr=devnull, start_new_session=True, env=env)
+            logging.info('Restored background nettemp client')
 
 
-if __name__ == "__main__":
+if __name__ == '__main__':
     main()
