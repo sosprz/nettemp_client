@@ -1,0 +1,274 @@
+# Nettemp Client
+
+IoT sensor client for Raspberry Pi and other Linux devices. Reads sensors and sends data to **Nettemp Cloud** or **self-hosted Nettemp** instance.
+
+**☁️ Cloud** - Managed hosting on Cloudflare Workers *(Coming Soon!)*
+**🏠 Self-Hosted** - Deploy to your own server/VPS *(Available Now)*
+
+> **Note:** Nettemp Cloud (managed service) is currently in development. You can use the self-hosted option today by deploying the backend to your own infrastructure.
+
+## Features
+
+- ⚡ **22+ sensor drivers** - Temperature, humidity, light, motion, network, power
+- 🔄 **Auto-discovery** - Automatically detects connected sensors
+- ⏱️ **Scheduled reading** - Configurable intervals per sensor
+- ☁️ **Cloud sync** - Real-time data to Nettemp Cloud
+- 🔧 **Easy config** - YAML-based sensor configuration
+- 🚀 **Auto-start** - Runs on boot via cron
+- 🔌 **I2C/GPIO/1-Wire** - Full hardware support
+- 📊 **System monitoring** - CPU, RAM, temperature
+
+## Quick Install
+
+**On Raspberry Pi / Linux device:**
+
+```bash
+# 1. Clone repository
+git clone https://github.com/sosprz/nettemp_client.git
+cd nettemp_client
+
+# 2. Run setup script
+chmod +x setup.sh
+./setup.sh
+
+# 3. Configure (edit these files)
+nano config.conf         # Set your server URL and API key
+nano drivers_config.yaml # Enable sensors you have
+
+# 4. Test
+source venv/bin/activate
+python3 nettemp_client.py
+
+# 5. Reboot to enable auto-start
+sudo reboot
+```
+
+## Configuration
+
+### 1. Device Settings (config.conf)
+
+**For Self-Hosted Deployment** *(Available Now)*
+```yaml
+group: living-room-1              # Your device name
+cloud_server: http://192.168.1.100:8787  # Your server IP/domain
+cloud_api_key: ntk_xxxxx          # Get from your instance
+cloud_enabled: true
+```
+
+**For Cloud Deployment** *(Coming Soon)*
+```yaml
+group: living-room-1              # Your device name
+cloud_server: https://api.nettemp.cloud
+cloud_api_key: ntk_xxxxx          # Get from dashboard
+cloud_enabled: true
+```
+
+### 2. Sensor Settings (drivers_config.yaml)
+
+```yaml
+system:
+  enabled: true                   # Enable CPU/RAM monitoring
+  read_in_sec: 30                 # Read every 30 seconds
+
+dht22:
+  enabled: true
+  read_in_sec: 60
+  gpio_pin: 4                     # Connected to GPIO4
+
+bme280:
+  enabled: true
+  read_in_sec: 60
+  i2c_address: "0x76"            # I2C address
+```
+
+## Available Drivers
+
+**System:**
+- `system` - CPU, RAM usage
+- `rpi` - Raspberry Pi CPU temperature
+- `lm_sensors` - Linux hardware sensors
+
+**Temperature:**
+- `w1_kernel` - DS18B20 (1-Wire, supports DS2482 I2C bridge)
+- `w1_kernel_gpio` - DS18B20 via GPIO
+- `dht11`, `dht22` - DHT sensors (GPIO)
+- `bme280`, `bmp180` - I2C sensors
+- `tmp102`, `htu21d`, `hih6130`, `mpl3115a2`
+
+**Light:**
+- `bh1750`, `tsl2561`
+
+**Motion:**
+- `adxl343`, `adxl345` - Accelerometers
+
+**Distance:**
+- `vl53l0x`
+
+**Network:**
+- `ping` - Network latency
+
+**Modbus:**
+- `sdm120` - Power meter
+
+## Running
+
+### Manual Start
+```bash
+source venv/bin/activate
+python3 nettemp_client.py
+```
+
+### Auto-start (configured by setup.sh)
+Runs automatically on boot via cron.
+
+### Test Mode (fake data)
+```bash
+python3 demo_all_sensors.py
+```
+
+## File Structure
+
+```
+client/
+├── setup.sh                    # Installation script
+├── config.conf                 # Device & cloud settings
+├── drivers_config.yaml         # Sensor configuration
+├── nettemp_client.py          # Production runner (scheduled)
+├── nettemp.py                 # Cloud client library
+├── driver_loader.py           # Driver management
+├── demo_all_sensors.py        # Test with fake data
+├── drivers/                    # Sensor drivers
+│   ├── system.py
+│   ├── dht22.py
+│   ├── bme280.py
+│   └── ...
+└── requirements.txt           # Python dependencies
+```
+
+## Hardware Setup
+
+### I2C Sensors
+```bash
+# Enable I2C
+sudo raspi-config
+# Interface Options → I2C → Enable
+
+# Check I2C devices
+i2cdetect -y 1
+```
+
+### GPIO Sensors (DHT22, DHT11)
+Connect to GPIO pins as configured in `drivers_config.yaml`.
+
+### 1-Wire (DS18B20)
+
+**Option 1: Direct GPIO connection**
+```bash
+# Enable 1-wire
+sudo raspi-config
+# Interface Options → 1-Wire → Enable
+
+# Or add to /boot/config.txt:
+dtoverlay=w1-gpio
+```
+
+**Option 2: DS2482 I2C Bridge (for multiple sensors)**
+```yaml
+# In drivers_config.yaml:
+w1_kernel:
+  enabled: true
+  read_in_sec: 60
+  ds2482: true  # Enables DS2482 initialization at startup
+```
+The DS2482 bridge allows connecting many 1-Wire sensors over I2C. Hardware is initialized automatically on startup.
+
+## Troubleshooting
+
+**No sensors found:**
+- Check hardware connections
+- Verify I2C enabled: `i2cdetect -y 1`
+- Check GPIO pins match config
+- Install sensor libraries: `pip install -r requirements.txt`
+
+**Cannot connect to server:**
+- Check `cloud_server` URL (cloud or self-hosted)
+- Verify `cloud_api_key` is valid
+- Test connection:
+  - Cloud: `curl https://your-worker.workers.dev`
+  - Self-hosted: `curl http://your-server:8787`
+
+**Data not showing in dashboard:**
+- Check `cloud_enabled: true`
+- Verify device name (`group`) is correct
+- Check logs: `python3 nettemp_client.py`
+
+**Permission denied (I2C):**
+```bash
+sudo usermod $USER -aG i2c
+sudo reboot
+```
+
+## Adding Custom Drivers
+
+Create `drivers/my_sensor.py`:
+
+```python
+def my_sensor(config_dict):
+    """
+    My custom sensor
+    Config: {"enabled": true, "read_in_sec": 60, ...}
+    """
+    value = read_hardware()
+
+    return [
+        {
+            "rom": "_my_sensor",
+            "type": "temperature",
+            "value": value,
+            "name": "My Sensor"
+        }
+    ]
+```
+
+Add to `drivers_config.yaml`:
+```yaml
+my_sensor:
+  enabled: true
+  read_in_sec: 60
+```
+
+## Uninstall
+
+```bash
+# Remove cron job
+crontab -l | grep -v nettemp_client | crontab -
+
+# Remove files
+rm -rf /path/to/nettemp_cloud/client
+```
+
+## Deployment Options
+
+### ☁️ Nettemp Cloud *(Coming Soon)*
+- ✅ Fully managed service
+- ✅ No server setup required
+- ✅ Auto-scaling & global CDN
+- ✅ Free tier available
+- 🚧 Currently in development
+
+**Sign up for early access:** https://github.com/sosprz/nettemp_client/issues
+
+### 🏠 Self-Hosted *(Available Now)*
+- ✅ Full control over your data
+- ✅ Run on your own infrastructure
+- ✅ No external dependencies
+- ✅ LAN-only option (offline mode)
+- ✅ Deploy to any server/VPS
+
+**Quick start:** Clone the backend repository and follow deployment instructions.
+
+Both options use the same client - just change the `cloud_server` URL in config.
+
+## Support
+
+See main repository for backend deployment and dashboard documentation.

@@ -1,0 +1,113 @@
+# Nettemp Cloud - Driver Configuration
+# Enable/disable sensors and set their reading intervals
+# Edit this file to configure your sensors
+
+# 1-Wire sensors (DS18B20, etc.)
+# DS2482 (1-Wire over I2C bridge)
+w1_kernel:
+  enabled: false
+  read_in_sec: 60
+  ds2482: true
+
+w1_kernel_gpio:
+  enabled: false
+  read_in_sec: 60
+
+# system monitoring
+system:
+  enabled: true
+  read_in_sec: 30
+
+# Temperature sensors
+tmp102:
+  enabled: false
+  read_in_sec: 60
+
+# Raspberry Pi internal sensors
+rpi:
+  enabled: false
+  read_in_sec: 30
+
+# System sensors (lm-sensors)
+lm_sensors:
+  enabled: false
+  read_in_sec: 60
+
+# Barometric pressure sensors
+bmp180:
+  enabled: false
+  read_in_sec: 60
+
+# Temperature/Humidity/Pressure sensors
+bme280:
+  enabled: false
+  read_in_sec: 60
+  i2c_address: "0x76"
+
+# Humidity sensors
+htu21d:
+  enabled: false
+  read_in_sec: 60
+
+# Humidity sensors
+hih6130:
+  enabled: false
+  read_in_sec: 60
+
+# Light sensors
+bh1750:
+  enabled: false
+  read_in_sec: 60
+
+# Light sensors
+tsl2561:
+  enabled: false
+  read_in_sec: 60
+
+# Distance sensor
+vl53l0x:
+  enabled: false
+  read_in_sec: 60
+
+# Accelerometers
+adxl345:
+  enabled: false
+  read_in_sec: 60
+
+# Accelerometers
+adxl343:
+  enabled: false
+  read_in_sec: 60
+
+# Pressure/Altitude sensor
+mpl3115a2:
+  enabled: false
+  read_in_sec: 60
+
+# DHT sensors (GPIO-based)
+dht11:
+  enabled: false
+  read_in_sec: 60
+  gpio_pin: 4
+
+# DHT sensors (GPIO-based)
+dht22:
+  enabled: false
+  read_in_sec: 60
+  gpio_pin: 4
+
+# Network monitoring
+ping:
+  enabled: false
+  read_in_sec: 60
+  hosts:
+    - google.com
+    - 8.8.8.8
+    - cloudflare.com
+
+# Modbus power meter
+sdm120:
+  enabled: false
+  read_in_sec: 60
+  port: /dev/ttyUSB0
+  unit: 1

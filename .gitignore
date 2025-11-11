@@ -1,0 +1,21 @@
+# Virtual environment
+venv/
+
+# Config files (may contain secrets)
+config.conf
+test_config.conf
+
+# Buffers and cache
+cloud_buffer.db
+*.pyc
+__pycache__/
+
+# Cron files
+nettemp_crontab
+
+# Logs
+*.log
+
+# IDE
+.vscode/
+.idea/
