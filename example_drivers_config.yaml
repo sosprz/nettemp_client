@@ -3,11 +3,11 @@
 # Edit this file to configure your sensors
 
 # 1-Wire sensors (DS18B20, etc.)
-# DS2482 (1-Wire over I2C bridge)
+# Works with GPIO 1-Wire or DS2482 I2C-to-1Wire bridge
 w1_kernel:
   enabled: false
   read_in_sec: 60
-  ds2482: true
+  ds2482: false  # Set to true if using DS2482 I2C bridge (optional)
 
 w1_kernel_gpio:
   enabled: false
