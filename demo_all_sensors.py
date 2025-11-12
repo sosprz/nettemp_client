@@ -21,9 +21,85 @@ logging.basicConfig(level=logging.INFO, format='[%(asctime)s] %(levelname)s: %(m
 class FakeDriverRunner:
     """Run drivers with fake data when hardware is not available"""
 
-    def __init__(self, config_file='test_config.conf'):
+    def __init__(self, config_file=None):
+        """
+        Initialize runner.
+
+        Behavior changed: the demo will NOT fall back to `example_config.conf`.
+        Use one of the following to point the demo at your production instance:
+        - Pass an explicit config file path that exists: FakeDriverRunner('/path/to/config.conf')
+        - Set environment variables: CLOUD_SERVER and CLOUD_API_KEY (the demo will
+          create a temporary config and send to that server)
+
+        If none of the above are provided the script will exit with an error to avoid
+        accidentally sending to a non-production/example config.
+        """
+
+        import os
+        import tempfile
+
         self.loader = DriverLoader()
-        self.cloud_client = CloudClient(config_file)
+
+        base = Path(__file__).parent
+        chosen = None
+
+        # 1) explicit config path provided and exists
+        if config_file:
+            cfg_path = Path(config_file)
+            if cfg_path.is_file():
+                chosen = str(cfg_path)
+            else:
+                print(f"Provided config file not found: {config_file}")
+                sys.exit(1)
+
+        # 2) environment variables for cloud server (preferred for quick prod testing)
+        if not chosen:
+            cloud_server = os.environ.get('CLOUD_SERVER')
+            cloud_key = os.environ.get('CLOUD_API_KEY')
+            if cloud_server and cloud_key:
+                # write a small temporary YAML config that CloudClient can read
+                tmp = tempfile.NamedTemporaryFile('w', delete=False, suffix='.yml')
+                cfg = {
+                    'group': os.environ.get('CLOUD_GROUP', 'demo'),
+                    'cloud_server': cloud_server,
+                    'cloud_api_key': cloud_key,
+                    'cloud_enabled': True
+                }
+                try:
+                    # write YAML without requiring PyYAML here (safe manual dump)
+                    lines = [f"{k}: {v}" for k, v in cfg.items()]
+                    tmp.write('\n'.join(lines))
+                    tmp.flush()
+                    tmp.close()
+                    chosen = tmp.name
+                except Exception as e:
+                    print(f"Failed to create temp config from env: {e}")
+                    sys.exit(1)
+
+        # 3) project config.conf (if present)
+        if not chosen:
+            candidate = base / 'config.conf'
+            if candidate.is_file():
+                chosen = str(candidate)
+
+        # If we still don't have a config, fail rather than using example_config.conf
+        if not chosen:
+            print("No production config found. Provide a config file path or set CLOUD_SERVER and CLOUD_API_KEY environment variables.")
+            sys.exit(1)
+
+        logging.info(f"Using config file for demo: {chosen}")
+        self.cloud_client = CloudClient(chosen)
+
+        # Ensure demo runs under a predictable group/device id.
+        # Prefer explicit CLOUD_GROUP env var, otherwise default to 'demo'.
+        try:
+            import os
+            demo_group = os.environ.get('CLOUD_GROUP', 'demo')
+            self.cloud_client.device_id = demo_group
+            logging.info(f"Demo group set to: {self.cloud_client.device_id}")
+        except Exception:
+            # non-fatal: continue with whatever the CloudClient set
+            pass
         self.iteration = 0
 
     def generate_fake_data(self, driver_name, config_dict):
@@ -239,7 +315,8 @@ def main():
     print("=" * 60)
     print()
 
-    runner = FakeDriverRunner('test_config.conf')
+    # Don't force a test config file; let FakeDriverRunner choose a sensible default
+    runner = FakeDriverRunner()
 
     try:
         while True:
