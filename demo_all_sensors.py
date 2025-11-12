@@ -47,7 +47,33 @@ class FakeDriverRunner:
         if config_file:
             cfg_path = Path(config_file)
             if cfg_path.is_file():
-                chosen = str(cfg_path)
+                # read only cloud_server and cloud_api_key from provided config
+                try:
+                    import yaml
+                    parsed = yaml.safe_load(cfg_path.read_text()) or {}
+                    cloud_server = parsed.get('cloud_server')
+                    cloud_key = parsed.get('cloud_api_key')
+                except Exception:
+                    # fallback to simple grep-style parse
+                    cloud_server = None
+                    cloud_key = None
+                    for line in cfg_path.read_text().splitlines():
+                        if line.strip().startswith('cloud_server'):
+                            cloud_server = line.split(':', 1)[1].strip()
+                        if line.strip().startswith('cloud_api_key'):
+                            cloud_key = line.split(':', 1)[1].strip()
+
+                if cloud_server and cloud_key:
+                    # create minimal temp config containing only server/key
+                    import tempfile
+                    tmp = tempfile.NamedTemporaryFile('w', delete=False, suffix='.yml')
+                    tmp.write(f"group: demo\ncloud_server: {cloud_server}\ncloud_api_key: {cloud_key}\ncloud_enabled: true\n")
+                    tmp.flush()
+                    tmp.close()
+                    chosen = tmp.name
+                else:
+                    print("Provided config file does not contain cloud_server/cloud_api_key")
+                    sys.exit(1)
             else:
                 print(f"Provided config file not found: {config_file}")
                 sys.exit(1)
@@ -66,9 +92,8 @@ class FakeDriverRunner:
                     'cloud_enabled': True
                 }
                 try:
-                    # write YAML without requiring PyYAML here (safe manual dump)
-                    lines = [f"{k}: {v}" for k, v in cfg.items()]
-                    tmp.write('\n'.join(lines))
+                    # write minimal YAML
+                    tmp.write(f"group: {cfg['group']}\ncloud_server: {cfg['cloud_server']}\ncloud_api_key: {cfg['cloud_api_key']}\ncloud_enabled: true\n")
                     tmp.flush()
                     tmp.close()
                     chosen = tmp.name
@@ -80,7 +105,31 @@ class FakeDriverRunner:
         if not chosen:
             candidate = base / 'config.conf'
             if candidate.is_file():
-                chosen = str(candidate)
+                # read only cloud_server and cloud_api_key from project config
+                try:
+                    import yaml
+                    parsed = yaml.safe_load(candidate.read_text()) or {}
+                    cloud_server = parsed.get('cloud_server')
+                    cloud_key = parsed.get('cloud_api_key')
+                except Exception:
+                    cloud_server = None
+                    cloud_key = None
+                    for line in candidate.read_text().splitlines():
+                        if line.strip().startswith('cloud_server'):
+                            cloud_server = line.split(':', 1)[1].strip()
+                        if line.strip().startswith('cloud_api_key'):
+                            cloud_key = line.split(':', 1)[1].strip()
+
+                if cloud_server and cloud_key:
+                    import tempfile
+                    tmp = tempfile.NamedTemporaryFile('w', delete=False, suffix='.yml')
+                    tmp.write(f"group: demo\ncloud_server: {cloud_server}\ncloud_api_key: {cloud_key}\ncloud_enabled: true\n")
+                    tmp.flush()
+                    tmp.close()
+                    chosen = tmp.name
+                else:
+                    # do not fall back to example
+                    chosen = None
 
         # If we still don't have a config, fail rather than using example_config.conf
         if not chosen:
@@ -108,9 +157,9 @@ class FakeDriverRunner:
         # Always generate synthetic readings so the demo can run on any machine.
         logging.info(f"Generating fake data for: {driver_name}")
 
-        # Generate fake data if driver failed (no hardware)
-        logging.info(f"Generating fake data for: {driver_name}")
-
+        # Per-driver fake generators. If a specific fake generator is not
+        # implemented for a driver, fall back to a generic synthetic reading
+        # so every discovered driver yields at least one value.
         fake_generators = {
             'dht22': self._fake_dht22,
             'dht11': self._fake_dht11,
@@ -127,13 +176,17 @@ class FakeDriverRunner:
             'tmp102': self._fake_tmp102,
             'mpl3115a2': self._fake_mpl3115a2,
             'hih6130': self._fake_hih6130,
+            'system': self._fake_system,
         }
 
         generator = fake_generators.get(driver_name)
         if generator:
             return generator(config_dict)
 
-        return []
+        # Generic fallback: single numeric reading with a driver-prefixed ROM
+        value = round(random.uniform(0, 100), 2)
+        rom = f"_{driver_name}_value"
+        return [{"rom": rom, "type": "generic", "value": value, "name": driver_name}]
 
     def _fake_dht22(self, config):
         pin = config.get('gpio_pin', 4)
@@ -257,36 +310,25 @@ class FakeDriverRunner:
             {"rom": "_hih6130_humid", "type": "humid", "value": round(humid, 2), "name": "hih6130_humid"}
         ]
 
+    def _fake_system(self, config):
+        # lightweight system-like metrics for demo purposes
+        load = round(0.2 + random.random() * 1.8, 2)
+        uptime = int(time.time()) % 100000
+        return [
+            {"rom": "_system_load", "type": "load", "value": load, "name": "system_load"},
+            {"rom": "_system_uptime", "type": "uptime", "value": uptime, "name": "system_uptime"}
+        ]
+
     def run_all_sensors(self):
         """Run all configured sensors and send data"""
 
-        # Demo configuration for all sensor types
-        demo_config = {
-            "system": {"enabled": True, "read_in_sec": 10},
-            "dht22": {"enabled": True, "read_in_sec": 10, "gpio_pin": 4},
-            "dht11": {"enabled": True, "read_in_sec": 10, "gpio_pin": 5},
-            "bme280": {"enabled": True, "read_in_sec": 10, "i2c_address": "0x76"},
-            "bmp180": {"enabled": True, "read_in_sec": 10},
-            "ds18b20": {"enabled": True, "read_in_sec": 10, "rom": "28-00000a1b2c3d"},
-            "htu21d": {"enabled": True, "read_in_sec": 10},
-            "rpi": {"enabled": True, "read_in_sec": 10},
-            "adxl343": {"enabled": True, "read_in_sec": 10},
-            "adxl345": {"enabled": True, "read_in_sec": 10},
-            "bh1750": {"enabled": True, "read_in_sec": 10},
-            "tsl2561": {"enabled": True, "read_in_sec": 10},
-            "vl53l0x": {"enabled": True, "read_in_sec": 10},
-            "tmp102": {"enabled": True, "read_in_sec": 10},
-            "mpl3115a2": {"enabled": True, "read_in_sec": 10},
-            "hih6130": {"enabled": True, "read_in_sec": 10},
-            "ping": {"enabled": True, "read_in_sec": 10, "host": "8.8.8.8", "name": "google_dns"}
-        }
+        # Build a demo config enabling every discovered driver with sensible defaults
+        discovered = self.loader.discover_drivers()
+        demo_config = {name: {"enabled": True, "read_in_sec": 10} for name in discovered}
 
         all_data = []
 
         for driver_name, config_dict in demo_config.items():
-            if not config_dict.get('enabled'):
-                continue
-
             readings = self.generate_fake_data(driver_name, config_dict)
             if readings:
                 all_data.extend(readings)
