@@ -149,9 +149,12 @@ class CloudClient:
         """Send data to cloud API"""
         for attempt in range(self.retry_attempts):
             try:
+                # Include X-Readings-Count so server can account for batched readings
+                headers = {'X-Readings-Count': str(len(data.get('readings', [])))}
                 response = self.session.post(
                     f'{self.cloud_url}/api/v1/data',
                     json=data,
+                    headers=headers,
                     timeout=self.timeout
                 )
 
