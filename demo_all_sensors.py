@@ -104,11 +104,9 @@ class FakeDriverRunner:
 
     def generate_fake_data(self, driver_name, config_dict):
         """Generate fake sensor data based on driver type"""
-
-        # Try to run real driver first (for system, ping, etc.)
-        real_data = self.loader.run_driver(driver_name, config_dict)
-        if real_data:
-            return real_data
+        # The demo should not attempt to use real hardware drivers.
+        # Always generate synthetic readings so the demo can run on any machine.
+        logging.info(f"Generating fake data for: {driver_name}")
 
         # Generate fake data if driver failed (no hardware)
         logging.info(f"Generating fake data for: {driver_name}")
