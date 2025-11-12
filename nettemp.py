@@ -118,8 +118,10 @@ class CloudClient:
         # Normalize ROM: strip any leading underscores (drivers often prefix roms with '_')
         # and remove group prefix if present.
         rom = (rom or '')
-        # If the rom starts with device/group, strip it first
-        if rom.startswith(self.device_id):
+        group = None
+        # If the rom starts with device/group, capture it and strip for parsing
+        if self.device_id and rom.startswith(self.device_id):
+            group = self.device_id
             rom = rom[len(self.device_id):]
         # Strip leading underscores that drivers commonly include
         rom = rom.lstrip('_')
@@ -135,12 +137,21 @@ class CloudClient:
                 sensor = 'dht22' if 'dht22' in rom.lower() else 'dht11'
                 return {'id': f'{sensor}-gpio{pin}', 'type': 'gpio'}
 
-        # I2C: _i2c_76_temp
+        # I2C: allow patterns like '_i2c_76_temp' or '<driver>_i2c_76_temp'
         if 'i2c' in rom.lower():
             parts = rom.split('_')
+            # find the 'i2c' token and capture the following address token
             for i, part in enumerate(parts):
-                if part == 'i2c' and i + 1 < len(parts):
+                if part.lower() == 'i2c' and i + 1 < len(parts):
                     addr = parts[i + 1]
+                    # If there's a token before 'i2c' that looks like a driver name, include it
+                    driver = parts[i - 1] if i - 1 >= 0 and parts[i - 1] else None
+                    if driver:
+                        if group:
+                            return {'id': f'{group}-{driver.lower()}-i2c-0x{addr}', 'type': 'i2c'}
+                        return {'id': f'{driver.lower()}-i2c-0x{addr}', 'type': 'i2c'}
+                    if group:
+                        return {'id': f'{group}-i2c-0x{addr}', 'type': 'i2c'}
                     return {'id': f'i2c-0x{addr}', 'type': 'i2c'}
 
         # Fallback: use ROM as-is or hash

@@ -215,9 +215,9 @@ class FakeDriverRunner:
         press = 1013 + random.uniform(-10, 10)
 
         return [
-            {"rom": "_i2c_76_temp", "type": "temp", "value": round(temp, 2), "name": "BME280-i2c-0x76"},
-            {"rom": "_i2c_76_humid", "type": "humid", "value": round(humid, 2), "name": "BME280-i2c-0x76"},
-            {"rom": "_i2c_76_press", "type": "press", "value": round(press, 2), "name": "BME280-i2c-0x76"}
+            {"rom": f"{self.cloud_client.device_id}_bme280_i2c_76_temp", "type": "temp", "value": round(temp, 2), "name": "BME280-i2c-0x76"},
+            {"rom": f"{self.cloud_client.device_id}_bme280_i2c_76_humid", "type": "humid", "value": round(humid, 2), "name": "BME280-i2c-0x76"},
+            {"rom": f"{self.cloud_client.device_id}_bme280_i2c_76_press", "type": "press", "value": round(press, 2), "name": "BME280-i2c-0x76"}
         ]
 
     def _fake_bmp180(self, config):
@@ -225,16 +225,22 @@ class FakeDriverRunner:
         press = 1012 + random.uniform(-8, 8)
 
         return [
-            {"rom": "_i2c_77_temp", "type": "temp", "value": round(temp, 2), "name": "BMP180-i2c-0x77"},
-            {"rom": "_i2c_77_press", "type": "press", "value": round(press, 2), "name": "BMP180-i2c-0x77"}
+            {"rom": f"{self.cloud_client.device_id}_bmp180_i2c_77_temp", "type": "temp", "value": round(temp, 2), "name": "BMP180-i2c-0x77"},
+            {"rom": f"{self.cloud_client.device_id}_bmp180_i2c_77_press", "type": "press", "value": round(press, 2), "name": "BMP180-i2c-0x77"}
         ]
 
     def _fake_ds18b20(self, config):
         rom = config.get('rom', '28-00000a1b2c3d')
         temp = 19 + random.uniform(-1, 4)
 
+        # Prefix 1-Wire ROM with demo group to avoid collisions across devices
+        if not str(rom).startswith(str(self.cloud_client.device_id)):
+            rom_prefixed = f"{self.cloud_client.device_id}_{str(rom).lstrip('_')}"
+        else:
+            rom_prefixed = rom
+
         return [
-            {"rom": rom, "type": "temp", "value": round(temp, 2), "name": "ds18b20"}
+            {"rom": rom_prefixed, "type": "temp", "value": round(temp, 2), "name": "ds18b20"}
         ]
 
     def _fake_htu21d(self, config):
@@ -243,57 +249,57 @@ class FakeDriverRunner:
         humid = 62 + random.uniform(-6, 6)
 
         return [
-            {"rom": "_i2c_40_temp", "type": "temp", "value": round(temp, 2), "name": "HTU21D-i2c-0x40"},
-            {"rom": "_i2c_40_humid", "type": "humid", "value": round(humid, 2), "name": "HTU21D-i2c-0x40"}
+            {"rom": f"{self.cloud_client.device_id}_htu21d_i2c_40_temp", "type": "temp", "value": round(temp, 2), "name": "HTU21D-i2c-0x40"},
+            {"rom": f"{self.cloud_client.device_id}_htu21d_i2c_40_humid", "type": "humid", "value": round(humid, 2), "name": "HTU21D-i2c-0x40"}
         ]
 
     def _fake_rpi(self, config):
         temp = 45 + random.uniform(-5, 15)
         return [
-            {"rom": "_raspberrypi", "type": "temp", "value": round(temp, 1), "name": "raspberrypi"}
+            {"rom": f"{self.cloud_client.device_id}_raspberrypi", "type": "temp", "value": round(temp, 1), "name": "raspberrypi"}
         ]
 
     def _fake_adxl343(self, config):
         return [
-            {"rom": "_adxl343_x", "type": "accel", "value": round(random.uniform(-1, 1), 2), "name": "accel_x"},
-            {"rom": "_adxl343_y", "type": "accel", "value": round(random.uniform(-1, 1), 2), "name": "accel_y"},
-            {"rom": "_adxl343_z", "type": "accel", "value": round(random.uniform(9, 10), 2), "name": "accel_z"}
+            {"rom": f"{self.cloud_client.device_id}_adxl343_x", "type": "accel", "value": round(random.uniform(-1, 1), 2), "name": "accel_x"},
+            {"rom": f"{self.cloud_client.device_id}_adxl343_y", "type": "accel", "value": round(random.uniform(-1, 1), 2), "name": "accel_y"},
+            {"rom": f"{self.cloud_client.device_id}_adxl343_z", "type": "accel", "value": round(random.uniform(9, 10), 2), "name": "accel_z"}
         ]
 
     def _fake_adxl345(self, config):
         return [
-            {"rom": "_adxl345_x", "type": "accel", "value": round(random.uniform(-1, 1), 2), "name": "accel_x"},
-            {"rom": "_adxl345_y", "type": "accel", "value": round(random.uniform(-1, 1), 2), "name": "accel_y"},
-            {"rom": "_adxl345_z", "type": "accel", "value": round(random.uniform(9, 10), 2), "name": "accel_z"}
+            {"rom": f"{self.cloud_client.device_id}_adxl345_x", "type": "accel", "value": round(random.uniform(-1, 1), 2), "name": "accel_x"},
+            {"rom": f"{self.cloud_client.device_id}_adxl345_y", "type": "accel", "value": round(random.uniform(-1, 1), 2), "name": "accel_y"},
+            {"rom": f"{self.cloud_client.device_id}_adxl345_z", "type": "accel", "value": round(random.uniform(9, 10), 2), "name": "accel_z"}
         ]
 
     def _fake_bh1750(self, config):
         # BH1750 default I2C address is 0x23
         light = 150 + random.uniform(-50, 100)
         return [
-            {"rom": "_i2c_23_light", "type": "light", "value": round(light, 1), "name": "BH1750-i2c-0x23"}
-        ]
+                {"rom": f"{self.cloud_client.device_id}_bh1750_i2c_23_light", "type": "light", "value": round(light, 1), "name": "BH1750-i2c-0x23"}
+            ]
 
     def _fake_tsl2561(self, config):
         # TSL2561 common I2C addresses include 0x39, 0x29, 0x49 — use 0x39 for demo
         light = 200 + random.uniform(-80, 120)
         return [
-            {"rom": "_i2c_39_light", "type": "light", "value": round(light, 1), "name": "TSL2561-i2c-0x39"}
-        ]
+                {"rom": f"{self.cloud_client.device_id}_tsl2561_i2c_39_light", "type": "light", "value": round(light, 1), "name": "TSL2561-i2c-0x39"}
+            ]
 
     def _fake_vl53l0x(self, config):
         # VL53L0X default I2C address is 0x29
         distance = 100 + random.uniform(-20, 50)
         return [
-            {"rom": "_i2c_29_distance", "type": "distance", "value": round(distance, 0), "name": "VL53L0X-i2c-0x29"}
-        ]
+                {"rom": f"{self.cloud_client.device_id}_vl53l0x_i2c_29_distance", "type": "distance", "value": round(distance, 0), "name": "VL53L0X-i2c-0x29"}
+            ]
 
     def _fake_tmp102(self, config):
         # TMP102 default I2C address is 0x48
         temp = 22.5 + random.uniform(-2, 3)
         return [
-            {"rom": "_i2c_48_temp", "type": "temp", "value": round(temp, 2), "name": "TMP102-i2c-0x48"}
-        ]
+                {"rom": f"{self.cloud_client.device_id}_tmp102_i2c_48_temp", "type": "temp", "value": round(temp, 2), "name": "TMP102-i2c-0x48"}
+            ]
 
     def _fake_mpl3115a2(self, config):
         # MPL3115A2 typical I2C address is 0x60
@@ -302,19 +308,18 @@ class FakeDriverRunner:
         alt = 120 + random.uniform(-2, 2)
 
         return [
-            {"rom": "_i2c_60_temp", "type": "temp", "value": round(temp, 2), "name": "MPL3115A2-i2c-0x60"},
-            {"rom": "_i2c_60_press", "type": "press", "value": round(press, 2), "name": "MPL3115A2-i2c-0x60"},
-            {"rom": "_i2c_60_alt", "type": "altitude", "value": round(alt, 1), "name": "MPL3115A2-i2c-0x60"}
+            {"rom": f"{self.cloud_client.device_id}_mpl3115a2_i2c_60_temp", "type": "temp", "value": round(temp, 2), "name": "MPL3115A2-i2c-0x60"},
+            {"rom": f"{self.cloud_client.device_id}_mpl3115a2_i2c_60_press", "type": "press", "value": round(press, 2), "name": "MPL3115A2-i2c-0x60"},
+            {"rom": f"{self.cloud_client.device_id}_mpl3115a2_i2c_60_alt", "type": "altitude", "value": round(alt, 1), "name": "MPL3115A2-i2c-0x60"}
         ]
 
     def _fake_hih6130(self, config):
         # HIH6130 commonly appears at I2C address 0x27
         temp = 22 + random.uniform(-2, 2)
         humid = 63 + random.uniform(-5, 5)
-
         return [
-            {"rom": "_i2c_27_temp", "type": "temp", "value": round(temp, 2), "name": "HIH6130-i2c-0x27"},
-            {"rom": "_i2c_27_humid", "type": "humid", "value": round(humid, 2), "name": "HIH6130-i2c-0x27"}
+            {"rom": f"{self.cloud_client.device_id}_hih6130_i2c_27_temp", "type": "temp", "value": round(temp, 2), "name": "HIH6130-i2c-0x27"},
+            {"rom": f"{self.cloud_client.device_id}_hih6130_i2c_27_humid", "type": "humid", "value": round(humid, 2), "name": "HIH6130-i2c-0x27"}
         ]
 
     def _fake_system(self, config):
@@ -322,8 +327,8 @@ class FakeDriverRunner:
         load = round(0.2 + random.random() * 1.8, 2)
         uptime = int(time.time()) % 100000
         return [
-            {"rom": "_system_load", "type": "load", "value": load, "name": "system_load"},
-            {"rom": "_system_uptime", "type": "uptime", "value": uptime, "name": "system_uptime"}
+            {"rom": f"{self.cloud_client.device_id}_system_load", "type": "load", "value": load, "name": "system_load"},
+            {"rom": f"{self.cloud_client.device_id}_system_uptime", "type": "uptime", "value": uptime, "name": "system_uptime"}
         ]
 
     def run_all_sensors(self):
