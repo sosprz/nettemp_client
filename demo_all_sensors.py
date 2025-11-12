@@ -157,6 +157,13 @@ class FakeDriverRunner:
         # Always generate synthetic readings so the demo can run on any machine.
         logging.info(f"Generating fake data for: {driver_name}")
 
+        # Skip certain drivers that don't make sense in the demo.
+        # ds2482 and w1_kernel_gpio are 1-wire / bridge drivers that produce
+        # noisy or generic values that are not useful for the demo UI.
+        if driver_name in ('ds2482', 'w1_kernel_gpio'):
+            logging.info(f"Skipping demo generation for driver: {driver_name}")
+            return []
+
         # Per-driver fake generators. If a specific fake generator is not
         # implemented for a driver, fall back to a generic synthetic reading
         # so every discovered driver yields at least one value.
@@ -193,9 +200,11 @@ class FakeDriverRunner:
         temp = 20 + random.uniform(-2, 5) + (self.iteration * 0.1)
         humid = 60 + random.uniform(-5, 10)
 
+        # Use a friendly metadata.name so the UI shows "DHT22-gpio4" etc.
+        friendly = f"DHT22-gpio{pin}"
         return [
-            {"rom": f"_dht22_temp_gpio_D{pin}", "type": "temp", "value": round(temp, 1), "name": f"_dht22_temp_gpio_D{pin}"},
-            {"rom": f"_dht22_humid_gpio_D{pin}", "type": "humid", "value": round(humid, 1), "name": f"_dht22_humid_gpio_D{pin}"}
+            {"rom": f"_dht22_temp_gpio_D{pin}", "type": "temp", "value": round(temp, 1), "name": friendly},
+            {"rom": f"_dht22_humid_gpio_D{pin}", "type": "humid", "value": round(humid, 1), "name": friendly}
         ]
 
     def _fake_dht11(self, config):
@@ -203,9 +212,11 @@ class FakeDriverRunner:
         temp = 21 + random.uniform(-2, 4)
         humid = 58 + random.uniform(-5, 10)
 
+        # Use a friendly metadata.name so the UI shows "DHT11-gpio5" etc.
+        friendly = f"DHT11-gpio{pin}"
         return [
-            {"rom": f"_dht11_temp_gpio_D{pin}", "type": "temp", "value": round(temp, 1), "name": f"_dht11_temp_gpio_D{pin}"},
-            {"rom": f"_dht11_humid_gpio_D{pin}", "type": "humid", "value": round(humid, 1), "name": f"_dht11_humid_gpio_D{pin}"}
+            {"rom": f"_dht11_temp_gpio_D{pin}", "type": "temp", "value": round(temp, 1), "name": friendly},
+            {"rom": f"_dht11_humid_gpio_D{pin}", "type": "humid", "value": round(humid, 1), "name": friendly}
         ]
 
     def _fake_bme280(self, config):
@@ -260,17 +271,21 @@ class FakeDriverRunner:
         ]
 
     def _fake_adxl343(self, config):
+        # Produce axis-specific ROMs and friendly names so the UI shows
+        # ADXL343-accel-x etc. Prefix ROMs with the demo group as usual.
+        base = self.cloud_client.device_id
         return [
-            {"rom": f"{self.cloud_client.device_id}_adxl343_x", "type": "accel", "value": round(random.uniform(-1, 1), 2), "name": "accel_x"},
-            {"rom": f"{self.cloud_client.device_id}_adxl343_y", "type": "accel", "value": round(random.uniform(-1, 1), 2), "name": "accel_y"},
-            {"rom": f"{self.cloud_client.device_id}_adxl343_z", "type": "accel", "value": round(random.uniform(9, 10), 2), "name": "accel_z"}
+            {"rom": f"{base}_adxl343_accel_x", "type": "accel", "value": round(random.uniform(-1, 1), 2), "name": "ADXL343-accel-x"},
+            {"rom": f"{base}_adxl343_accel_y", "type": "accel", "value": round(random.uniform(-1, 1), 2), "name": "ADXL343-accel-y"},
+            {"rom": f"{base}_adxl343_accel_z", "type": "accel", "value": round(random.uniform(9, 10), 2), "name": "ADXL343-accel-z"}
         ]
 
     def _fake_adxl345(self, config):
+        base = self.cloud_client.device_id
         return [
-            {"rom": f"{self.cloud_client.device_id}_adxl345_x", "type": "accel", "value": round(random.uniform(-1, 1), 2), "name": "accel_x"},
-            {"rom": f"{self.cloud_client.device_id}_adxl345_y", "type": "accel", "value": round(random.uniform(-1, 1), 2), "name": "accel_y"},
-            {"rom": f"{self.cloud_client.device_id}_adxl345_z", "type": "accel", "value": round(random.uniform(9, 10), 2), "name": "accel_z"}
+            {"rom": f"{base}_adxl345_accel_x", "type": "accel", "value": round(random.uniform(-1, 1), 2), "name": "ADXL345-accel-x"},
+            {"rom": f"{base}_adxl345_accel_y", "type": "accel", "value": round(random.uniform(-1, 1), 2), "name": "ADXL345-accel-y"},
+            {"rom": f"{base}_adxl345_accel_z", "type": "accel", "value": round(random.uniform(9, 10), 2), "name": "ADXL345-accel-z"}
         ]
 
     def _fake_bh1750(self, config):
