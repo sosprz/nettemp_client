@@ -126,8 +126,8 @@
   "system": {
     "placeholders": ["group"],
     "metrics": [
-      {"rom": "{group}_system_cpu", "type": "system", "name": "CPU", "min": 0, "max": 100, "round": 2},
-      {"rom": "{group}_system_mem", "type": "system", "name": "Memory", "min": 0, "max": 100, "round": 2}
+      {"rom": "{group}_system_cpu", "type": "system", "name": "{group} CPU", "min": 0, "max": 100, "round": 2},
+      {"rom": "{group}_system_mem", "type": "system", "name": "{group} Memory", "min": 0, "max": 100, "round": 2}
     ]
   },
   "ds18b20": {

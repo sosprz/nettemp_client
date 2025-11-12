@@ -172,7 +172,7 @@ class FakeDriverRunner:
         logging.info(f"Generating fake data for: {driver_name}")
 
         # Skip certain drivers that don't make sense in the demo.
-        if driver_name in ('ds2482', 'w1_kernel_gpio', 'w1_kernel'):
+        if driver_name in ('ds2482', 'w1_kernel_gpio', 'w1_kernel', 'lm_sensors'):
             logging.info(f"Skipping demo generation for driver: {driver_name}")
             return []
 
