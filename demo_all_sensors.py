@@ -68,7 +68,10 @@ class FakeDriverRunner:
                     # create minimal temp config containing only server/key
                     import tempfile
                     tmp = tempfile.NamedTemporaryFile('w', delete=False, suffix='.yml')
-                    tmp.write(f"group: demo\ncloud_server: {cloud_server}\ncloud_api_key: {cloud_key}\ncloud_enabled: true\n")
+                    # Preserve the group from the provided config if available; otherwise default to 'demo'
+                    cfg_group = parsed.get('group') if isinstance(parsed, dict) else None
+                    tmp_group = cfg_group or os.environ.get('CLOUD_GROUP', 'demo')
+                    tmp.write(f"group: {tmp_group}\ncloud_server: {cloud_server}\ncloud_api_key: {cloud_key}\ncloud_enabled: true\n")
                     tmp.flush()
                     tmp.close()
                     chosen = tmp.name
@@ -124,7 +127,10 @@ class FakeDriverRunner:
                 if cloud_server and cloud_key:
                     import tempfile
                     tmp = tempfile.NamedTemporaryFile('w', delete=False, suffix='.yml')
-                    tmp.write(f"group: demo\ncloud_server: {cloud_server}\ncloud_api_key: {cloud_key}\ncloud_enabled: true\n")
+                    # Preserve group from project config if present, otherwise respect CLOUD_GROUP or default to 'demo'
+                    cfg_group = parsed.get('group') if isinstance(parsed, dict) else None
+                    tmp_group = cfg_group or os.environ.get('CLOUD_GROUP', 'demo')
+                    tmp.write(f"group: {tmp_group}\ncloud_server: {cloud_server}\ncloud_api_key: {cloud_key}\ncloud_enabled: true\n")
                     tmp.flush()
                     tmp.close()
                     chosen = tmp.name
@@ -144,9 +150,17 @@ class FakeDriverRunner:
         # Prefer explicit CLOUD_GROUP env var, otherwise default to 'demo'.
         try:
             import os
-            demo_group = os.environ.get('CLOUD_GROUP', 'demo')
-            self.cloud_client.device_id = demo_group
-            logging.info(f"Demo group set to: {self.cloud_client.device_id}")
+            # Prefer an explicit CLOUD_GROUP environment variable when provided.
+            # If CLOUD_GROUP is not set, keep the group that CloudClient loaded from the config file.
+            env_group = os.environ.get('CLOUD_GROUP')
+            if env_group:
+                self.cloud_client.device_id = env_group
+                logging.info(f"Demo group set from CLOUD_GROUP: {self.cloud_client.device_id}")
+            else:
+                # Use the group from the CloudClient's loaded config (if any), otherwise default to 'demo'
+                current = getattr(self.cloud_client, 'device_id', None) or 'demo'
+                self.cloud_client.device_id = current
+                logging.info(f"Demo group set to: {self.cloud_client.device_id}")
         except Exception:
             # non-fatal: continue with whatever the CloudClient set
             pass
