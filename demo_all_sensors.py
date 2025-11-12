@@ -209,14 +209,14 @@ class FakeDriverRunner:
         ]
 
     def _fake_bme280(self, config):
-        addr = config.get('i2c_address', '0x76')
+        # BME280 commonly uses I2C address 0x76 (or 0x77). Use 0x76 for demo.
         temp = 22 + random.uniform(-2, 3)
         humid = 65 + random.uniform(-5, 8)
         press = 1013 + random.uniform(-10, 10)
 
         return [
             {"rom": "_i2c_76_temp", "type": "temp", "value": round(temp, 2), "name": "bme280_temp"},
-            {"rom": "i2c_76_humid", "type": "humid", "value": round(humid, 2), "name": "bme280_humid"},
+            {"rom": "_i2c_76_humid", "type": "humid", "value": round(humid, 2), "name": "bme280_humid"},
             {"rom": "_i2c_76_press", "type": "press", "value": round(press, 2), "name": "bme280_press"}
         ]
 
@@ -238,12 +238,13 @@ class FakeDriverRunner:
         ]
 
     def _fake_htu21d(self, config):
+        # HTU21D default I2C address is 0x40
         temp = 23 + random.uniform(-2, 2)
         humid = 62 + random.uniform(-6, 6)
 
         return [
-            {"rom": "_htu21d_temp", "type": "temp", "value": round(temp, 2), "name": "htu21d_temp"},
-            {"rom": "_htu21d_humid", "type": "humid", "value": round(humid, 2), "name": "htu21d_humid"}
+            {"rom": "_i2c_40_temp", "type": "temp", "value": round(temp, 2), "name": "htu21d_temp"},
+            {"rom": "_i2c_40_humid", "type": "humid", "value": round(humid, 2), "name": "htu21d_humid"}
         ]
 
     def _fake_rpi(self, config):
@@ -267,47 +268,53 @@ class FakeDriverRunner:
         ]
 
     def _fake_bh1750(self, config):
+        # BH1750 default I2C address is 0x23
         light = 150 + random.uniform(-50, 100)
         return [
-            {"rom": "_bh1750_light", "type": "light", "value": round(light, 1), "name": "bh1750"}
+            {"rom": "_i2c_23_light", "type": "light", "value": round(light, 1), "name": "bh1750"}
         ]
 
     def _fake_tsl2561(self, config):
+        # TSL2561 common I2C addresses include 0x39, 0x29, 0x49 — use 0x39 for demo
         light = 200 + random.uniform(-80, 120)
         return [
-            {"rom": "_tsl2561_light", "type": "light", "value": round(light, 1), "name": "tsl2561"}
+            {"rom": "_i2c_39_light", "type": "light", "value": round(light, 1), "name": "tsl2561"}
         ]
 
     def _fake_vl53l0x(self, config):
+        # VL53L0X default I2C address is 0x29
         distance = 100 + random.uniform(-20, 50)
         return [
-            {"rom": "_vl53l0x_distance", "type": "distance", "value": round(distance, 0), "name": "vl53l0x"}
+            {"rom": "_i2c_29_distance", "type": "distance", "value": round(distance, 0), "name": "vl53l0x"}
         ]
 
     def _fake_tmp102(self, config):
+        # TMP102 default I2C address is 0x48
         temp = 22.5 + random.uniform(-2, 3)
         return [
-            {"rom": "_tmp102_temp", "type": "temp", "value": round(temp, 2), "name": "tmp102"}
+            {"rom": "_i2c_48_temp", "type": "temp", "value": round(temp, 2), "name": "tmp102"}
         ]
 
     def _fake_mpl3115a2(self, config):
+        # MPL3115A2 typical I2C address is 0x60
         temp = 21 + random.uniform(-1, 3)
         press = 1014 + random.uniform(-5, 5)
         alt = 120 + random.uniform(-2, 2)
 
         return [
-            {"rom": "_mpl3115a2_temp", "type": "temp", "value": round(temp, 2), "name": "mpl3115a2_temp"},
-            {"rom": "_mpl3115a2_press", "type": "press", "value": round(press, 2), "name": "mpl3115a2_press"},
-            {"rom": "_mpl3115a2_alt", "type": "altitude", "value": round(alt, 1), "name": "mpl3115a2_alt"}
+            {"rom": "_i2c_60_temp", "type": "temp", "value": round(temp, 2), "name": "mpl3115a2_temp"},
+            {"rom": "_i2c_60_press", "type": "press", "value": round(press, 2), "name": "mpl3115a2_press"},
+            {"rom": "_i2c_60_alt", "type": "altitude", "value": round(alt, 1), "name": "mpl3115a2_alt"}
         ]
 
     def _fake_hih6130(self, config):
+        # HIH6130 commonly appears at I2C address 0x27
         temp = 22 + random.uniform(-2, 2)
         humid = 63 + random.uniform(-5, 5)
 
         return [
-            {"rom": "_hih6130_temp", "type": "temp", "value": round(temp, 2), "name": "hih6130_temp"},
-            {"rom": "_hih6130_humid", "type": "humid", "value": round(humid, 2), "name": "hih6130_humid"}
+            {"rom": "_i2c_27_temp", "type": "temp", "value": round(temp, 2), "name": "hih6130_temp"},
+            {"rom": "_i2c_27_humid", "type": "humid", "value": round(humid, 2), "name": "hih6130_humid"}
         ]
 
     def _fake_system(self, config):

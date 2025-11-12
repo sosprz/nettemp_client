@@ -115,9 +115,14 @@ class CloudClient:
 
     def _parse_rom(self, rom: str) -> Dict[str, str]:
         """Parse old ROM format to extract sensor_id"""
-        # Remove group prefix if present
+        # Normalize ROM: strip any leading underscores (drivers often prefix roms with '_')
+        # and remove group prefix if present.
+        rom = (rom or '')
+        # If the rom starts with device/group, strip it first
         if rom.startswith(self.device_id):
-            rom = rom[len(self.device_id):].lstrip('_')
+            rom = rom[len(self.device_id):]
+        # Strip leading underscores that drivers commonly include
+        rom = rom.lstrip('_')
 
         # DS18B20: 28-00000a1b2c
         if rom.startswith('28-'):
