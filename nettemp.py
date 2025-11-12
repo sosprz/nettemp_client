@@ -128,6 +128,8 @@ class CloudClient:
 
         # DS18B20: 28-00000a1b2c
         if rom.startswith('28-'):
+            if group:
+                return {'id': f'{group}-{rom}', 'type': '1wire'}
             return {'id': rom, 'type': '1wire'}
 
         # DHT: _dht22_temp_gpio_D4
@@ -135,6 +137,8 @@ class CloudClient:
             if 'D' in rom:
                 pin = rom.split('_D')[1] if '_D' in rom else '0'
                 sensor = 'dht22' if 'dht22' in rom.lower() else 'dht11'
+                if group:
+                    return {'id': f'{group}-{sensor}-gpio{pin}', 'type': 'gpio'}
                 return {'id': f'{sensor}-gpio{pin}', 'type': 'gpio'}
 
         # I2C: allow patterns like '_i2c_76_temp' or '<driver>_i2c_76_temp'
@@ -157,7 +161,14 @@ class CloudClient:
         # Fallback: use ROM as-is or hash
         if len(rom) > 20:
             hash_short = hashlib.md5(rom.encode()).hexdigest()[:8]
+            if group:
+                return {'id': f'{group}-sensor-{hash_short}', 'type': 'unknown'}
             return {'id': f'sensor-{hash_short}', 'type': 'unknown'}
+
+        # If there's a group we captured earlier, prepend it to the id so
+        # demo/group-prefixed ROMs yield IDs including the group.
+        if group and rom:
+            return {'id': f'{group}-{rom}', 'type': 'unknown'}
 
         return {'id': rom or 'unknown', 'type': 'unknown'}
 

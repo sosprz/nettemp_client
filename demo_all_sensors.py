@@ -158,9 +158,9 @@ class FakeDriverRunner:
         logging.info(f"Generating fake data for: {driver_name}")
 
         # Skip certain drivers that don't make sense in the demo.
-        # ds2482 and w1_kernel_gpio are 1-wire / bridge drivers that produce
-        # noisy or generic values that are not useful for the demo UI.
-        if driver_name in ('ds2482', 'w1_kernel_gpio'):
+        # ds2482 and w1_kernel_gpio/w1_kernel are 1-wire / bridge drivers that
+        # produce noisy or generic values that are not useful for the demo UI.
+        if driver_name in ('ds2482', 'w1_kernel_gpio', 'w1_kernel'):
             logging.info(f"Skipping demo generation for driver: {driver_name}")
             return []
 
@@ -170,6 +170,7 @@ class FakeDriverRunner:
         fake_generators = {
             'dht22': self._fake_dht22,
             'dht11': self._fake_dht11,
+            'ping': self._fake_ping,
             'bme280': self._fake_bme280,
             'bmp180': self._fake_bmp180,
             'ds18b20': self._fake_ds18b20,
@@ -201,10 +202,12 @@ class FakeDriverRunner:
         humid = 60 + random.uniform(-5, 10)
 
         # Use a friendly metadata.name so the UI shows "DHT22-gpio4" etc.
+        # Prefix ROMs with the demo group so generated sensor IDs include group
+        base = self.cloud_client.device_id
         friendly = f"DHT22-gpio{pin}"
         return [
-            {"rom": f"_dht22_temp_gpio_D{pin}", "type": "temp", "value": round(temp, 1), "name": friendly},
-            {"rom": f"_dht22_humid_gpio_D{pin}", "type": "humid", "value": round(humid, 1), "name": friendly}
+            {"rom": f"{base}_dht22_temp_gpio_D{pin}", "type": "temp", "value": round(temp, 1), "name": friendly},
+            {"rom": f"{base}_dht22_humid_gpio_D{pin}", "type": "humid", "value": round(humid, 1), "name": friendly}
         ]
 
     def _fake_dht11(self, config):
@@ -213,10 +216,21 @@ class FakeDriverRunner:
         humid = 58 + random.uniform(-5, 10)
 
         # Use a friendly metadata.name so the UI shows "DHT11-gpio5" etc.
+        base = self.cloud_client.device_id
         friendly = f"DHT11-gpio{pin}"
         return [
-            {"rom": f"_dht11_temp_gpio_D{pin}", "type": "temp", "value": round(temp, 1), "name": friendly},
-            {"rom": f"_dht11_humid_gpio_D{pin}", "type": "humid", "value": round(humid, 1), "name": friendly}
+            {"rom": f"{base}_dht11_temp_gpio_D{pin}", "type": "temp", "value": round(temp, 1), "name": friendly},
+            {"rom": f"{base}_dht11_humid_gpio_D{pin}", "type": "humid", "value": round(humid, 1), "name": friendly}
+        ]
+
+    def _fake_ping(self, config):
+        # Ping a well-known host for demo purposes. Allow overriding via config.
+        host = config.get('host', '8.8.8.8')
+        latency = round(random.uniform(10, 200), 2)
+        base = self.cloud_client.device_id
+        # ROM includes host so parser can build an id like demo-host-8.8.8.8
+        return [
+            {"rom": f"{base}_host_{host}", "type": "ping", "value": latency, "name": host}
         ]
 
     def _fake_bme280(self, config):
