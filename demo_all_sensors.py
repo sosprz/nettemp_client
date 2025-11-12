@@ -7,6 +7,7 @@ import sys
 import time
 import random
 import logging
+import json
 from pathlib import Path
 
 # Add current directory to path
@@ -150,30 +151,42 @@ class FakeDriverRunner:
             # non-fatal: continue with whatever the CloudClient set
             pass
         self.iteration = 0
+        # Load generator patterns (client/patterns.json) if present
+        try:
+            patterns_path = Path(__file__).parent / 'patterns.json'
+            if patterns_path.is_file():
+                with open(patterns_path, 'r') as pf:
+                    self.patterns = json.load(pf)
+            else:
+                self.patterns = {}
+        except Exception:
+            self.patterns = {}
 
     def generate_fake_data(self, driver_name, config_dict):
-        """Generate fake sensor data based on driver type"""
-        # The demo should not attempt to use real hardware drivers.
-        # Always generate synthetic readings so the demo can run on any machine.
+        """Generate fake sensor data based on driver type.
+
+        Uses `client/patterns.json` when a pattern exists for the driver.
+        Falls back to a small set of existing generators or a generic numeric
+        reading if no pattern or generator is available.
+        """
         logging.info(f"Generating fake data for: {driver_name}")
 
         # Skip certain drivers that don't make sense in the demo.
-        # ds2482 and w1_kernel_gpio/w1_kernel are 1-wire / bridge drivers that
-        # produce noisy or generic values that are not useful for the demo UI.
         if driver_name in ('ds2482', 'w1_kernel_gpio', 'w1_kernel'):
             logging.info(f"Skipping demo generation for driver: {driver_name}")
             return []
 
-        # Per-driver fake generators. If a specific fake generator is not
-        # implemented for a driver, fall back to a generic synthetic reading
-        # so every discovered driver yields at least one value.
+        # If there's a pattern for this driver, generate from it
+        if hasattr(self, 'patterns') and driver_name in self.patterns:
+            return self._generate_from_pattern(driver_name, config_dict)
+
+        # Fallback generator mapping for drivers not covered by patterns
         fake_generators = {
-            'dht22': self._fake_dht22,
-            'dht11': self._fake_dht11,
+            'ds18b20': self._fake_ds18b20,
+            'system': self._fake_system,
             'ping': self._fake_ping,
             'bme280': self._fake_bme280,
             'bmp180': self._fake_bmp180,
-            'ds18b20': self._fake_ds18b20,
             'htu21d': self._fake_htu21d,
             'rpi': self._fake_rpi,
             'adxl343': self._fake_adxl343,
@@ -184,7 +197,6 @@ class FakeDriverRunner:
             'tmp102': self._fake_tmp102,
             'mpl3115a2': self._fake_mpl3115a2,
             'hih6130': self._fake_hih6130,
-            'system': self._fake_system,
         }
 
         generator = fake_generators.get(driver_name)
@@ -195,6 +207,72 @@ class FakeDriverRunner:
         value = round(random.uniform(0, 100), 2)
         rom = f"_{driver_name}_value"
         return [{"rom": rom, "type": "generic", "value": value, "name": driver_name}]
+
+    def _generate_from_pattern(self, driver_name, config_dict):
+        """Generate readings using a pattern from patterns.json
+
+        Supports placeholder expansion using config_dict and pattern.defaults.
+        """
+        pat = self.patterns.get(driver_name, {})
+        metrics = pat.get('metrics', [])
+        defaults = pat.get('defaults', {})
+        placeholders = pat.get('placeholders', [])
+
+        group = getattr(self.cloud_client, 'device_id', 'demo')
+        readings = []
+
+        for m in metrics:
+            # Build substitution map
+            subs = {}
+            for ph in placeholders:
+                if ph == 'group':
+                    subs['group'] = group
+                    continue
+                if ph == 'pin':
+                    subs['pin'] = config_dict.get('gpio_pin') or defaults.get('pin')
+                elif ph == 'addr':
+                    subs['addr'] = config_dict.get('addr') or defaults.get('addr')
+                elif ph == 'unit':
+                    subs['unit'] = str(config_dict.get('unit') or defaults.get('unit'))
+                elif ph == 'host':
+                    subs['host'] = config_dict.get('host') or defaults.get('host')
+                elif ph == 'rom':
+                    subs['rom'] = config_dict.get('rom') or defaults.get('rom')
+                else:
+                    subs[ph] = config_dict.get(ph) or defaults.get(ph)
+
+            try:
+                rom = m.get('rom', '').format(**subs)
+            except Exception:
+                rom = m.get('rom', '')
+
+            try:
+                name = m.get('name', '').format(**subs)
+            except Exception:
+                name = m.get('name', '')
+
+            minv = m.get('min', 0)
+            maxv = m.get('max', 100)
+            rnd = m.get('round', None)
+
+            # Generate a plausible value
+            val = random.uniform(minv, maxv)
+            if rnd is not None:
+                try:
+                    value = round(val, int(rnd))
+                except Exception:
+                    value = round(val, 2)
+            else:
+                value = val
+
+            readings.append({
+                'rom': rom,
+                'type': m.get('type', 'generic'),
+                'value': value,
+                'name': name
+            })
+
+        return readings
 
     def _fake_dht22(self, config):
         pin = config.get('gpio_pin', 4)

@@ -1,0 +1,140 @@
+{
+  "dht22": {
+    "placeholders": ["group","pin"],
+    "metrics": [
+      {"rom": "{group}_dht22_temp_gpio_D{pin}", "type": "temp", "name": "DHT22-gpio{pin}", "min": 18, "max": 26, "round": 1},
+      {"rom": "{group}_dht22_humid_gpio_D{pin}", "type": "humid", "name": "DHT22-gpio{pin}", "min": 40, "max": 80, "round": 1}
+    ],
+    "defaults": {"pin": 4}
+  },
+  "dht11": {
+    "placeholders": ["group","pin"],
+    "metrics": [
+      {"rom": "{group}_dht11_temp_gpio_D{pin}", "type": "temp", "name": "DHT11-gpio{pin}", "min": 18, "max": 26, "round": 1},
+      {"rom": "{group}_dht11_humid_gpio_D{pin}", "type": "humid", "name": "DHT11-gpio{pin}", "min": 40, "max": 80, "round": 1}
+    ],
+    "defaults": {"pin": 5}
+  },
+  "adxl343": {
+    "placeholders": ["group","axis"],
+    "metrics": [
+      {"rom": "{group}_adxl343_accel_x", "type": "accel", "name": "ADXL343-accel-x", "min": -1.0, "max": 1.0, "round": 2},
+      {"rom": "{group}_adxl343_accel_y", "type": "accel", "name": "ADXL343-accel-y", "min": -1.0, "max": 1.0, "round": 2},
+      {"rom": "{group}_adxl343_accel_z", "type": "accel", "name": "ADXL343-accel-z", "min": 9.0, "max": 10.0, "round": 2}
+    ]
+  },
+  "adxl345": {
+    "placeholders": ["group","axis"],
+    "metrics": [
+      {"rom": "{group}_adxl345_accel_x", "type": "accel", "name": "ADXL345-accel-x", "min": -1.0, "max": 1.0, "round": 2},
+      {"rom": "{group}_adxl345_accel_y", "type": "accel", "name": "ADXL345-accel-y", "min": -1.0, "max": 1.0, "round": 2},
+      {"rom": "{group}_adxl345_accel_z", "type": "accel", "name": "ADXL345-accel-z", "min": 9.0, "max": 10.0, "round": 2}
+    ]
+  },
+  "bme280": {
+    "placeholders": ["group","addr"],
+    "metrics": [
+      {"rom": "{group}_bme280_i2c_{addr}_temp", "type": "temp", "name": "BME280-i2c-0x{addr}", "min": 18, "max": 26, "round": 2},
+      {"rom": "{group}_bme280_i2c_{addr}_humid", "type": "humid", "name": "BME280-i2c-0x{addr}", "min": 30, "max": 80, "round": 2},
+      {"rom": "{group}_bme280_i2c_{addr}_press", "type": "press", "name": "BME280-i2c-0x{addr}", "min": 980, "max": 1030, "round": 2}
+    ],
+    "defaults": {"addr": "76"}
+  },
+  "bh1750": {
+    "placeholders": ["group","addr"],
+    "metrics": [
+      {"rom": "{group}_bh1750_i2c_{addr}_light", "type": "light", "name": "BH1750-i2c-0x{addr}", "min": 0, "max": 300, "round": 1}
+    ],
+    "defaults": {"addr": "23"}
+  },
+  "tsl2561": {
+    "placeholders": ["group","addr"],
+    "metrics": [
+      {"rom": "{group}_tsl2561_i2c_{addr}_light", "type": "light", "name": "TSL2561-i2c-0x{addr}", "min": 0, "max": 400, "round": 1}
+    ],
+    "defaults": {"addr": "39"}
+  },
+  "vl53l0x": {
+    "placeholders": ["group","addr"],
+    "metrics": [
+      {"rom": "{group}_vl53l0x_i2c_{addr}_distance", "type": "distance", "name": "VL53L0X-i2c-0x{addr}", "min": 50, "max": 200, "round": 0}
+    ],
+    "defaults": {"addr": "29"}
+  },
+  "tmp102": {
+    "placeholders": ["group","addr"],
+    "metrics": [
+      {"rom": "{group}_tmp102_i2c_{addr}_temp", "type": "temp", "name": "TMP102-i2c-0x{addr}", "min": 18, "max": 26, "round": 2}
+    ],
+    "defaults": {"addr": "48"}
+  },
+  "ping": {
+    "placeholders": ["group","host"],
+    "metrics": [
+      {"rom": "{group}_host_{host}", "type": "ping", "name": "{host}", "min": 5, "max": 200, "round": 2}
+    ],
+    "defaults": {"host": "8.8.8.8"}
+  },
+  "rpi": {
+    "placeholders": ["group"],
+    "metrics": [
+      {"rom": "{group}_raspberrypi", "type": "temp", "name": "raspberrypi", "min": 30, "max": 60, "round": 1}
+    ]
+  },
+  "bmp180": {
+    "placeholders": ["group","addr"],
+    "metrics": [
+      {"rom": "{group}_bmp180_i2c_{addr}_temp", "type": "temp", "name": "BMP180-i2c-0x{addr}", "min": 15, "max": 30, "round": 2},
+      {"rom": "{group}_bmp180_i2c_{addr}_press", "type": "press", "name": "BMP180-i2c-0x{addr}", "min": 980, "max": 1030, "round": 2}
+    ],
+    "defaults": {"addr": "77"}
+  },
+  "hih6130": {
+    "placeholders": ["group","addr"],
+    "metrics": [
+      {"rom": "{group}_hih6130_i2c_{addr}_temp", "type": "temp", "name": "HIH6130-i2c-0x{addr}", "min": 15, "max": 30, "round": 2},
+      {"rom": "{group}_hih6130_i2c_{addr}_humid", "type": "humid", "name": "HIH6130-i2c-0x{addr}", "min": 20, "max": 90, "round": 2}
+    ],
+    "defaults": {"addr": "27"}
+  },
+  "htu21d": {
+    "placeholders": ["group","addr"],
+    "metrics": [
+      {"rom": "{group}_htu21d_i2c_{addr}_temp", "type": "temp", "name": "HTU21D-i2c-0x{addr}", "min": 15, "max": 30, "round": 2},
+      {"rom": "{group}_htu21d_i2c_{addr}_humid", "type": "humid", "name": "HTU21D-i2c-0x{addr}", "min": 20, "max": 90, "round": 2}
+    ],
+    "defaults": {"addr": "40"}
+  },
+  "mpl3115a2": {
+    "placeholders": ["group","addr"],
+    "metrics": [
+      {"rom": "{group}_mpl3115a2_i2c_{addr}_temp", "type": "temp", "name": "MPL3115A2-i2c-0x{addr}", "min": 10, "max": 30, "round": 2},
+      {"rom": "{group}_mpl3115a2_i2c_{addr}_press", "type": "press", "name": "MPL3115A2-i2c-0x{addr}", "min": 980, "max": 1030, "round": 2},
+      {"rom": "{group}_mpl3115a2_i2c_{addr}_alt", "type": "altitude", "name": "MPL3115A2-i2c-0x{addr}", "min": 0, "max": 300, "round": 1}
+    ],
+    "defaults": {"addr": "60"}
+  },
+  "sdm120": {
+    "placeholders": ["group","unit"],
+    "metrics": [
+      {"rom": "{group}_sdm120_{unit}_volt", "type": "volt", "name": "SDM120-volt-{unit}", "min": 210, "max": 250, "round": 2},
+      {"rom": "{group}_sdm120_{unit}_amps", "type": "amps", "name": "SDM120-amps-{unit}", "min": 0, "max": 30, "round": 2},
+      {"rom": "{group}_sdm120_{unit}_watt", "type": "watt", "name": "SDM120-watt-{unit}", "min": 0, "max": 5000, "round": 2}
+    ],
+    "defaults": {"unit": "1"}
+  },
+  "system": {
+    "placeholders": ["group"],
+    "metrics": [
+      {"rom": "{group}_system_cpu", "type": "system", "name": "CPU", "min": 0, "max": 100, "round": 2},
+      {"rom": "{group}_system_mem", "type": "system", "name": "Memory", "min": 0, "max": 100, "round": 2}
+    ]
+  },
+  "ds18b20": {
+    "placeholders": ["group","rom"],
+    "metrics": [
+      {"rom": "{group}_{rom}", "type": "temp", "name": "ds18b20", "min": 15, "max": 25, "round": 2}
+    ],
+    "defaults": {"rom": "28-00000a1b2c3d"}
+  }
+}
