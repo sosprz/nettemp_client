@@ -456,24 +456,30 @@ class FakeDriverRunner:
                 all_data.extend(readings)
                 logging.info(f"✓ {driver_name}: {len(readings)} readings")
 
-        # Send all data to cloud
+        # Send all data to both local server (insert2) and cloud (CloudClient)
         if all_data:
-            logging.info(f"\n=== Sending {len(all_data)} readings to cloud ===")
+            logging.info(f"\n=== Sending {len(all_data)} readings to local server and cloud ===")
 
-            # Use the CloudClient instance created with the demo's temporary config.
-            # This ensures the demo uses the demo group (or CLOUD_GROUP) and the
-            # temporary config we created instead of reading a local config.conf.
+            # 1) Send to local server via insert2 (backward-compatible)
+            try:
+                sender = insert2(all_data)
+                sender.request()
+                logging.info("=== Sent successfully (local insert2) ===\n")
+            except Exception as e:
+                logging.warning(f"Local insert2 send failed: {e}")
+
+            # 2) Send to cloud if configured
             try:
                 if hasattr(self, 'cloud_client') and self.cloud_client:
-                    self.cloud_client.send(all_data)
-                    logging.info(f"=== Sent successfully (cloud client) ===\n")
+                    sent = self.cloud_client.send(all_data)
+                    if sent:
+                        logging.info("=== Sent successfully (cloud client) ===\n")
+                    else:
+                        logging.warning("CloudClient failed to send data; data may be buffered locally by the client.")
                 else:
-                    # Fallback to backward-compatible insert2 if CloudClient not available
-                    sender = insert2(all_data)
-                    sender.request()
-                    logging.info(f"=== Sent successfully (insert2 fallback) ===\n")
+                    logging.warning("Cloud client not configured — skipping cloud send")
             except Exception as e:
-                logging.error(f"Failed to send demo data: {e}")
+                logging.error(f"Cloud send failed: {e}")
 
         self.iteration += 1
 
