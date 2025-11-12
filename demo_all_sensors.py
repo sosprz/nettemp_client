@@ -215,9 +215,9 @@ class FakeDriverRunner:
         press = 1013 + random.uniform(-10, 10)
 
         return [
-            {"rom": "_i2c_76_temp", "type": "temp", "value": round(temp, 2), "name": "bme280_temp"},
-            {"rom": "_i2c_76_humid", "type": "humid", "value": round(humid, 2), "name": "bme280_humid"},
-            {"rom": "_i2c_76_press", "type": "press", "value": round(press, 2), "name": "bme280_press"}
+            {"rom": "_i2c_76_temp", "type": "temp", "value": round(temp, 2), "name": "BME280-i2c-0x76"},
+            {"rom": "_i2c_76_humid", "type": "humid", "value": round(humid, 2), "name": "BME280-i2c-0x76"},
+            {"rom": "_i2c_76_press", "type": "press", "value": round(press, 2), "name": "BME280-i2c-0x76"}
         ]
 
     def _fake_bmp180(self, config):
@@ -225,8 +225,8 @@ class FakeDriverRunner:
         press = 1012 + random.uniform(-8, 8)
 
         return [
-            {"rom": "_i2c_77_temp", "type": "temp", "value": round(temp, 2), "name": "bmp180_temp"},
-            {"rom": "_i2c_77_press", "type": "press", "value": round(press, 2), "name": "bmp180_press"}
+            {"rom": "_i2c_77_temp", "type": "temp", "value": round(temp, 2), "name": "BMP180-i2c-0x77"},
+            {"rom": "_i2c_77_press", "type": "press", "value": round(press, 2), "name": "BMP180-i2c-0x77"}
         ]
 
     def _fake_ds18b20(self, config):
@@ -243,8 +243,8 @@ class FakeDriverRunner:
         humid = 62 + random.uniform(-6, 6)
 
         return [
-            {"rom": "_i2c_40_temp", "type": "temp", "value": round(temp, 2), "name": "htu21d_temp"},
-            {"rom": "_i2c_40_humid", "type": "humid", "value": round(humid, 2), "name": "htu21d_humid"}
+            {"rom": "_i2c_40_temp", "type": "temp", "value": round(temp, 2), "name": "HTU21D-i2c-0x40"},
+            {"rom": "_i2c_40_humid", "type": "humid", "value": round(humid, 2), "name": "HTU21D-i2c-0x40"}
         ]
 
     def _fake_rpi(self, config):
@@ -271,28 +271,28 @@ class FakeDriverRunner:
         # BH1750 default I2C address is 0x23
         light = 150 + random.uniform(-50, 100)
         return [
-            {"rom": "_i2c_23_light", "type": "light", "value": round(light, 1), "name": "bh1750"}
+            {"rom": "_i2c_23_light", "type": "light", "value": round(light, 1), "name": "BH1750-i2c-0x23"}
         ]
 
     def _fake_tsl2561(self, config):
         # TSL2561 common I2C addresses include 0x39, 0x29, 0x49 — use 0x39 for demo
         light = 200 + random.uniform(-80, 120)
         return [
-            {"rom": "_i2c_39_light", "type": "light", "value": round(light, 1), "name": "tsl2561"}
+            {"rom": "_i2c_39_light", "type": "light", "value": round(light, 1), "name": "TSL2561-i2c-0x39"}
         ]
 
     def _fake_vl53l0x(self, config):
         # VL53L0X default I2C address is 0x29
         distance = 100 + random.uniform(-20, 50)
         return [
-            {"rom": "_i2c_29_distance", "type": "distance", "value": round(distance, 0), "name": "vl53l0x"}
+            {"rom": "_i2c_29_distance", "type": "distance", "value": round(distance, 0), "name": "VL53L0X-i2c-0x29"}
         ]
 
     def _fake_tmp102(self, config):
         # TMP102 default I2C address is 0x48
         temp = 22.5 + random.uniform(-2, 3)
         return [
-            {"rom": "_i2c_48_temp", "type": "temp", "value": round(temp, 2), "name": "tmp102"}
+            {"rom": "_i2c_48_temp", "type": "temp", "value": round(temp, 2), "name": "TMP102-i2c-0x48"}
         ]
 
     def _fake_mpl3115a2(self, config):
@@ -302,9 +302,9 @@ class FakeDriverRunner:
         alt = 120 + random.uniform(-2, 2)
 
         return [
-            {"rom": "_i2c_60_temp", "type": "temp", "value": round(temp, 2), "name": "mpl3115a2_temp"},
-            {"rom": "_i2c_60_press", "type": "press", "value": round(press, 2), "name": "mpl3115a2_press"},
-            {"rom": "_i2c_60_alt", "type": "altitude", "value": round(alt, 1), "name": "mpl3115a2_alt"}
+            {"rom": "_i2c_60_temp", "type": "temp", "value": round(temp, 2), "name": "MPL3115A2-i2c-0x60"},
+            {"rom": "_i2c_60_press", "type": "press", "value": round(press, 2), "name": "MPL3115A2-i2c-0x60"},
+            {"rom": "_i2c_60_alt", "type": "altitude", "value": round(alt, 1), "name": "MPL3115A2-i2c-0x60"}
         ]
 
     def _fake_hih6130(self, config):
@@ -313,8 +313,8 @@ class FakeDriverRunner:
         humid = 63 + random.uniform(-5, 5)
 
         return [
-            {"rom": "_i2c_27_temp", "type": "temp", "value": round(temp, 2), "name": "hih6130_temp"},
-            {"rom": "_i2c_27_humid", "type": "humid", "value": round(humid, 2), "name": "hih6130_humid"}
+            {"rom": "_i2c_27_temp", "type": "temp", "value": round(temp, 2), "name": "HIH6130-i2c-0x27"},
+            {"rom": "_i2c_27_humid", "type": "humid", "value": round(humid, 2), "name": "HIH6130-i2c-0x27"}
         ]
 
     def _fake_system(self, config):
