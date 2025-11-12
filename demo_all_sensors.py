@@ -440,10 +440,13 @@ class FakeDriverRunner:
 
     def run_all_sensors(self):
         """Run all configured sensors and send data"""
-
         # Build a demo config enabling every discovered driver with sensible defaults
+        # Also include drivers present in patterns.json so we can demo sensors
+        # even when the real driver file is not present (e.g. ds18b20).
         discovered = self.loader.discover_drivers()
-        demo_config = {name: {"enabled": True, "read_in_sec": 10} for name in discovered}
+        pattern_drivers = list(getattr(self, 'patterns', {}).keys())
+        combined = list(dict.fromkeys(list(discovered) + pattern_drivers))
+        demo_config = {name: {"enabled": True, "read_in_sec": 10} for name in combined}
 
         all_data = []
 
