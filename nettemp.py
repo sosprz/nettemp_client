@@ -276,7 +276,9 @@ class insert2:
             print("Cannot load config")
             return
 
-        group = config.get('group', socket.gethostname())
+        # Allow overriding the group via CLOUD_GROUP so callers (like the demo)
+        # can force a single canonical device_id for both local and cloud sends.
+        group = os.environ.get('CLOUD_GROUP', config.get('group', socket.gethostname()))
 
         # Add group to data
         for d in self.data:

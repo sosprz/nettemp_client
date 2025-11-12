@@ -462,6 +462,14 @@ class FakeDriverRunner:
 
             # 1) Send to local server via insert2 (backward-compatible)
             try:
+                # Ensure the local insert2 uses the same demo group as the cloud client.
+                # insert2 prefers CLOUD_GROUP environment variable when present.
+                try:
+                    import os
+                    os.environ['CLOUD_GROUP'] = str(getattr(self.cloud_client, 'device_id', os.environ.get('CLOUD_GROUP', 'demo')))
+                except Exception:
+                    pass
+
                 sender = insert2(all_data)
                 sender.request()
                 logging.info("=== Sent successfully (local insert2) ===\n")
