@@ -338,11 +338,20 @@ class FakeDriverRunner:
         if all_data:
             logging.info(f"\n=== Sending {len(all_data)} readings to cloud ===")
 
-            # Use insert2 for backward compatibility
-            sender = insert2(all_data)
-            sender.request()
-
-            logging.info(f"=== Sent successfully ===\n")
+            # Use the CloudClient instance created with the demo's temporary config.
+            # This ensures the demo uses the demo group (or CLOUD_GROUP) and the
+            # temporary config we created instead of reading a local config.conf.
+            try:
+                if hasattr(self, 'cloud_client') and self.cloud_client:
+                    self.cloud_client.send(all_data)
+                    logging.info(f"=== Sent successfully (cloud client) ===\n")
+                else:
+                    # Fallback to backward-compatible insert2 if CloudClient not available
+                    sender = insert2(all_data)
+                    sender.request()
+                    logging.info(f"=== Sent successfully (insert2 fallback) ===\n")
+            except Exception as e:
+                logging.error(f"Failed to send demo data: {e}")
 
         self.iteration += 1
 
@@ -361,7 +370,7 @@ def main():
     try:
         while True:
             runner.run_all_sensors()
-            time.sleep(10)
+            time.sleep(30)
     except KeyboardInterrupt:
         print("\n\nStopped by user")
         logging.info("Demo stopped")
