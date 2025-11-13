@@ -78,15 +78,32 @@ class CloudClient:
         # Transform old format to cloud format
         cloud_data = self._transform_data(data)
 
-        # Try to send
-        if self._send_to_cloud(cloud_data):
+        # The cloud API accepts up to ~100 readings per request. Split into batches
+        # to avoid hitting server-imposed limits. Buffer any failed batches.
+        readings = cloud_data.get('readings', []) or []
+        if not readings:
+            return False
+
+        batch_size = 100
+        total = len(readings)
+        sent_all = True
+
+        for i in range(0, total, batch_size):
+            batch_readings = readings[i:i + batch_size]
+            batch_data = {'device_id': cloud_data.get('device_id'), 'readings': batch_readings}
+
+            success = self._send_to_cloud(batch_data)
+            if not success:
+                # Buffer this failed batch and mark overall send as failed
+                self._add_to_buffer(batch_data)
+                sent_all = False
+
+        if sent_all:
             # Success - try to flush buffer
             self._flush_buffer()
             return True
-        else:
-            # Failed - add to buffer
-            self._add_to_buffer(cloud_data)
-            return False
+
+        return False
 
     def _transform_data(self, data: List[Dict]) -> Dict:
         """Transform old nettemp format to cloud format"""
