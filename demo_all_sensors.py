@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """
 Demo script - Send fake data from all sensor drivers to cloud
-Runs every 10 seconds with simulated sensor data
+Runs every 60 seconds with simulated sensor data
 """
 import sys
 import time
@@ -460,7 +460,7 @@ class FakeDriverRunner:
         discovered = self.loader.discover_drivers()
         pattern_drivers = list(getattr(self, 'patterns', {}).keys())
         combined = list(dict.fromkeys(list(discovered) + pattern_drivers))
-        demo_config = {name: {"enabled": True, "read_in_sec": 10} for name in combined}
+        demo_config = {name: {"enabled": True, "read_in_sec": 60} for name in combined}
 
         all_data = []
 
@@ -509,7 +509,7 @@ class FakeDriverRunner:
 def main():
     print("=" * 60)
     print("Nettemp Cloud - All Sensors Demo")
-    print("Sending fake sensor data every 10 seconds")
+    print("Sending fake sensor data every 60 seconds")
     print("Press Ctrl+C to stop")
     print("=" * 60)
     print()

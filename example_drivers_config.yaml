@@ -16,7 +16,7 @@ w1_kernel_gpio:
 # system monitoring
 system:
   enabled: true
-  read_in_sec: 30
+  read_in_sec: 60
 
 # Temperature sensors
 tmp102:
@@ -26,7 +26,7 @@ tmp102:
 # Raspberry Pi internal sensors
 rpi:
   enabled: false
-  read_in_sec: 30
+  read_in_sec: 60
 
 # System sensors (lm-sensors)
 lm_sensors:

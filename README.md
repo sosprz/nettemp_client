@@ -68,7 +68,7 @@ cloud_enabled: true
 ```yaml
 system:
   enabled: true                   # Enable CPU/RAM monitoring
-  read_in_sec: 30                 # Read every 30 seconds
+  read_in_sec: 60                 # Read every 60 seconds
 
 dht22:
   enabled: true

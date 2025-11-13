@@ -122,10 +122,14 @@ class DriverLoader:
             if not driver_config.get('enabled'):
                 continue
 
-            read_in_sec = driver_config.get('read_in_sec')
-            if not read_in_sec:
-                logging.warning(f"Driver '{driver_name}' has no read_in_sec, skipping")
-                continue
+            # Default to 60 seconds if not provided in config
+            read_in_sec = driver_config.get('read_in_sec', 60)
+            if not isinstance(read_in_sec, int):
+                try:
+                    read_in_sec = int(read_in_sec)
+                except Exception:
+                    logging.warning(f"Driver '{driver_name}' has invalid read_in_sec, skipping")
+                    continue
 
             enabled_drivers.append((driver_name, driver_config, read_in_sec))
             logging.info(f"Enabled driver: {driver_name} (interval: {read_in_sec}s)")
