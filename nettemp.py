@@ -12,28 +12,52 @@ from pathlib import Path
 
 
 class CloudClient:
-    """Lightweight cloud client for Nettemp"""
+    """Lightweight cloud client for Nettemp - supports multiple cloud servers"""
 
     def __init__(self, config_path: str = "config.conf"):
         self.config = self._load_config(config_path)
         self.device_id = self.config.get('group', 'unknown')
-        self.cloud_url = self.config.get('cloud_server', '').rstrip('/')
-        self.api_key = self.config.get('cloud_api_key', '')
-        self.enabled = self.config.get('cloud_enabled', False)
+
+        # Support both single cloud server (backward compatible) and multiple servers
+        self.cloud_servers = self._parse_cloud_servers()
+
         self.timeout = 10
         self.retry_attempts = 3
 
-        # Local buffer for offline storage
+        # Local buffer for offline storage (shared across all servers)
         self.buffer_db = Path(config_path).parent / 'cloud_buffer.db'
         self._init_buffer()
 
-        # Session for connection pooling
-        self.session = requests.Session()
-        self.session.headers.update({
-            'Authorization': f'Bearer {self.api_key}',
-            'Content-Type': 'application/json',
-            'User-Agent': 'NettempCloud/1.0'
-        })
+    def _parse_cloud_servers(self) -> List[Dict[str, Any]]:
+        """Parse cloud server configurations - supports both single and multiple servers"""
+        servers = []
+
+        # Option 1: New format with cloud_servers list
+        if 'cloud_servers' in self.config and isinstance(self.config['cloud_servers'], list):
+            for server in self.config['cloud_servers']:
+                if isinstance(server, dict):
+                    servers.append({
+                        'url': server.get('url', '').rstrip('/'),
+                        'api_key': server.get('api_key', ''),
+                        'enabled': server.get('enabled', True),
+                        'name': server.get('name', server.get('url', 'unnamed'))
+                    })
+
+        # Option 2: Backward compatible single cloud server
+        if 'cloud_server' in self.config:
+            url = self.config.get('cloud_server', '').rstrip('/')
+            api_key = self.config.get('cloud_api_key', '')
+            enabled = self.config.get('cloud_enabled', False)
+
+            if url and api_key and enabled:
+                servers.append({
+                    'url': url,
+                    'api_key': api_key,
+                    'enabled': enabled,
+                    'name': url
+                })
+
+        return [s for s in servers if s['enabled'] and s['url'] and s['api_key']]
 
     def _load_config(self, config_path: str) -> dict:
         """Load YAML config"""
@@ -64,26 +88,42 @@ class CloudClient:
 
     def send(self, data: List[Dict]) -> bool:
         """
-        Send data to cloud (works with old nettemp format)
+        Send data to all enabled cloud servers (works with old nettemp format)
 
         Args:
             data: List of dicts with keys: rom, type, value, name
 
         Returns:
-            True if successful
+            True if sent successfully to at least one server
         """
-        if not self.enabled or not self.cloud_url or not self.api_key:
+        if not self.cloud_servers:
             return False
 
-        # Transform old format to cloud format
+        # Transform old format to cloud format once
         cloud_data = self._transform_data(data)
-
-        # The cloud API accepts up to ~100 readings per request. Split into batches
-        # to avoid hitting server-imposed limits. Buffer any failed batches.
         readings = cloud_data.get('readings', []) or []
         if not readings:
             return False
 
+        # Track if we successfully sent to at least one server
+        any_success = False
+
+        # Send to each enabled cloud server
+        for server in self.cloud_servers:
+            server_success = self._send_to_server(cloud_data, server)
+            if server_success:
+                any_success = True
+
+        # Try to flush buffer if we had any success
+        if any_success:
+            self._flush_buffer()
+
+        return any_success
+
+    def _send_to_server(self, cloud_data: Dict, server: Dict[str, str]) -> bool:
+        """Send data to a specific cloud server"""
+        # The cloud API accepts up to ~100 readings per request. Split into batches
+        readings = cloud_data.get('readings', []) or []
         batch_size = 100
         total = len(readings)
         sent_all = True
@@ -92,18 +132,13 @@ class CloudClient:
             batch_readings = readings[i:i + batch_size]
             batch_data = {'device_id': cloud_data.get('device_id'), 'readings': batch_readings}
 
-            success = self._send_to_cloud(batch_data)
+            success = self._send_to_cloud(batch_data, server)
             if not success:
-                # Buffer this failed batch and mark overall send as failed
-                self._add_to_buffer(batch_data)
+                # Buffer this failed batch with server info
+                self._add_to_buffer(batch_data, server)
                 sent_all = False
 
-        if sent_all:
-            # Success - try to flush buffer
-            self._flush_buffer()
-            return True
-
-        return False
+        return sent_all
 
     def _transform_data(self, data: List[Dict]) -> Dict:
         """Transform old nettemp format to cloud format"""
@@ -189,55 +224,73 @@ class CloudClient:
 
         return {'id': rom or 'unknown', 'type': 'unknown'}
 
-    def _send_to_cloud(self, data: Dict) -> bool:
-        """Send data to cloud API"""
+    def _send_to_cloud(self, data: Dict, server: Dict[str, str]) -> bool:
+        """Send data to specific cloud server"""
+        url = server['url']
+        api_key = server['api_key']
+        name = server.get('name', url)
+
         for attempt in range(self.retry_attempts):
             try:
-                # Include X-Readings-Count so server can account for batched readings
-                headers = {'X-Readings-Count': str(len(data.get('readings', [])))}
-                response = self.session.post(
-                    f'{self.cloud_url}/api/v1/data',
+                # Create session for this specific server with its API key
+                headers = {
+                    'Authorization': f'Bearer {api_key}',
+                    'Content-Type': 'application/json',
+                    'User-Agent': 'NettempCloud/1.0',
+                    'X-Readings-Count': str(len(data.get('readings', [])))
+                }
+
+                response = requests.post(
+                    f'{url}/api/v1/data',
                     json=data,
                     headers=headers,
                     timeout=self.timeout
                 )
 
                 if response.status_code == 200:
+                    print(f"[Cloud:{name}] Sent {len(data.get('readings', []))} readings")
                     return True
                 elif response.status_code == 401:
-                    print("Cloud: Invalid API key")
+                    print(f"[Cloud:{name}] Invalid API key")
                     return False
                 elif response.status_code == 429:
-                    # Rate limited
+                    print(f"[Cloud:{name}] Rate limited, retrying...")
                     time.sleep(2 ** attempt)
                     continue
                 else:
-                    print(f"Cloud: Error {response.status_code}")
+                    print(f"[Cloud:{name}] Error {response.status_code}")
 
             except requests.exceptions.Timeout:
+                print(f"[Cloud:{name}] Timeout (attempt {attempt + 1}/{self.retry_attempts})")
                 if attempt < self.retry_attempts - 1:
                     time.sleep(1)
             except Exception as e:
-                print(f"Cloud: {e}")
+                print(f"[Cloud:{name}] Error: {e}")
                 break
 
         return False
 
-    def _add_to_buffer(self, data: Dict):
-        """Add failed data to local buffer"""
+    def _add_to_buffer(self, data: Dict, server: Dict[str, str]):
+        """Add failed data to local buffer with server info"""
         try:
             conn = sqlite3.connect(self.buffer_db)
+            # Store both data and server info so we can retry to the correct server
+            buffer_entry = {
+                'data': data,
+                'server': server
+            }
             conn.execute(
                 'INSERT INTO buffer (data, timestamp) VALUES (?, ?)',
-                (json.dumps(data), int(time.time()))
+                (json.dumps(buffer_entry), int(time.time()))
             )
             conn.commit()
             conn.close()
+            print(f"[Cloud:{server.get('name', server['url'])}] Buffered for retry")
         except Exception as e:
             print(f"Buffer add error: {e}")
 
     def _flush_buffer(self):
-        """Try to send buffered data"""
+        """Try to send buffered data to their respective servers"""
         try:
             conn = sqlite3.connect(self.buffer_db)
             cursor = conn.execute(
@@ -246,16 +299,32 @@ class CloudClient:
             rows = cursor.fetchall()
 
             for row_id, data_json in rows:
-                data = json.loads(data_json)
-                if self._send_to_cloud(data):
-                    # Success - delete from buffer
-                    conn.execute('DELETE FROM buffer WHERE id = ?', (row_id,))
-                else:
-                    # Failed - increment attempts
-                    conn.execute(
-                        'UPDATE buffer SET attempts = attempts + 1 WHERE id = ?',
-                        (row_id,)
-                    )
+                try:
+                    buffer_entry = json.loads(data_json)
+
+                    # Handle both old format (just data) and new format (data + server)
+                    if isinstance(buffer_entry, dict) and 'server' in buffer_entry:
+                        data = buffer_entry['data']
+                        server = buffer_entry['server']
+                    else:
+                        # Old format - try first available server
+                        data = buffer_entry
+                        if not self.cloud_servers:
+                            continue
+                        server = self.cloud_servers[0]
+
+                    if self._send_to_cloud(data, server):
+                        # Success - delete from buffer
+                        conn.execute('DELETE FROM buffer WHERE id = ?', (row_id,))
+                    else:
+                        # Failed - increment attempts
+                        conn.execute(
+                            'UPDATE buffer SET attempts = attempts + 1 WHERE id = ?',
+                            (row_id,)
+                        )
+                except Exception as e:
+                    print(f"Buffer flush item error: {e}")
+                    continue
 
             conn.commit()
             conn.close()
@@ -263,8 +332,8 @@ class CloudClient:
             print(f"Buffer flush error: {e}")
 
     def close(self):
-        """Close session"""
-        self.session.close()
+        """Cleanup resources"""
+        pass
 
 
 # Backward compatible insert2 replacement
@@ -326,15 +395,17 @@ class insert2:
             except Exception as e:
                 print(f"[Local] Cannot connect: {e}")
 
-        # 2. Send to cloud
-        if config.get('cloud_enabled'):
-            try:
-                if not self._cloud_client:
-                    self._cloud_client = CloudClient(config_file)
+        # 2. Send to cloud (supports both single and multiple cloud servers)
+        # CloudClient will check if any servers are configured and enabled
+        try:
+            if not self._cloud_client:
+                self._cloud_client = CloudClient(config_file)
 
+            # CloudClient.send() will return False if no servers configured
+            if self._cloud_client.cloud_servers:
                 if self._cloud_client.send(self.data):
-                    print(f"[Cloud] Data sent")
+                    print(f"[Cloud] Data sent to {len(self._cloud_client.cloud_servers)} server(s)")
                 else:
-                    print(f"[Cloud] Buffered for retry")
-            except Exception as e:
-                print(f"[Cloud] Error: {e}")
+                    print(f"[Cloud] Some failures - check logs")
+        except Exception as e:
+            print(f"[Cloud] Error: {e}")
