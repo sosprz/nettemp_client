@@ -43,6 +43,26 @@ python3 nettemp_client.py
 sudo reboot
 ```
 
+### Manual Installation
+
+As an alternative to the setup script, you can install the dependencies manually.
+
+```bash
+# Create a virtual environment
+python3 -m venv venv
+source venv/bin/activate
+
+# Install dependencies
+pip install -r requirements.txt
+
+# Edit config files
+nano config.conf
+nano drivers_config.yaml
+
+# Run the client
+python3 nettemp_client.py
+```
+
 ## Configuration
 
 ### 1. Device Settings (config.conf)
@@ -247,7 +267,7 @@ There was a Nettemp Pi HAT (DS2482-based 1-Wire bridge) sold previously via Kama
 
 https://kamami.pl/wycofane-z-oferty/559377-nettemp-pi-hat-modul-nettemp-dla-komputera-raspberry-pi.html
 
-This specific HAT appears to be discontinued from that supplier. If you need the same functionality today, you can use any compatible DS2482 I2C-to-1-Wire bridge breakout (for example modules labeled DS2482-800) or run multiple DS18B20 sensors directly on the Pi's 1-Wire GPIO (if wiring allows).
+This specific HAT appears to be discontinued from that supplier. If you need the same functionality today, you can use any compatible DS2482 I2C-to-1-Wire bridge breakout (for example modules labeled DS2482-800) or run multiple DS18B20 sensors directly on the Pi\'s 1-Wire GPIO (if wiring allows).
 
 To enable DS2482 support in this client, set `ds2482: true` under `w1_kernel` in `drivers_config.yaml` (example above). The driver will attempt to initialize the DS2482 bridge on startup.
 
@@ -257,7 +277,7 @@ To enable DS2482 support in this client, set `ds2482: true` under `w1_kernel` in
 - Check hardware connections
 - Verify I2C enabled: `i2cdetect -y 1`
 - Check GPIO pins match config
-- Install sensor libraries: `pip install -r requirements.txt`
+-- Install sensor libraries: `pip install -r requirements.txt`
 
 **Cannot connect to server:**
 - Check `cloud_server` URL (cloud or self-hosted)
@@ -362,3 +382,70 @@ Both options use the same client - just change the `cloud_server` URL in config.
 ## Support
 
 See main repository for backend deployment and dashboard documentation.
+
+## API Usage Examples
+
+The API host for client devices is `https://api.client.nettemp.pl`. Below are simple examples for sending sensor data.
+
+### cURL (POST bulk data)
+
+Use a heredoc with `-d @-` to keep the payload readable and avoid escaping:
+
+```bash
+curl -X POST "https://api.client.nettemp.pl/api/v1/data" \
+  -H 'Content-Type: application/json' \
+  -H 'Authorization: Bearer ntk_YOUR_API_KEY' \
+  -d @- <<'JSON'
+{
+  "device_id": "device-1",
+  "readings": [
+    {"sensor_id": "s1", "type": "temperature", "value": 22.4},
+    {"sensor_id": "s2", "type": "humidity", "value": 55.1}
+  ]
+}
+JSON
+```
+
+**Note:** The server enforces a maximum of 100 unique sensors per request. If you have more sensors, split them into batches of <= 100 readings per request.
+
+### Python (requests)
+
+```python
+import requests
+
+url = "https://api.client.nettemp.pl/api/v1/data"
+headers = { 'Authorization': 'Bearer ntk_YOUR_API_KEY', 'Content-Type': 'application/json' }
+payload = {
+  "device_id": "device-1",
+  "readings": [
+    {"sensor_id": "s1", "type": "temperature", "value": 22.4},
+    {"sensor_id": "s2", "type": "humidity", "value": 55.1}
+  ]
+}
+resp = requests.post(url, json=payload, headers=headers)
+print(resp.status_code, resp.text)
+```
+
+### JavaScript (fetch)
+
+```javascript
+const url = 'https://api.client.nettemp.pl/api/v1/data';
+const payload = {
+  device_id: 'device-1',
+  readings: [
+    { sensor_id: 's1', type: 'temperature', value: 22.4 },
+    { sensor_id: 's2', type: 'humidity', value: 55.1 }
+  ]
+};
+
+fetch(url, {
+  method: 'POST',
+  headers: {
+    'Content-Type': 'application/json',
+    'Authorization': 'Bearer ntk_YOUR_API_KEY'
+  },
+  body: JSON.stringify(payload)
+}).then(r => r.json()).then(console.log).catch(console.error);
+```
+
+For large sensor sets, chunk readings into batches of at most 100 unique sensors per request and retry on transient failures.
