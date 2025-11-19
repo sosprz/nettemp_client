@@ -120,6 +120,25 @@ class CloudClient:
 
         return any_success
 
+    def send_payload(self, payload: Dict) -> bool:
+        """
+        Send already-transformed payload (device_id + readings) to all cloud servers.
+        """
+        if not self.cloud_servers:
+            return False
+        if not payload or not payload.get('readings'):
+            return False
+
+        any_success = False
+        for server in self.cloud_servers:
+            if self._send_to_cloud(payload, server):
+                any_success = True
+
+        if any_success:
+            self._flush_buffer()
+
+        return any_success
+
     def _send_to_server(self, cloud_data: Dict, server: Dict[str, str]) -> bool:
         """Send data to a specific cloud server"""
         # The cloud API accepts up to ~100 readings per request. Split into batches

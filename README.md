@@ -151,6 +151,106 @@ Runs automatically on boot via cron.
 python3 demo_all_sensors.py
 ```
 
+## Sending Data Manually (HTTP Bridge)
+
+If you enable the optional `http_bridge` in `config.conf`, your Nettemp client exposes a lightweight HTTP endpoint (default: http://0.0.0.0:8080). You can POST data directly over HTTP and the client forwards it securely to Nettemp Cloud using the configured API key. This is handy for device firmwares that only speak HTTP.
+
+### Enable HTTP Bridge
+
+```yaml
+http_bridge:
+  enabled: true
+  host: 0.0.0.0
+  port: 8080
+  auth_token: local_shared_secret   # optional but recommended
+```
+
+### 1. Cloud Payload (Device + readings)
+
+```bash
+curl -X POST http://your-client:8080/ \
+  -H "Content-Type: application/json" \
+  -H "Authorization: Bearer local_shared_secret" \
+  -d '{
+        "device_id": "living-room-1",
+        "readings": [
+          {
+            "sensor_id": "1b-28_000007165506",
+            "sensor_type": "temperature",
+            "value": 21.75,
+            "unit": "°C",
+            "timestamp": 1732036297,
+            "metadata": {
+              "name": "Living Room Temp",
+              "original_rom": "28-000007165506"
+            }
+          }
+        ]
+      }'
+```
+
+Python example:
+
+```python
+import requests, time
+
+payload = {
+    "device_id": "living-room-1",
+    "readings": [
+        {
+            "sensor_id": "1b-28_000007165506",
+            "sensor_type": "temperature",
+            "value": 21.75,
+            "unit": "°C",
+            "timestamp": int(time.time())
+        }
+    ]
+}
+
+resp = requests.post(
+    "http://your-client:8080/",
+    json=payload,
+    headers={"Authorization": "Bearer local_shared_secret"}
+)
+resp.raise_for_status()
+```
+
+### 2. Legacy Payload (list of ROM/value objects)
+
+```bash
+curl -X POST http://your-client:8080/ \
+  -H "Content-Type: application/json" \
+  -d '[{"rom":"28-000007165506","type":"temperature","value":21.75,"unit":"°C","name":"Living Room"}]'
+```
+
+In Python:
+
+```python
+legacy = [
+    {"rom":"28-000007165506","type":"temperature","value":21.75,"unit":"°C","name":"Living Room"}
+]
+
+requests.post("http://your-client:8080/", json=legacy)
+```
+
+The client forwards legacy payloads via `insert2` (local server + cloud), and forwards the new cloud format directly to your configured cloud servers.
+
+### 3. ESP Easy "Generic HTTP" (GET)
+
+Point ESP Easy’s `Generic HTTP` controller at the bridge URL:
+
+```
+http://your-client:8080/generic_http?name=%sysname%&task=%tskname%&valuename=%valname%&value=%value%
+```
+
+You can test it manually:
+
+```bash
+curl "http://your-client:8080/generic_http?name=esp1&task=dht22&valuename=temperature&value=23.4&unit=%25"
+```
+
+The bridge converts that into the legacy format and forwards it just like a local driver reading.
+
 ## Updating
 
 ### Quick Update (Recommended)
