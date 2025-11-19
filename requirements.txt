@@ -31,4 +31,5 @@ deepdiff
 sdm_modbus
 
 # RPi specific (optional)
-# git+https://github.com/nicmcd/vcgencmd.git
+git+https://github.com/nicmcd/vcgencmd.git
+RPi.GPIO
