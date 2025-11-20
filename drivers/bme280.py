@@ -471,7 +471,6 @@ def bme280(config_dict):
         addr = 0x76
 
     try:
-        print("BME280")
         sensor = BME280(mode=BME280_OSAMPLE_8, address=addr)
 
         degrees = sensor.read_temperature()

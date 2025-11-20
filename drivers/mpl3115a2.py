@@ -10,7 +10,6 @@ import time, socket
 
 def mpl3115a2(config_dict):
   try:
-    print ("MPL3115A2")
     # Get I2C bus
     bus = smbus.SMBus(1)
 

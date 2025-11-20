@@ -4,7 +4,6 @@ import adafruit_dht
 
 
 def dht11(config_dict):
-  print("DHT11")
   try:
     pin = str(config_dict.get("gpio_pin"))
     pin = "D"+pin

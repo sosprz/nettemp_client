@@ -7,7 +7,6 @@ import os.path, socket
 i2c = busio.I2C(board.SCL, board.SDA)
 
 def adxl345(config_dict):
-	print("ADXL34x")
 	try:
 		accelerometer = adafruit_adxl34x.ADXL345(i2c)
 		accelerometer.enable_motion_detection()

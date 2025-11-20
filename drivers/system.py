@@ -4,7 +4,6 @@ import logging
 logging.basicConfig(level=logging.INFO, format='[%(asctime)s] %(levelname)s: %(message)s', datefmt='%Y-%m-%d %H:%M:%S')
 
 def system(config_dict):
-	logging.info("[ system ] start")
 	data = []
 
 	cpu = psutil.cpu_percent()

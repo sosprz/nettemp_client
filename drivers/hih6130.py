@@ -50,7 +50,6 @@ class HIH6130:
 		return
 
 def hih6130(config_dict):
-	print ("HIH6130")
 	try:
 		rht = HIH6130()
 		rht.read()

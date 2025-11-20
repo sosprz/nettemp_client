@@ -1,7 +1,6 @@
 import smbus, time, sys, os, socket
 
 def tmp102(config_dict):
-	print("TMP102")
 	if len(sys.argv) > 1:
 		nbus = sys.argv[1]
 	elif  os.path.exists("/dev/i2c-0"):

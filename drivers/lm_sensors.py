@@ -2,7 +2,6 @@
 import subprocess, json, socket
 
 def lm_sensors(config_dict):
-  print("LM-SENSORS")
   try:
     output = subprocess.check_output("/usr/bin/sensors -j", shell=True)
     output = output.decode("utf-8")

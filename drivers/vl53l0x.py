@@ -4,7 +4,6 @@ import adafruit_vl53l0x
 import socket
 
 def vl53l0x(config_dict):
-	print("vl53l0x")
 	try:
 		i2c = busio.I2C(board.SCL, board.SDA)
 		sensor = adafruit_vl53l0x.VL53L0X(i2c)

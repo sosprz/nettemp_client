@@ -4,7 +4,6 @@ import busio
 import adafruit_tsl2561
 
 def tsl2561(config_dict):
-	print("TSL2561")
 	try:
 		i2c = busio.I2C(board.SCL, board.SDA)
 		tsl = adafruit_tsl2561.TSL2561(i2c)

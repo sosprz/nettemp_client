@@ -7,7 +7,6 @@ import socket, random, os, yaml
 import logging
 
 def sdm120(config_dict):
-    logging.info("sdm120")
     try:
         model = "SDM120"
         

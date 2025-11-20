@@ -52,7 +52,6 @@ def perform_ping(name):
 	return data
 
 def ping(config_dict):
-	logging.info("[ ping ] start")
 	hosts = config_dict.get("hosts") or []
 
 	if not hosts:
@@ -69,5 +68,4 @@ def ping(config_dict):
 	if data:
 		return data
 
-	logging.info("[ ping ] End")
 	return []

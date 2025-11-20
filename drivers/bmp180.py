@@ -64,7 +64,6 @@ def bmp180(config_dict):
     #print '{0:0.2f}'.format(sensor.read_sealevel_pressure())
 
     try:
-        print("BMP180")
         sensor = BMP085.BMP085(busnum=int(nbus))
         
         data = []

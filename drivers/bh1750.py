@@ -31,7 +31,6 @@ ONE_TIME_LOW_RES_MODE = 0x23
 
 def bh1750(config_dict):
 	try:
-		print("bh1750")
 		if len(sys.argv) > 1:
 			nbus = sys.argv[1]
 		elif os.path.exists("/dev/i2c-0"):

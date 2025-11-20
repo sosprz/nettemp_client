@@ -4,7 +4,6 @@ import io, sys, os, socket
 
 def rpi(config_dict):
 	try:
-		print("Rpi")
 		from gpiozero import CPUTemperature
 		cpu = CPUTemperature()
 		data = []
