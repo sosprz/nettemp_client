@@ -15,8 +15,6 @@ def w1_kernel(config_dict):
     """
     global _ds2482_initialized
 
-    print("w1_kernel")
-
     # Check if DS2482 initialization is needed
     if config_dict.get('ds2482') and not _ds2482_initialized:
         logging.info("DS2482 mode detected - initializing DS2482 bridge...")

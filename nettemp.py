@@ -7,6 +7,7 @@ import json
 import hashlib
 import sqlite3
 import os
+import logging
 from typing import List, Dict, Optional, Any
 from pathlib import Path
 
@@ -66,7 +67,7 @@ class CloudClient:
             with open(config_path, 'r') as f:
                 return yaml.safe_load(f) or {}
         except Exception as e:
-            print(f"Config load error: {e}")
+            logging.error(f"Config load error: {e}")
             return {}
 
     def _init_buffer(self):
@@ -85,7 +86,7 @@ class CloudClient:
                 ''')
                 conn.commit()
         except Exception as e:
-            print(f"Buffer init error: {e}")
+            logging.error(f"Buffer init error: {e}")
 
     def send(self, data: List[Dict]) -> bool:
         """
@@ -268,24 +269,24 @@ class CloudClient:
                 )
 
                 if response.status_code == 200:
-                    print(f"[Cloud:{name}] Sent {len(data.get('readings', []))} readings")
+                    logging.info(f"[Cloud:{name}] Sent {len(data.get('readings', []))} readings")
                     return True
                 elif response.status_code == 401:
-                    print(f"[Cloud:{name}] Invalid API key")
+                    logging.error(f"[Cloud:{name}] Invalid API key")
                     return False
                 elif response.status_code == 429:
-                    print(f"[Cloud:{name}] Rate limited, retrying...")
+                    logging.warning(f"[Cloud:{name}] Rate limited, retrying...")
                     time.sleep(2 ** attempt)
                     continue
                 else:
-                    print(f"[Cloud:{name}] Error {response.status_code}")
+                    logging.error(f"[Cloud:{name}] Error {response.status_code}")
 
             except requests.exceptions.Timeout:
-                print(f"[Cloud:{name}] Timeout (attempt {attempt + 1}/{self.retry_attempts})")
+                logging.warning(f"[Cloud:{name}] Timeout (attempt {attempt + 1}/{self.retry_attempts})")
                 if attempt < self.retry_attempts - 1:
                     time.sleep(1)
             except Exception as e:
-                print(f"[Cloud:{name}] Error: {e}")
+                logging.error(f"[Cloud:{name}] Error: {e}")
                 break
 
         return False
@@ -304,9 +305,9 @@ class CloudClient:
                     (json.dumps(buffer_entry), int(time.time()))
                 )
                 conn.commit()
-                print(f"[Cloud:{server.get('name', server['url'])}] Buffered for retry")
+                logging.info(f"[Cloud:{server.get('name', server['url'])}] Buffered for retry")
         except Exception as e:
-            print(f"Buffer add error: {e}")
+            logging.error(f"Buffer add error: {e}")
 
     def _flush_buffer(self):
         """Try to send buffered data to their respective servers"""
@@ -341,12 +342,12 @@ class CloudClient:
                                 (row_id,)
                             )
                     except Exception as e:
-                        print(f"Buffer flush item error: {e}")
+                        logging.error(f"Buffer flush item error: {e}")
                         continue
 
                 conn.commit()
         except Exception as e:
-            print(f"Buffer flush error: {e}")
+            logging.error(f"Buffer flush error: {e}")
 
     def close(self):
         """Cleanup resources"""
@@ -376,7 +377,7 @@ class insert2:
             with open(config_file, 'r') as f:
                 config = yaml.safe_load(f) or {}
         except:
-            print("Cannot load config")
+            logging.error("Cannot load config")
             return
 
         # Allow overriding the group via CLOUD_GROUP so callers (like the demo)
@@ -408,9 +409,9 @@ class insert2:
                     verify=False,
                     timeout=5
                 )
-                print(f"[Local] Data sent")
+                logging.info(f"[Local] Data sent")
             except Exception as e:
-                print(f"[Local] Cannot connect: {e}")
+                logging.error(f"[Local] Cannot connect: {e}")
 
         # 2. Send to cloud (supports both single and multiple cloud servers)
         # CloudClient will check if any servers are configured and enabled
@@ -421,8 +422,8 @@ class insert2:
             # CloudClient.send() will return False if no servers configured
             if self._cloud_client.cloud_servers:
                 if self._cloud_client.send(self.data):
-                    print(f"[Cloud] Data sent to {len(self._cloud_client.cloud_servers)} server(s)")
+                    logging.info(f"[Cloud] Data sent to {len(self._cloud_client.cloud_servers)} server(s)")
                 else:
-                    print(f"[Cloud] Some failures - check logs")
+                    logging.warning(f"[Cloud] Some failures - check logs")
         except Exception as e:
-            print(f"[Cloud] Error: {e}")
+            logging.error(f"[Cloud] Error: {e}")
