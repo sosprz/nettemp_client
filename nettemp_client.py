@@ -105,7 +105,7 @@ class NettempClient:
         try:
             sender = insert2(readings)
             sender.request()
-            logging.info(f'Sent {len(readings)} readings for {driver_name}')
+            #logging.info(f'Sent {len(readings)} readings for {driver_name}')
         except Exception as e:
             logging.error(f'Failed to send {driver_name}: {e}')
 
