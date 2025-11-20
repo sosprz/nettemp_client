@@ -1,21 +1,22 @@
 import socket, random
 
 def w1_kernel_gpio(config_dict):
-    print ("w1_kernel_gpio")
-    try:
-        from w1thermsensor import W1ThermSensor
-        
-        data = []
+\tprint("w1_kernel_gpio")
+\ttry:
+\t\tfrom w1thermsensor import W1ThermSensor
 
-        for sensor in W1ThermSensor.get_available_sensors():
-            r = random.randint(10000,99999)
-            value = sensor.get_temperature()
-            rom = '_28_'+sensor.id
-            type = 'temp'
-            name = 'DS18b20-'+str(r)
-            data.append({"rom":rom,"type":type, "value":value,"name":name})
+\t\tdata = []
 
-    return data
+\t\tfor sensor in W1ThermSensor.get_available_sensors():
+\t\t\tr = random.randint(10000,99999)
+\t\t\tvalue = sensor.get_temperature()
+\t\t\trom = '_28_'+sensor.id
+\t\t\ttype = 'temp'
+\t\t\tname = 'DS18b20-'+str(r)
+\t\t\tdata.append({"rom":rom,"type":type, "value":value,"name":name})
 
-    except:
-        print ("No w1_kernel")
+\t\treturn data
+
+\texcept Exception:
+\t\tprint("No w1_kernel")
+\t\treturn []

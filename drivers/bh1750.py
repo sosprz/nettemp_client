@@ -30,39 +30,39 @@ ONE_TIME_HIGH_RES_MODE_2 = 0x21
 ONE_TIME_LOW_RES_MODE = 0x23
 
 def bh1750(config_dict):
-  try:
-    print ("bh1750")
-    if len(sys.argv) > 1:
-        nbus = sys.argv[1]
-    elif  os.path.exists("/dev/i2c-0"):
-        nbus = "0"
-    elif os.path.exists("/dev/i2c-1"):
-        nbus = "1"
-    elif os.path.exists("/dev/i2c-2"):
-        nbus = "2"
-    elif os.path.exists("/dev/i2c-3"):
-        nbus = "3"
+	try:
+		print("bh1750")
+		if len(sys.argv) > 1:
+			nbus = sys.argv[1]
+		elif os.path.exists("/dev/i2c-0"):
+			nbus = "0"
+		elif os.path.exists("/dev/i2c-1"):
+			nbus = "1"
+		elif os.path.exists("/dev/i2c-2"):
+			nbus = "2"
+		elif os.path.exists("/dev/i2c-3"):
+			nbus = "3"
 
-    bus = smbus.SMBus(int(nbus))
-    
-    def convertToNumber(data):
-      # Simple function to convert 2 bytes of data
-      # into a decimal number
-      return ((data[1] + (256 * data[0])) / 1.2)
-    
-    def readLight(addr=DEVICE):
-      data = bus.read_i2c_block_data(addr,ONE_TIME_HIGH_RES_MODE_1)
-      return convertToNumber(data)
-    
-    #print(readLight())
-    
-    rom = "_i2c_23_lux"
-    value = '{0:0.2f}'.format(readLight())
-    name = 'bh1750_lux'
-    type = 'lux'
+		bus = smbus.SMBus(int(nbus))
 
-    return [{"rom":rom,"type":type, "value":value,"name":name}]
-  except:
-    print ("No bh1750")
+		def convertToNumber(data):
+			# Simple function to convert 2 bytes of data
+			# into a decimal number
+			return ((data[1] + (256 * data[0])) / 1.2)
 
+		def readLight(addr=DEVICE):
+			data = bus.read_i2c_block_data(addr,ONE_TIME_HIGH_RES_MODE_1)
+			return convertToNumber(data)
+
+		#print(readLight())
+
+		rom = "_i2c_23_lux"
+		value = '{0:0.2f}'.format(readLight())
+		name = 'bh1750_lux'
+		type = 'lux'
+
+		return [{"rom":rom,"type":type, "value":value,"name":name}]
+	except Exception:
+		print("No bh1750")
+		return []
 

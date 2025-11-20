@@ -90,6 +90,7 @@ class NettempClient:
         if not readings:
             logging.warning(f'No readings from {driver_name}')
             return
+        logging.info(f'{driver_name} readings: {readings}')
         try:
             sender = insert2(readings)
             sender.request()
