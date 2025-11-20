@@ -32,6 +32,8 @@ from driver_loader import DriverLoader
 from bridge import HTTPBridge
 
 logging.basicConfig(level=logging.INFO, format='[%(asctime)s] %(levelname)s: %(message)s')
+# Quiet down APScheduler noise (job executed/run messages)
+logging.getLogger('apscheduler').setLevel(logging.WARNING)
 
 PIDFILE = Path(__file__).parent / '.nettemp_client.pid'
 
@@ -85,12 +87,21 @@ class NettempClient:
 
 
     def read_and_send(self, driver_name, driver_config):
-        logging.info(f'Reading: {driver_name}')
         readings = self.loader.run_driver(driver_name, driver_config)
         if not readings:
             logging.warning(f'No readings from {driver_name}')
             return
-        logging.info(f'{driver_name} readings: {readings}')
+
+        # Single-line log with driver name and values
+        try:
+            summary = "; ".join(
+                f"{r.get('name', r.get('rom', 'unknown'))}={r.get('value')}"
+                for r in readings
+            )
+        except Exception:
+            summary = str(readings)
+        logging.info(f"Reading: {driver_name} {summary}")
+
         try:
             sender = insert2(readings)
             sender.request()

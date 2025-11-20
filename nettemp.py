@@ -72,17 +72,18 @@ class CloudClient:
     def _init_buffer(self):
         """Initialize SQLite buffer for offline storage"""
         try:
-            conn = sqlite3.connect(self.buffer_db)
-            conn.execute('''
-                CREATE TABLE IF NOT EXISTS buffer (
-                    id INTEGER PRIMARY KEY AUTOINCREMENT,
-                    data TEXT NOT NULL,
-                    timestamp INTEGER NOT NULL,
-                    attempts INTEGER DEFAULT 0
-                )
-            ''')
-            conn.commit()
-            conn.close()
+            with sqlite3.connect(self.buffer_db, timeout=10) as conn:
+                conn.execute('PRAGMA journal_mode=WAL;')
+                conn.execute('PRAGMA busy_timeout=5000;')
+                conn.execute('''
+                    CREATE TABLE IF NOT EXISTS buffer (
+                        id INTEGER PRIMARY KEY AUTOINCREMENT,
+                        data TEXT NOT NULL,
+                        timestamp INTEGER NOT NULL,
+                        attempts INTEGER DEFAULT 0
+                    )
+                ''')
+                conn.commit()
         except Exception as e:
             print(f"Buffer init error: {e}")
 
@@ -292,61 +293,58 @@ class CloudClient:
     def _add_to_buffer(self, data: Dict, server: Dict[str, str]):
         """Add failed data to local buffer with server info"""
         try:
-            conn = sqlite3.connect(self.buffer_db)
-            # Store both data and server info so we can retry to the correct server
-            buffer_entry = {
-                'data': data,
-                'server': server
-            }
-            conn.execute(
-                'INSERT INTO buffer (data, timestamp) VALUES (?, ?)',
-                (json.dumps(buffer_entry), int(time.time()))
-            )
-            conn.commit()
-            conn.close()
-            print(f"[Cloud:{server.get('name', server['url'])}] Buffered for retry")
+            with sqlite3.connect(self.buffer_db, timeout=10) as conn:
+                conn.execute('PRAGMA busy_timeout=5000;')
+                buffer_entry = {
+                    'data': data,
+                    'server': server
+                }
+                conn.execute(
+                    'INSERT INTO buffer (data, timestamp) VALUES (?, ?)',
+                    (json.dumps(buffer_entry), int(time.time()))
+                )
+                conn.commit()
+                print(f"[Cloud:{server.get('name', server['url'])}] Buffered for retry")
         except Exception as e:
             print(f"Buffer add error: {e}")
 
     def _flush_buffer(self):
         """Try to send buffered data to their respective servers"""
         try:
-            conn = sqlite3.connect(self.buffer_db)
-            cursor = conn.execute(
-                'SELECT id, data FROM buffer WHERE attempts < 5 ORDER BY timestamp LIMIT 10'
-            )
-            rows = cursor.fetchall()
+            with sqlite3.connect(self.buffer_db, timeout=10) as conn:
+                conn.execute('PRAGMA busy_timeout=5000;')
+                cursor = conn.execute(
+                    'SELECT id, data FROM buffer WHERE attempts < 5 ORDER BY timestamp LIMIT 10'
+                )
+                rows = cursor.fetchall()
 
-            for row_id, data_json in rows:
-                try:
-                    buffer_entry = json.loads(data_json)
+                for row_id, data_json in rows:
+                    try:
+                        buffer_entry = json.loads(data_json)
 
-                    # Handle both old format (just data) and new format (data + server)
-                    if isinstance(buffer_entry, dict) and 'server' in buffer_entry:
-                        data = buffer_entry['data']
-                        server = buffer_entry['server']
-                    else:
-                        # Old format - try first available server
-                        data = buffer_entry
-                        if not self.cloud_servers:
-                            continue
-                        server = self.cloud_servers[0]
+                        # Handle both old format (just data) and new format (data + server)
+                        if isinstance(buffer_entry, dict) and 'server' in buffer_entry:
+                            data = buffer_entry['data']
+                            server = buffer_entry['server']
+                        else:
+                            # Old format - try first available server
+                            data = buffer_entry
+                            if not self.cloud_servers:
+                                continue
+                            server = self.cloud_servers[0]
 
-                    if self._send_to_cloud(data, server):
-                        # Success - delete from buffer
-                        conn.execute('DELETE FROM buffer WHERE id = ?', (row_id,))
-                    else:
-                        # Failed - increment attempts
-                        conn.execute(
-                            'UPDATE buffer SET attempts = attempts + 1 WHERE id = ?',
-                            (row_id,)
-                        )
-                except Exception as e:
-                    print(f"Buffer flush item error: {e}")
-                    continue
+                        if self._send_to_cloud(data, server):
+                            conn.execute('DELETE FROM buffer WHERE id = ?', (row_id,))
+                        else:
+                            conn.execute(
+                                'UPDATE buffer SET attempts = attempts + 1 WHERE id = ?',
+                                (row_id,)
+                            )
+                    except Exception as e:
+                        print(f"Buffer flush item error: {e}")
+                        continue
 
-            conn.commit()
-            conn.close()
+                conn.commit()
         except Exception as e:
             print(f"Buffer flush error: {e}")
 
