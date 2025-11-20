@@ -503,8 +503,7 @@ def bme280(config_dict):
         type = 'humid'
         data.append({"rom":rom,"type":type, "value":value,"name":name})
 
-    return data
-
+        return data
 
     except: 
         print("No BME280")

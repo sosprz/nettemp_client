@@ -61,6 +61,7 @@ def bh1750(config_dict):
 		type = 'lux'
 
 		return [{"rom":rom,"type":type, "value":value,"name":name}]
+	
 	except Exception:
 		print("No bh1750")
 		return []

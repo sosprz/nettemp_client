@@ -18,13 +18,13 @@ class HIH6130:
 		self.timestamp = None
 
 		if len(sys.argv) > 1:
-		    nbus = sys.argv[1]
+			nbus = sys.argv[1]
 		elif  os.path.exists("/dev/i2c-0"):
-		    nbus = "0"
+			nbus = "0"
 		elif os.path.exists("/dev/i2c-1"):
-		    nbus = "1"
+			nbus = "1"
 		elif os.path.exists("/dev/i2c-2"):
-		    nbus = "2"
+			nbus = "2"
 		elif os.path.exists("/dev/i2c-3"):
 			nbus = "3"
 
@@ -54,9 +54,6 @@ def hih6130(config_dict):
 		rht = HIH6130()
 		rht.read()
 		#print ("{0}\n{1}".format(rht.rh, rht.t))
-
-		
-
 		data = []
 
 		rom = "_i2c_27_temp"
@@ -71,7 +68,7 @@ def hih6130(config_dict):
 		type = 'humid'
 		data.append({"rom":rom,"type":type, "value":value,"name":name})
 	   
-    return data
+		return data
 	
 	except: 
 		print ("No HIH6130")

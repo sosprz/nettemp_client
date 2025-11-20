@@ -38,9 +38,10 @@ def sdm120(config_dict):
             type = f"{type}"
             name = f"{model} {type}"
             data.append({"rom":rom,"type":type, "value":value,"name":name})
-
-    return data
         
         meter.disconnect()
+
+        return data
+        
     except:
         logging.info("sdm 120 error")

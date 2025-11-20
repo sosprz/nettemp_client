@@ -80,7 +80,7 @@ def bmp180(config_dict):
         type = 'press'
         data.append({"rom":rom,"type":type, "value":value,"name":name})
 
-    return data
+        return data
     except:
         print("No BMP180")
 

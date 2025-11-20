@@ -47,7 +47,6 @@ def perform_ping(name):
 	rom = '_' + type + '_' + name4r
 
 	data = {"rom": rom, "type": type, "value": value, "name": name}
-	logging.info(f"[ ping ] {name} Request completed in {value}ms")
 
 	return data
 
