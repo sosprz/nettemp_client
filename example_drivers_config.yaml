@@ -46,7 +46,7 @@ bmp180:
 # Temperature/Humidity/Pressure sensors
 bme280:
   enabled: false
-  read_in_sec: 60
+  read_in_sec: 600
   i2c_address: "0x76"
 
 # Humidity sensors
