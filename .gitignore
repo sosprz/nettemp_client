@@ -20,3 +20,5 @@ nettemp_crontab
 # IDE
 .vscode/
 .idea/
+
+doc

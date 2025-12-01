@@ -485,14 +485,14 @@ See main repository for backend deployment and dashboard documentation.
 
 ## API Usage Examples
 
-The API host for client devices is `https://api.client.nettemp.pl`. Below are simple examples for sending sensor data.
+The API host for client devices is `https://api.nettemp.pl`. Below are simple examples for sending sensor data.
 
 ### cURL (POST bulk data)
 
 Use a heredoc with `-d @-` to keep the payload readable and avoid escaping:
 
 ```bash
-curl -X POST "https://api.client.nettemp.pl/api/v1/data" \
+curl -X POST "https://api.nettemp.pl/api/v1/data" \
   -H 'Content-Type: application/json' \
   -H 'Authorization: Bearer ntk_YOUR_API_KEY' \
   -d @- <<'JSON'
@@ -513,7 +513,7 @@ JSON
 ```python
 import requests
 
-url = "https://api.client.nettemp.pl/api/v1/data"
+url = "https://api.nettemp.pl/api/v1/data"
 headers = { 'Authorization': 'Bearer ntk_YOUR_API_KEY', 'Content-Type': 'application/json' }
 payload = {
   "device_id": "device-1",
@@ -529,7 +529,7 @@ print(resp.status_code, resp.text)
 ### JavaScript (fetch)
 
 ```javascript
-const url = 'https://api.client.nettemp.pl/api/v1/data';
+const url = 'https://api.nettemp.pl/api/v1/data';
 const payload = {
   device_id: 'device-1',
   readings: [
