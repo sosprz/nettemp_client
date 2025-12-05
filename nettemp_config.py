@@ -152,6 +152,30 @@ def check_and_setup_environment():
     except Exception as e:
         print(f"⚠ Could not check i2c group: {e}")
     
+    # Copy example config files if they don't exist
+    config_file = base_path / 'config.conf'
+    example_config = base_path / 'example_config.conf'
+    drivers_config_file = base_path / 'drivers_config.yaml'
+    example_drivers_config = base_path / 'example_drivers_config.yaml'
+    
+    if not config_file.exists() and example_config.exists():
+        print("\n📝 Creating config.conf from example...")
+        try:
+            import shutil
+            shutil.copy(example_config, config_file)
+            print("✓ config.conf created")
+        except Exception as e:
+            print(f"⚠ Failed to copy config.conf: {e}")
+    
+    if not drivers_config_file.exists() and example_drivers_config.exists():
+        print("📝 Creating drivers_config.yaml from example...")
+        try:
+            import shutil
+            shutil.copy(example_drivers_config, drivers_config_file)
+            print("✓ drivers_config.yaml created")
+        except Exception as e:
+            print(f"⚠ Failed to copy drivers_config.yaml: {e}")
+    
     # Check and setup cron job for auto-start
     try:
         result = subprocess.run(['crontab', '-l'], capture_output=True, text=True)
