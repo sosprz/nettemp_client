@@ -680,6 +680,10 @@ class NettempConfigMenu:
                 }
                 self.config['cloud_servers'].append(new_server)
                 print_success("Nettemp Cloud server added!")
+                print()
+                save_now = input_styled("Save configuration now? (y/n)", "y")
+                if save_now.lower() == 'y':
+                    self.save_main_config()
             else:
                 print_warning("API key is required")
         
@@ -714,6 +718,10 @@ class NettempConfigMenu:
                 self.config['cloud_servers'].append(new_server)
                 print_success(f"Cloud server '{name}' added!")
                 print_info("Default: SSL disabled, legacy format (change in Edit Server)")
+                print()
+                save_now = input_styled("Save configuration now? (y/n)", "y")
+                if save_now.lower() == 'y':
+                    self.save_main_config()
             else:
                 print_warning("API key is required")
         
@@ -740,6 +748,10 @@ class NettempConfigMenu:
             self.config['cloud_servers'].append(new_server)
             print_success(f"Local server '{name}' added!")
             print_info("Default: SSL disabled, legacy format (change in Edit Server)")
+            print()
+            save_now = input_styled("Save configuration now? (y/n)", "y")
+            if save_now.lower() == 'y':
+                self.save_main_config()
         
         elif selected == 3:
             # Custom server (any URL)
@@ -764,6 +776,10 @@ class NettempConfigMenu:
             self.config['cloud_servers'].append(new_server)
             print_success(f"Custom server '{name}' added!")
             print_info("Default: SSL disabled, legacy format (change in Edit Server)")
+            print()
+            save_now = input_styled("Save configuration now? (y/n)", "y")
+            if save_now.lower() == 'y':
+                self.save_main_config()
         
         input(f"\n{Colors.GREEN}Press Enter to continue...{Colors.ENDC}")
     
@@ -830,6 +846,10 @@ class NettempConfigMenu:
                 server['verify_ssl'] = verify_choice.lower() in ['yes', 'y', 'true', '1']
         
         print_success("Server updated!")
+        print()
+        save_now = input_styled("Save configuration now? (y/n)", "y")
+        if save_now.lower() == 'y':
+            self.save_main_config()
         input(f"\n{Colors.GREEN}Press Enter to continue...{Colors.ENDC}")
     
     def _toggle_server(self):
@@ -855,6 +875,10 @@ class NettempConfigMenu:
         
         status = "enabled" if server['enabled'] else "disabled"
         print_success(f"Server '{server.get('name', 'Server')}' is now {status}!")
+        print()
+        save_now = input_styled("Save configuration now? (y/n)", "y")
+        if save_now.lower() == 'y':
+            self.save_main_config()
         input(f"\n{Colors.GREEN}Press Enter to continue...{Colors.ENDC}")
     
     def _remove_server(self):
@@ -881,6 +905,10 @@ class NettempConfigMenu:
         if confirm.lower() == 'yes':
             cloud_servers.pop(selected)
             print_success("Server removed!")
+            print()
+            save_now = input_styled("Save configuration now? (y/n)", "y")
+            if save_now.lower() == 'y':
+                self.save_main_config()
         else:
             print_info("Cancelled")
         
@@ -1024,7 +1052,7 @@ class NettempConfigMenu:
             if all_drivers:
                 current_driver = all_drivers[current_idx]
                 enabled = self.drivers_config[current_driver].get('enabled', False)
-                interval = self.drivers_config[current_driver].get('read_in_sec', 60)
+                interval = self.drivers_config[current_driver].get('read_in_sec', 300)
                 interval_min = interval / 60
                 
                 print(f"\n{Colors.BOLD}Selected: {current_driver}{Colors.ENDC}")
@@ -1044,7 +1072,7 @@ class NettempConfigMenu:
             # Display all drivers
             for idx, driver in enumerate(all_drivers):
                 enabled = self.drivers_config[driver].get('enabled', False)
-                interval = self.drivers_config[driver].get('read_in_sec', 60)
+                interval = self.drivers_config[driver].get('read_in_sec', 300)
                 interval_min = interval / 60
                 
                 status = "✓" if enabled else "✗"
@@ -1075,13 +1103,13 @@ class NettempConfigMenu:
                 self.drivers_config[driver]['enabled'] = not current_state
             elif key == '+' or key == '=':  # Increase interval
                 driver = all_drivers[current_idx]
-                current_interval = self.drivers_config[driver].get('read_in_sec', 60)
-                self.drivers_config[driver]['read_in_sec'] = current_interval + 10
+                current_interval = self.drivers_config[driver].get('read_in_sec', 300)
+                self.drivers_config[driver]['read_in_sec'] = current_interval + 60
             elif key == '-':  # Decrease interval
                 driver = all_drivers[current_idx]
-                current_interval = self.drivers_config[driver].get('read_in_sec', 60)
-                if current_interval > 10:
-                    self.drivers_config[driver]['read_in_sec'] = current_interval - 10
+                current_interval = self.drivers_config[driver].get('read_in_sec', 300)
+                if current_interval > 60:
+                    self.drivers_config[driver]['read_in_sec'] = current_interval - 60
             elif key == 'ESC':
                 break
     
