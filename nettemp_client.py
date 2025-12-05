@@ -115,6 +115,14 @@ class NettempClient:
             interval = int(cfg.get('read_in_sec', 60))
             if self.scheduler.get_job(name):
                 continue
+            
+            # Send data immediately on start
+            try:
+                self.read_and_send(name, cfg)
+            except Exception as e:
+                logging.error(f'Initial read failed for {name}: {e}')
+            
+            # Then schedule regular intervals
             self.scheduler.add_job(self.read_and_send, 'interval', seconds=interval, args=[name, cfg], id=name)
             logging.info(f'Scheduled {name} every {interval}s')
 
@@ -136,6 +144,12 @@ class NettempClient:
         enabled = self.loader.load_drivers_from_config(new_config)
         for name, cfg, interval in enabled:
             try:
+                # Send data immediately when reloading
+                try:
+                    self.read_and_send(name, cfg)
+                except Exception as e:
+                    logging.error(f'Initial read failed for {name}: {e}')
+                
                 self.scheduler.add_job(self.read_and_send, 'interval', seconds=int(interval), args=[name, cfg], id=name)
                 logging.info(f'Scheduled {name} every {int(interval)}s')
             except Exception as e:

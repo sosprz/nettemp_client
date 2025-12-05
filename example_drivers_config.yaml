@@ -1,6 +1,12 @@
+# ============================================================
 # Nettemp Cloud - Driver Configuration
-# Enable/disable sensors and set their reading intervals
-# Edit this file to configure your sensors
+# ============================================================
+# EASY SETUP: Run "python3 nettemp_config.py" for interactive
+# sensor configuration with automatic device discovery.
+#
+# Enable/disable sensors and set their reading intervals.
+# This file can also be edited manually if needed.
+# ============================================================
 
 # 15 min 900 sec
 # 10 min 600 sec

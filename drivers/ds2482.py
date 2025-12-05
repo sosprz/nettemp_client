@@ -28,10 +28,16 @@ def write_to_sysfs(device_path, content):
     """Write to /sys filesystem"""
     cmd = f'echo {content} | sudo tee {device_path}'
     try:
-        subprocess.run(cmd, shell=True, check=True, capture_output=True)
+        result = subprocess.run(cmd, shell=True, check=True, capture_output=True, text=True)
+        return True
     except subprocess.CalledProcessError as e:
-        logging.error(f"Failed to write to {device_path}: {e}")
-        raise
+        # Check if device already exists (this is normal and expected)
+        if 'File exists' in e.stderr or 'File exists' in str(e):
+            logging.debug(f"Device at {device_path} already registered")
+            return False  # Device already registered
+        # Any other error - just log at debug level and return False
+        logging.debug(f"Could not write to {device_path}: {e}")
+        return None  # Error occurred
 
 def ds2482_init(config_dict=None):
     """
@@ -63,13 +69,24 @@ def ds2482_init(config_dict=None):
         addresses = config_dict.get('addresses', ['0x18', '0x19', '0x1a', '0x1b']) if config_dict else ['0x18', '0x19', '0x1a', '0x1b']
 
         # Register DS2482 devices on I2C bus
+        registered_count = 0
         for address in addresses:
-            try:
-                write_to_sysfs(f'/sys/bus/i2c/devices/{i2c_bus}/new_device', f'ds2482 {address}')
+            result = write_to_sysfs(f'/sys/bus/i2c/devices/{i2c_bus}/new_device', f'ds2482 {address}')
+            if result is True:
                 logging.info(f"Registered DS2482 device at {address}")
+                registered_count += 1
                 time.sleep(3)
-            except Exception as e:
-                logging.warning(f"Failed to register DS2482 at {address}: {e}")
+            elif result is False:
+                # Device already exists - this is normal
+                logging.debug(f"DS2482 at {address} already registered")
+            else:
+                # Error occurred (result is None)
+                logging.debug(f"DS2482 at {address} not found or error occurred")
+        
+        if registered_count > 0:
+            logging.info(f"Registered {registered_count} new DS2482 device(s)")
+        else:
+            logging.debug("No new DS2482 devices registered (may already be registered)")
 
         # Disable pullup on w1 bus master
         try:

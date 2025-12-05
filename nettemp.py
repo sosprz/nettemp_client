@@ -10,6 +10,10 @@ import os
 import logging
 from typing import List, Dict, Optional, Any
 from pathlib import Path
+import urllib3
+
+# Disable SSL warnings for local/docker servers
+urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 
 
 class CloudClient:
@@ -37,11 +41,21 @@ class CloudClient:
         if 'cloud_servers' in self.config and isinstance(self.config['cloud_servers'], list):
             for server in self.config['cloud_servers']:
                 if isinstance(server, dict):
+                    # Get verify_ssl setting, default based on URL
+                    url = server.get('url', '').rstrip('/')
+                    verify_ssl = server.get('verify_ssl')
+                    
+                    # If verify_ssl not specified, use True (always verify by default)
+                    if verify_ssl is None:
+                        verify_ssl = True
+                    
                     servers.append({
-                        'url': server.get('url', '').rstrip('/'),
+                        'url': url,
                         'api_key': server.get('api_key', ''),
                         'enabled': server.get('enabled', True),
-                        'name': server.get('name', server.get('url', 'unnamed'))
+                        'name': server.get('name', server.get('url', 'unnamed')),
+                        'verify_ssl': verify_ssl,
+                        'format': server.get('format', 'cloud')
                     })
 
         # Option 2: Backward compatible single cloud server
@@ -101,7 +115,7 @@ class CloudClient:
         if not self.cloud_servers:
             return False
 
-        # Transform old format to cloud format once
+        # Transform old format to cloud format once (for servers that need it)
         cloud_data = self._transform_data(data)
         readings = cloud_data.get('readings', []) or []
         if not readings:
@@ -110,9 +124,17 @@ class CloudClient:
         # Track if we successfully sent to at least one server
         any_success = False
 
-        # Send to each enabled cloud server
+        # Send to each enabled cloud server with appropriate format
         for server in self.cloud_servers:
-            server_success = self._send_to_server(cloud_data, server)
+            # Check if server needs legacy format
+            server_format = server.get('format', 'cloud')
+            if server_format == 'legacy':
+                # Send raw data in old format
+                server_success = self._send_to_server_legacy(data, server)
+            else:
+                # Send transformed cloud format
+                server_success = self._send_to_server(cloud_data, server)
+            
             if server_success:
                 any_success = True
 
@@ -250,6 +272,7 @@ class CloudClient:
         url = server['url']
         api_key = server['api_key']
         name = server.get('name', url)
+        verify_ssl = server.get('verify_ssl', True)  # Use server's setting, default to True
 
         for attempt in range(self.retry_attempts):
             try:
@@ -260,12 +283,13 @@ class CloudClient:
                     'User-Agent': 'NettempCloud/1.0',
                     'X-Readings-Count': str(len(data.get('readings', [])))
                 }
-
+                
                 response = requests.post(
                     f'{url}/api/v1/data',
                     json=data,
                     headers=headers,
-                    timeout=self.timeout
+                    timeout=self.timeout,
+                    verify=verify_ssl
                 )
 
                 if response.status_code == 200:
@@ -287,6 +311,62 @@ class CloudClient:
                     time.sleep(1)
             except Exception as e:
                 logging.error(f"[Cloud:{name}] Error: {e}")
+                break
+
+        return False
+
+    def _send_to_server_legacy(self, data: List[Dict], server: Dict[str, str]) -> bool:
+        """Send data to server using legacy format (raw array)"""
+        url = server['url']
+        api_key = server['api_key']
+        name = server.get('name', url)
+        verify_ssl = server.get('verify_ssl', True)
+
+        # Add group to data for legacy format
+        legacy_data = []
+        for item in data:
+            item_copy = item.copy()
+            item_copy['group'] = self.device_id
+            # Ensure rom includes group prefix
+            rom_raw = item_copy.get('rom', '') or ''
+            if not rom_raw.startswith(self.device_id):
+                item_copy['rom'] = f"{self.device_id}_{rom_raw.lstrip('_')}"
+            legacy_data.append(item_copy)
+
+        for attempt in range(self.retry_attempts):
+            try:
+                headers = {
+                    'Authorization': f'Bearer {api_key}',
+                    'Content-Type': 'application/json',
+                }
+                
+                response = requests.post(
+                    url,  # Legacy format posts to root, not /api/v1/data
+                    json=legacy_data,
+                    headers=headers,
+                    timeout=self.timeout,
+                    verify=verify_ssl
+                )
+
+                if response.status_code in [200, 201]:
+                    logging.info(f"[Legacy:{name}] Sent {len(data)} readings")
+                    return True
+                elif response.status_code == 401:
+                    logging.error(f"[Legacy:{name}] Invalid API key")
+                    return False
+                elif response.status_code == 429:
+                    logging.warning(f"[Legacy:{name}] Rate limited, retrying...")
+                    time.sleep(2 ** attempt)
+                    continue
+                else:
+                    logging.error(f"[Legacy:{name}] Error {response.status_code}")
+
+            except requests.exceptions.Timeout:
+                logging.warning(f"[Legacy:{name}] Timeout (attempt {attempt + 1}/{self.retry_attempts})")
+                if attempt < self.retry_attempts - 1:
+                    time.sleep(1)
+            except Exception as e:
+                logging.error(f"[Legacy:{name}] Error: {e}")
                 break
 
         return False
