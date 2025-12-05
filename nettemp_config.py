@@ -152,7 +152,48 @@ def check_and_setup_environment():
     except Exception as e:
         print(f"⚠ Could not check i2c group: {e}")
     
-    print("✅ Environment ready!\n")
+    # Check and setup cron job for auto-start
+    try:
+        result = subprocess.run(['crontab', '-l'], capture_output=True, text=True)
+        has_cron = result.returncode == 0 and 'nettemp_client' in result.stdout
+        
+        if not has_cron:
+            print("\n⚠ Auto-start not configured")
+            setup_cron = input("Setup auto-start on boot? (y/n) [y]: ").strip().lower()
+            if setup_cron in ['', 'y', 'yes']:
+                venv_python = venv_path / 'bin' / 'python3'
+                client_script = base_path / 'nettemp_client.py'
+                
+                if venv_python.exists() and client_script.exists():
+                    cron_entry = f"@reboot /bin/sleep 30 && {venv_python} {client_script} &"
+                    
+                    # Get existing crontab (excluding nettemp entries)
+                    existing_cron = ""
+                    if result.returncode == 0:
+                        existing_cron = '\n'.join([line for line in result.stdout.split('\n') 
+                                                   if line.strip() and 'nettemp_client' not in line])
+                    
+                    # Add new entry
+                    new_cron = existing_cron + '\n' + cron_entry if existing_cron else cron_entry
+                    
+                    # Install crontab
+                    proc = subprocess.Popen(['crontab', '-'], stdin=subprocess.PIPE, text=True)
+                    proc.communicate(input=new_cron)
+                    
+                    if proc.returncode == 0:
+                        print("✓ Auto-start configured")
+                    else:
+                        print("⚠ Failed to configure auto-start")
+                else:
+                    print("⚠ Cannot setup cron: missing files")
+        else:
+            print("✓ Auto-start configured")
+    except FileNotFoundError:
+        pass  # Cron not available
+    except Exception as e:
+        print(f"⚠ Could not setup cron: {e}")
+    
+    print("\n✅ Environment ready!\n")
 
 # Run environment check before importing other modules
 check_and_setup_environment()
@@ -1635,7 +1676,6 @@ class NettempConfigMenu:
             print("\n" + "─" * 70 + "\n")
             
             menu_options = [
-                "Run Setup Script (setup.sh)",
                 "Update from GitHub",
                 "Setup Auto-Start (Cron Job)",
                 "Remove Auto-Start (Cron Job)",
@@ -1662,15 +1702,13 @@ class NettempConfigMenu:
             elif key == 'DOWN':
                 current_option = (current_option + 1) % len(menu_options)
             elif key == '\r' or key == '\n':  # Enter
-                if current_option == 0:  # Run Setup
-                    self.run_setup_script()
-                elif current_option == 1:  # Run Update
+                if current_option == 0:  # Run Update
                     self.run_update_script()
-                elif current_option == 2:  # Setup Auto-Start
+                elif current_option == 1:  # Setup Auto-Start
                     self.setup_cron_job()
-                elif current_option == 3:  # Remove Auto-Start
+                elif current_option == 2:  # Remove Auto-Start
                     self.remove_cron_job()
-                elif current_option == 4:  # View Cron
+                elif current_option == 3:  # View Cron
                     clear_screen()
                     print_header("Cron Status")
                     try:
@@ -1685,9 +1723,9 @@ class NettempConfigMenu:
                     except Exception as e:
                         print_error(f"Failed to read cron: {e}")
                     input(f"\n{Colors.GREEN}Press Enter to continue...{Colors.ENDC}")
-                elif current_option == 5:  # Start Background
+                elif current_option == 4:  # Start Background
                     self.start_background_client()
-                elif current_option == 6:  # Stop Background
+                elif current_option == 5:  # Stop Background
                     bg_pid = self.check_background_process()
                     if bg_pid:
                         try:
@@ -1699,7 +1737,7 @@ class NettempConfigMenu:
                     else:
                         print_info("No background process running")
                     input(f"\n{Colors.GREEN}Press Enter to continue...{Colors.ENDC}")
-                elif current_option == 7:  # Back
+                elif current_option == 6:  # Back
                     break
             elif key == 'ESC':
                 break
