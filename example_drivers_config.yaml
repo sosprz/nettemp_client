@@ -82,8 +82,9 @@ vl53l0x:
 
 # Accelerometers
 adxl345:
-
-# Accelerometers
+  enabled: false
+  read_in_sec: 300
+  
 adxl343:
   enabled: false
   read_in_sec: 300

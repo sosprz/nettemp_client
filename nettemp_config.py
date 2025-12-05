@@ -1123,8 +1123,12 @@ class NettempConfigMenu:
             # Display current driver details
             if all_drivers:
                 current_driver = all_drivers[current_idx]
-                enabled = self.drivers_config[current_driver].get('enabled', False)
-                interval = self.drivers_config[current_driver].get('read_in_sec', 300)
+                driver_config = self.drivers_config.get(current_driver)
+                if driver_config is None:
+                    driver_config = {'enabled': False, 'read_in_sec': 300}
+                    self.drivers_config[current_driver] = driver_config
+                enabled = driver_config.get('enabled', False)
+                interval = driver_config.get('read_in_sec', 300)
                 interval_min = interval / 60
                 
                 print(f"\n{Colors.BOLD}Selected: {current_driver}{Colors.ENDC}")
@@ -1143,8 +1147,12 @@ class NettempConfigMenu:
             
             # Display all drivers
             for idx, driver in enumerate(all_drivers):
-                enabled = self.drivers_config[driver].get('enabled', False)
-                interval = self.drivers_config[driver].get('read_in_sec', 300)
+                driver_config = self.drivers_config.get(driver)
+                if driver_config is None:
+                    driver_config = {'enabled': False, 'read_in_sec': 300}
+                    self.drivers_config[driver] = driver_config
+                enabled = driver_config.get('enabled', False)
+                interval = driver_config.get('read_in_sec', 300)
                 interval_min = interval / 60
                 
                 status = "✓" if enabled else "✗"
@@ -1173,18 +1181,30 @@ class NettempConfigMenu:
                 current_idx = (current_idx + 1) % len(all_drivers)
             elif key == ' ':  # Space to toggle
                 driver = all_drivers[current_idx]
-                current_state = self.drivers_config[driver].get('enabled', False)
-                self.drivers_config[driver]['enabled'] = not current_state
+                driver_config = self.drivers_config.get(driver)
+                if driver_config is None:
+                    driver_config = {'enabled': False, 'read_in_sec': 300}
+                    self.drivers_config[driver] = driver_config
+                current_state = driver_config.get('enabled', False)
+                driver_config['enabled'] = not current_state
             elif key == '+' or key == '=':  # Increase interval
                 driver = all_drivers[current_idx]
-                current_interval = self.drivers_config[driver].get('read_in_sec', 300)
-                self.drivers_config[driver]['read_in_sec'] = current_interval + 60
+                driver_config = self.drivers_config.get(driver)
+                if driver_config is None:
+                    driver_config = {'enabled': False, 'read_in_sec': 300}
+                    self.drivers_config[driver] = driver_config
+                current_interval = driver_config.get('read_in_sec', 300)
+                driver_config['read_in_sec'] = current_interval + 60
             elif key == '-':  # Decrease interval
                 driver = all_drivers[current_idx]
-                current_interval = self.drivers_config[driver].get('read_in_sec', 300)
+                driver_config = self.drivers_config.get(driver)
+                if driver_config is None:
+                    driver_config = {'enabled': False, 'read_in_sec': 300}
+                    self.drivers_config[driver] = driver_config
+                current_interval = driver_config.get('read_in_sec', 300)
                 new_interval = current_interval - 60
                 if new_interval >= 60:
-                    self.drivers_config[driver]['read_in_sec'] = new_interval
+                    driver_config['read_in_sec'] = new_interval
             elif key == 'ESC':
                 break
     
