@@ -27,78 +27,35 @@ IoT sensor client for Raspberry Pi and other Linux devices. Reads sensors and se
 git clone https://github.com/sosprz/nettemp_client.git
 cd nettemp_client
 
-# 2. Run setup script
-chmod +x setup.sh
-./setup.sh
+# 2. Run interactive configuration (auto-installs everything)
+python3 nettemp_config.py
+```
 
-# 3. Configure (edit these files)
+That's it! The configuration tool will:
+- ✅ Auto-install Python, venv, and system packages
+- ✅ Create virtual environment
+- ✅ Install Python dependencies
+- ✅ Interactively configure servers and sensors
+- ✅ Discover connected devices (I2C + 1-Wire)
+- ✅ Test connectivity
+- ✅ Setup auto-start on boot (cron)
+- ✅ Start client in background
+
+### Manual Configuration
+
+If you prefer to edit config files directly:
+
+```bash
+# Copy example configs
+cp example_config.conf config.conf
+cp example_drivers_config.yaml drivers_config.yaml
+
+# Edit configs
 nano config.conf         # Set your server URL and API key
 nano drivers_config.yaml # Enable sensors you have
 
-# 4. Test
-source venv/bin/activate
-python3 nettemp_client.py
-
-# 5. Reboot to enable auto-start
-sudo reboot
-```
-
-### Manual Installation
-
-As an alternative to the setup script, you can install the dependencies manually.
-
-```bash
-# Create a virtual environment
-python3 -m venv venv
-source venv/bin/activate
-
-# Install dependencies
-pip install -r requirements.txt
-
-# Edit config files
-nano config.conf
-nano drivers_config.yaml
-
 # Run the client
 python3 nettemp_client.py
-```
-
-## Configuration
-
-### 1. Device Settings (config.conf)
-
-**For Self-Hosted Deployment** *(Available Now)*
-```yaml
-group: living-room-1              # Your device name
-cloud_server: http://192.168.1.100:8787  # Your server IP/domain
-cloud_api_key: ntk_xxxxx          # Get from your instance
-cloud_enabled: true
-```
-
-**For Cloud Deployment** *(Coming Soon)*
-```yaml
-group: living-room-1              # Your device name
-cloud_server: https://api.nettemp.cloud
-cloud_api_key: ntk_xxxxx          # Get from dashboard
-cloud_enabled: true
-```
-
-### 2. Sensor Settings (drivers_config.yaml)
-
-```yaml
-system:
-  enabled: true                   # Enable CPU/RAM monitoring
-  read_in_sec: 60                 # Read every 60 seconds
-
-dht22:
-  enabled: true
-  read_in_sec: 60
-  gpio_pin: 4                     # Connected to GPIO4
-
-bme280:
-  enabled: true
-  read_in_sec: 60
-  i2c_address: "0x76"            # I2C address
 ```
 
 ## Available Drivers
@@ -137,14 +94,28 @@ bme280:
 
 ## Running
 
+### Interactive Configuration & Management
+```bash
+python3 nettemp_config.py
+```
+
+Use the interactive menu to:
+- Configure servers and sensors
+- Discover connected devices
+- Test connectivity
+- Setup auto-start on boot (cron)
+- Start/stop background client
+- Update from GitHub
+
 ### Manual Start
 ```bash
 source venv/bin/activate
 python3 nettemp_client.py
 ```
 
-### Auto-start (configured by setup.sh)
-Runs automatically on boot via cron.
+### Auto-start on boot
+Configured via `nettemp_config.py` → System Management → Setup Auto-Start.
+Client runs automatically on boot via cron.
 
 ### Test Mode (fake data)
 ```bash
@@ -257,24 +228,22 @@ The bridge converts that into the legacy format and forwards it just like a loca
 
 ```bash
 cd nettemp_client
-./update.sh
+python3 nettemp_config.py
+# Select: System Management → Update from GitHub
 ```
 
-The update script automatically:
-- Stops the running client
-- Pulls latest changes from GitHub
-- Updates Python dependencies
-- Restarts the client
-- Preserves your configurations
+The interactive update tool automatically:
+- ✅ Stops the running client
+- ✅ Pulls latest changes from GitHub
+- ✅ Updates Python dependencies
+- ✅ Preserves your configurations
+- ✅ Offers to restart the client
 
 ### Manual Update
 
 ```bash
 # Navigate to installation directory
 cd nettemp_client
-
-# Stop the running client (if running interactively)
-# Press Ctrl+C to stop
 
 # Pull latest changes
 git pull origin main
@@ -285,9 +254,6 @@ pip3 install -r requirements.txt --upgrade
 
 # Restart the client
 python3 nettemp_client.py
-
-# Or reboot to restart via cron
-sudo reboot
 ```
 
 **Your configurations are safe:**
@@ -306,22 +272,21 @@ The update only modifies:
 
 ```
 client/
-├── setup.sh                       # Installation script
-├── update.sh                      # Update script
+├── nettemp_config.py              # Interactive configuration tool (all-in-one)
+├── nettemp_client.py              # Production runner (scheduled)
+├── nettemp.py                     # Cloud client library
+├── driver_loader.py               # Driver management
 ├── example_config.conf            # Config template (tracked in git)
 ├── example_drivers_config.yaml    # Drivers template (tracked in git)
 ├── config.conf                    # Your device settings (git ignored)
 ├── drivers_config.yaml            # Your sensor config (git ignored)
-├── nettemp_client.py             # Production runner (scheduled)
-├── nettemp.py                    # Cloud client library
-├── driver_loader.py              # Driver management
-├── demo_all_sensors.py           # Test with fake data
+├── demo_all_sensors.py            # Test with fake data
 ├── drivers/                       # Sensor drivers
 │   ├── system.py
 │   ├── dht22.py
 │   ├── bme280.py
 │   └── ...
-└── requirements.txt              # Python dependencies
+└── requirements.txt               # Python dependencies
 ```
 
 ## Hardware Setup
