@@ -213,6 +213,8 @@ def get_key():
         
         # Check for escape sequences (arrow keys)
         if ch == '\x1b':
+            # Arrow keys send: ESC [ A/B/C/D
+            # Read next two characters to check if it's an arrow key
             ch2 = sys.stdin.read(1)
             if ch2 == '[':
                 ch3 = sys.stdin.read(1)
@@ -224,6 +226,7 @@ def get_key():
                     return 'RIGHT'
                 elif ch3 == 'D':
                     return 'LEFT'
+            # If we get here, it was ESC key (not arrow)
             return 'ESC'
         
         return ch
@@ -252,7 +255,9 @@ def select_from_menu(options: List[str], title: str = "", selected_idx: int = 0)
         
         key = get_key()
         
-        if key == 'UP':
+        if key == '':  # Ignore unknown/incomplete sequences
+            continue
+        elif key == 'UP':
             current = (current - 1) % len(options)
         elif key == 'DOWN':
             current = (current + 1) % len(options)
@@ -538,7 +543,9 @@ class NettempConfigMenu:
             
             key = get_key()
             
-            if key == 'UP':
+            if key == '':  # Ignore unknown/incomplete sequences
+                continue
+            elif key == 'UP':
                 current_option = (current_option - 1) % len(menu_options)
             elif key == 'DOWN':
                 current_option = (current_option + 1) % len(menu_options)
@@ -1093,7 +1100,9 @@ class NettempConfigMenu:
             
             key = get_key()
             
-            if key == 'UP':
+            if key == '':  # Ignore unknown/incomplete sequences
+                continue
+            elif key == 'UP':
                 current_idx = (current_idx - 1) % len(all_drivers)
             elif key == 'DOWN':
                 current_idx = (current_idx + 1) % len(all_drivers)
@@ -1108,8 +1117,9 @@ class NettempConfigMenu:
             elif key == '-':  # Decrease interval
                 driver = all_drivers[current_idx]
                 current_interval = self.drivers_config[driver].get('read_in_sec', 300)
-                if current_interval > 60:
-                    self.drivers_config[driver]['read_in_sec'] = current_interval - 60
+                new_interval = current_interval - 60
+                if new_interval >= 60:
+                    self.drivers_config[driver]['read_in_sec'] = new_interval
             elif key == 'ESC':
                 break
     
@@ -1645,7 +1655,9 @@ class NettempConfigMenu:
             
             key = get_key()
             
-            if key == 'UP':
+            if key == '':  # Ignore unknown/incomplete sequences
+                continue
+            elif key == 'UP':
                 current_option = (current_option - 1) % len(menu_options)
             elif key == 'DOWN':
                 current_option = (current_option + 1) % len(menu_options)

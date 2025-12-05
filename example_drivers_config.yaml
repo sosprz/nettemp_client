@@ -10,75 +10,75 @@
 
 # 15 min 900 sec
 # 10 min 600 sec
-# 5 min 300 sec
+# 5 min 300 sec (default)
 
 # 1-Wire sensors (DS18B20, etc.)
 # Works with GPIO 1-Wire or DS2482 I2C-to-1Wire bridge
 
 w1_kernel:
   enabled: false
-  read_in_sec: 600
+  read_in_sec: 300
   ds2482: false  # Set to true if using DS2482 I2C bridge (optional)
 
 w1_kernel_gpio:
   enabled: false
-  read_in_sec: 600
+  read_in_sec: 300
 
 # system monitoring
 system:
   enabled: true
-  read_in_sec: 600
+  read_in_sec: 300
 
 # Temperature sensors
 tmp102:
   enabled: false
-  read_in_sec: 600
+  read_in_sec: 300
 
 # Raspberry Pi internal sensors
 rpi:
   enabled: false
-  read_in_sec: 600
+  read_in_sec: 300
 
 # System sensors (lm-sensors)
 lm_sensors:
   enabled: false
-  read_in_sec: 600
+  read_in_sec: 300
 
 # Barometric pressure sensors
 bmp180:
   enabled: false
-  read_in_sec: 600
+  read_in_sec: 300
 
 # Temperature/Humidity/Pressure sensors
 bme280:
   enabled: false
-  read_in_sec: 600
+  read_in_sec: 300
   i2c_address: "0x76"
 
 # Humidity sensors
 htu21d:
   enabled: false
-  read_in_sec: 600
+  read_in_sec: 300
 
 # Humidity sensors
 hih6130:
   enabled: false
-  read_in_sec: 600
+  read_in_sec: 300
 
 # Light sensors
 bh1750:
   enabled: false
-  read_in_sec: 600
+  read_in_sec: 300
 
 # Light sensors
 tsl2561:
   enabled: false
-  read_in_sec: 600
+  read_in_sec: 300
 
 # Distance sensor
 vl53l0x:
   enabled: false
-  read_in_sec: 600
+  read_in_sec: 300
 
 # Accelerometers
 adxl345:
@@ -86,29 +86,29 @@ adxl345:
 # Accelerometers
 adxl343:
   enabled: false
-  read_in_sec: 600
+  read_in_sec: 300
 
 # Pressure/Altitude sensor
 mpl3115a2:
   enabled: false
-  read_in_sec: 600
+  read_in_sec: 300
 
 # DHT sensors (GPIO-based)
 dht11:
   enabled: false
-  read_in_sec: 600
+  read_in_sec: 300
   gpio_pin: 4
 
 # DHT sensors (GPIO-based)
 dht22:
   enabled: false
-  read_in_sec: 600
+  read_in_sec: 300
   gpio_pin: 4
 
 # Network monitoring
 ping:
   enabled: false
-  read_in_sec: 600
+  read_in_sec: 300
   hosts:
     - google.com
     - 8.8.8.8
@@ -117,6 +117,6 @@ ping:
 # Modbus power meter
 sdm120:
   enabled: false
-  read_in_sec: 600
+  read_in_sec: 300
   port: /dev/ttyUSB0
   unit: 1
