@@ -1622,6 +1622,21 @@ class NettempConfigMenu:
     
     def start_background_client(self):
         """Start nettemp_client.py in background"""
+        # Check if drivers_config.yaml exists, if not copy from example
+        drivers_config_file = self.base_path / 'drivers_config.yaml'
+        example_drivers_config = self.base_path / 'example_drivers_config.yaml'
+        
+        if not drivers_config_file.exists() and example_drivers_config.exists():
+            print_info("Creating drivers_config.yaml from example...")
+            try:
+                import shutil
+                shutil.copy(example_drivers_config, drivers_config_file)
+                print_success("drivers_config.yaml created")
+            except Exception as e:
+                print_error(f"Failed to copy drivers_config.yaml: {e}")
+                input(f"\n{Colors.GREEN}Press Enter to continue...{Colors.ENDC}")
+                return
+        
         # Check if already running
         bg_pid = self.check_background_process()
         if bg_pid:
