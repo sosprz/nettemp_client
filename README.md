@@ -32,10 +32,10 @@ python3 nettemp_config.py
 ```
 
 <div align="center">
-<img src="img/nettemp_config_menu.png" alt="Configuration Menu" width="400" />
-<img src="img/nettemp_config_servers.png" alt="Server Configuration" width="400" />
-<img src="img/nettemp_config_drivers.png" alt="Driver Configuration" width="400" />
-<img src="img/nettemp_config_i2c_scan.png" alt="I2C Device Scanner" width="400" />
+<img src="img/nt_client_menu.png" alt="Configuration Menu" width="400" />
+<img src="img/nt_client_driver.png" alt="Driver Configuration" width="400" />
+<img src="img/nt_client_discovery.png" alt="I2C Device Scanner" width="400" />
+<img src="img/nt_client_test.png" alt="Test Sensor Readings" width="400" />
 </div>
 
 That's it! The configuration tool will:
