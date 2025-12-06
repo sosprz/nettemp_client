@@ -5,7 +5,7 @@ import logging
 import time
 import os
 import subprocess
-
+import platform
 import re
 
 # Platform identification constants.
@@ -465,13 +465,23 @@ class BME280(object):
 
 def bme280(config_dict):
     try:
-        if sys.argv[2]:
-            addr = int('0x'+sys.argv[2], 16)
-    except:
-        addr = 0x76
+        # Get I2C address from config, default to 0x76
+        try:
+            addr_str = config_dict.get("i2c_address", "0x76")
+            if isinstance(addr_str, str):
+                addr = int(addr_str, 16)
+            else:
+                addr = int(addr_str)
+        except Exception as e:
+            print(f"BME280: Error parsing address '{addr_str}', using default 0x76: {e}")
+            addr = 0x76
+        
+        # Get I2C bus number from config, default to 1 (standard for most Pi models)
+        busnum = config_dict.get("i2c_bus", 1)
+        
+        print(f"BME280: Using I2C address {hex(addr)} on bus {busnum}")
 
-    try:
-        sensor = BME280(mode=BME280_OSAMPLE_8, address=addr)
+        sensor = BME280(mode=BME280_OSAMPLE_8, address=addr, busnum=busnum)
 
         degrees = sensor.read_temperature()
         pascals = sensor.read_pressure()
@@ -484,20 +494,23 @@ def bme280(config_dict):
 
         
         data = []
+        
+        # Use actual address in rom/name
+        addr_hex = hex(addr)[2:]
 
-        rom = "_i2c_76_temp"
+        rom = f"_i2c_{addr_hex}_temp"
         value = temp
         name = 'bme280_temp'
         type = 'temp'
         data.append({"rom":rom,"type":type, "value":value,"name":name})
 
-        rom = "_i2c_76_press"
+        rom = f"_i2c_{addr_hex}_press"
         value = press
         name = 'bme280_press'
         type = 'press'
         data.append({"rom":rom,"type":type, "value":value,"name":name})
 
-        rom = "i2c_76_humid"
+        rom = f"_i2c_{addr_hex}_humid"
         value = humid
         name = 'bme280_humid'
         type = 'humid'
@@ -505,6 +518,9 @@ def bme280(config_dict):
 
         return data
 
-    except: 
-        print("No BME280")
+    except Exception as e: 
+        print(f"BME280 Error: {e}")
+        import traceback
+        traceback.print_exc()
+        return []
 

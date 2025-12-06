@@ -97,7 +97,7 @@ class DriverLoader:
             readings = driver_func(config_dict)
             return readings or []
         except Exception as e:
-            logging.error(f"Error running driver '{driver_name}': {e}")
+            logging.error(f"Error running driver '{driver_name}': {e}", exc_info=True)
             return []
 
     def load_drivers_from_config(self, config):

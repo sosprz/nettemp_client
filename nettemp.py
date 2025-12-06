@@ -187,6 +187,7 @@ class CloudClient:
         """Transform old nettemp format to cloud format"""
         readings = []
 
+        logging.debug(f"[Cloud] Transforming {len(data)} readings from driver")
         for item in data:
             # Parse old ROM format
             sensor_info = self._parse_rom(item.get('rom', ''))
@@ -202,7 +203,9 @@ class CloudClient:
                     'original_rom': item.get('rom', '')
                 }
             })
+            logging.debug(f"[Cloud]   - {sensor_info['id']}: {item.get('value')} ({item.get('type')})")
 
+        logging.info(f"[Cloud] Sending {len(readings)} reading(s) to cloud")
         return {
             'device_id': self.device_id,
             'readings': readings
@@ -243,15 +246,29 @@ class CloudClient:
             for i, part in enumerate(parts):
                 if part.lower() == 'i2c' and i + 1 < len(parts):
                     addr = parts[i + 1]
+                    # Get full measurement type suffix (everything after address: temp, acce_x, etc.)
+                    suffix_parts = [p for p in parts[i + 2:] if p]  # Skip empty parts
+                    suffix = '_'.join(suffix_parts) if suffix_parts else None
                     # If there's a token before 'i2c' that looks like a driver name, include it
                     driver = parts[i - 1] if i - 1 >= 0 and parts[i - 1] else None
-                    if driver:
+                    
+                    # Build sensor ID with suffix to differentiate multiple readings from same device
+                    if driver and suffix:
+                        if group:
+                            return {'id': f'{group}-{driver.lower()}-i2c-0x{addr}-{suffix}', 'type': 'i2c'}
+                        return {'id': f'{driver.lower()}-i2c-0x{addr}-{suffix}', 'type': 'i2c'}
+                    elif driver:
                         if group:
                             return {'id': f'{group}-{driver.lower()}-i2c-0x{addr}', 'type': 'i2c'}
                         return {'id': f'{driver.lower()}-i2c-0x{addr}', 'type': 'i2c'}
-                    if group:
-                        return {'id': f'{group}-i2c-0x{addr}', 'type': 'i2c'}
-                    return {'id': f'i2c-0x{addr}', 'type': 'i2c'}
+                    elif suffix:
+                        if group:
+                            return {'id': f'{group}-i2c-0x{addr}-{suffix}', 'type': 'i2c'}
+                        return {'id': f'i2c-0x{addr}-{suffix}', 'type': 'i2c'}
+                    else:
+                        if group:
+                            return {'id': f'{group}-i2c-0x{addr}', 'type': 'i2c'}
+                        return {'id': f'i2c-0x{addr}', 'type': 'i2c'}
 
         # Fallback: use ROM as-is or hash
         if len(rom) > 20:
@@ -284,6 +301,9 @@ class CloudClient:
                     'X-Readings-Count': str(len(data.get('readings', [])))
                 }
                 
+                readings_count = len(data.get('readings', []))
+                logging.debug(f"[Cloud:{name}] POSTing {readings_count} readings to {url}/api/v1/data")
+                
                 response = requests.post(
                     f'{url}/api/v1/data',
                     json=data,
@@ -293,7 +313,7 @@ class CloudClient:
                 )
 
                 if response.status_code == 200:
-                    logging.info(f"[Cloud:{name}] Sent {len(data.get('readings', []))} readings")
+                    logging.info(f"[Cloud:{name}] Successfully sent {readings_count} readings")
                     return True
                 elif response.status_code == 401:
                     logging.error(f"[Cloud:{name}] Invalid API key")

@@ -12,18 +12,33 @@ def htu21d(config_dict):
     data = []
 
     sensor = HTU21D(i2c)
-    rom = "_i2c_40_temp"
+    
+    # Get I2C address from config (for rom naming), default 0x40
+    addr_str = config_dict.get("i2c_address", "0x40")
+    if isinstance(addr_str, str) and addr_str.startswith('0x'):
+        addr_hex = addr_str[2:]
+    else:
+        addr_hex = "40"
+    
+    rom = f"_i2c_{addr_hex}_temp"
     value = '{0:0.2f}'.format(sensor.temperature)
     name = 'htu21d_temp'
     type = 'temp'
     data.append({"rom":rom,"type":type, "value":value,"name":name})
 
-    rom = "_i2c_40_humid"
+    rom = f"_i2c_{addr_hex}_humid"
     value = '{0:0.2f}'.format(sensor.relative_humidity)
     name = 'htu21d_humid'
     type = 'humid'
     data.append({"rom":rom,"type":type, "value":value,"name":name})
 
     return data
-  except:
-    print ("No HTU21d")
+  except Exception as e:
+    # Suppress full traceback for common "device not found" errors
+    if "No I2C device" in str(e) or "Remote I/O error" in str(e):
+        print("HTU21D: Sensor not found at configured address")
+    else:
+        print(f"HTU21D Error: {e}")
+        import traceback
+        traceback.print_exc()
+    return []

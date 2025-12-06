@@ -73,7 +73,18 @@ def check_and_setup_environment():
             import yaml
             import tty
             import termios
-            print("✓ Required packages installed")
+            print("✓ Core packages installed")
+            
+            # Check for optional sensor packages
+            missing_sensor_packages = []
+            try:
+                import adafruit_ads1x15
+            except ImportError:
+                missing_sensor_packages.append('adafruit-circuitpython-ads1x15')
+            
+            if missing_sensor_packages:
+                print(f"ℹ Optional sensor packages not installed: {', '.join(missing_sensor_packages)}")
+                print("  (Install if using capacitive soil moisture sensor with ADS1115 ADC)")
         except ImportError:
             print("Installing required packages...")
             pip_path = venv_path / 'bin' / 'pip3'
@@ -336,17 +347,21 @@ class I2CScanner:
     """Scan I2C bus for connected devices"""
     
     KNOWN_DEVICES = {
+        0x18: "DS2482 (1-Wire bridge)",
         0x23: "BH1750 (Light sensor)",
+        0x27: "HIH6130 (Humidity/Temp sensor)",
         0x29: "TSL2561/VL53L0X",
         0x39: "TSL2561 (Light sensor)",
         0x40: "HTU21D (Humidity sensor)",
-        0x48: "TMP102 (Temperature)",
-        0x49: "TMP102 (Temperature, alt)",
+        0x48: "TMP102/ADS1115 (Temp/ADC)",
+        0x49: "TMP102/ADS1115 (Temp/ADC, alt)",
+        0x4a: "ADS1115 (ADC)",
+        0x4b: "ADS1115 (ADC)",
+        0x53: "ADXL345 (Accelerometer)",
         0x60: "MPL3115A2 (Pressure/Altitude)",
         0x68: "DS1307/MPU6050",
         0x76: "BMP180/BME280 (Pressure/Temp)",
         0x77: "BMP180/BME280 (Pressure/Temp, alt)",
-        0x18: "DS2482 (1-Wire bridge)",
     }
     
     @staticmethod
@@ -441,6 +456,35 @@ class NettempConfigMenu:
         if self.drivers_file.exists():
             with open(self.drivers_file, 'r') as f:
                 self.drivers_config = yaml.safe_load(f) or {}
+        
+        # Merge missing drivers from example config
+        self._merge_missing_drivers()
+    
+    def _merge_missing_drivers(self):
+        """Add missing drivers from example_drivers_config.yaml to user's config"""
+        example_file = self.base_path / "example_drivers_config.yaml"
+        if not example_file.exists():
+            return
+        
+        try:
+            with open(example_file, 'r') as f:
+                example_config = yaml.safe_load(f) or {}
+            
+            # Check for new drivers in example that user doesn't have
+            new_drivers_added = []
+            for driver_name, driver_settings in example_config.items():
+                if driver_name not in self.drivers_config:
+                    # Add new driver with default settings from example
+                    self.drivers_config[driver_name] = driver_settings.copy()
+                    new_drivers_added.append(driver_name)
+            
+            # Save updated config if new drivers were added
+            if new_drivers_added:
+                self.save_drivers_config()
+                print_info(f"Added {len(new_drivers_added)} new driver(s): {', '.join(new_drivers_added)}")
+        except Exception as e:
+            # Silently fail if example config can't be read
+            pass
     
     def save_main_config(self):
         """Save main configuration in YAML format with cloud_servers array"""
@@ -1086,11 +1130,15 @@ class NettempConfigMenu:
         i2c_devices = I2CScanner.scan()
         w1_devices = OneWireScanner.scan()
         
-        # Build detection map
+        # Build detection map and auto-configure I2C addresses
         detected_drivers = {}
         suggestions = self._suggest_drivers_from_i2c(i2c_devices)
         for driver, reason in suggestions.items():
             detected_drivers[driver] = reason
+        
+        if suggestions:
+            print_success(f"Auto-configured I2C addresses for {len(suggestions)} driver(s)")
+            time.sleep(1)
         
         # Check for 1-Wire devices
         if w1_devices:
@@ -1105,8 +1153,8 @@ class NettempConfigMenu:
             'I2C Temperature': ['tmp102', 'bme280', 'bmp180'],
             'I2C Humidity': ['htu21d', 'hih6130'],
             'I2C Light': ['bh1750', 'tsl2561'],
-            'GPIO Sensors': ['dht11', 'dht22'],
-            'Other': ['ping', 'sdm120', 'vl53l0x', 'adxl345', 'mpl3115a2']
+            'GPIO Sensors': ['dht11', 'dht22', 'hcsr04'],
+            'Other': ['ping', 'sdm120', 'vl53l0x', 'adxl345', 'mpl3115a2', 'capacitive_soil']
         }
         
         for category, drivers in categories.items():
@@ -1123,10 +1171,9 @@ class NettempConfigMenu:
             # Display current driver details
             if all_drivers:
                 current_driver = all_drivers[current_idx]
-                driver_config = self.drivers_config.get(current_driver)
+                driver_config = self.drivers_config.get(current_driver, {})
                 if driver_config is None:
-                    driver_config = {'enabled': False, 'read_in_sec': 300}
-                    self.drivers_config[current_driver] = driver_config
+                    driver_config = {}
                 enabled = driver_config.get('enabled', False)
                 interval = driver_config.get('read_in_sec', 300)
                 interval_min = interval / 60
@@ -1135,6 +1182,18 @@ class NettempConfigMenu:
                 status_text = f"{Colors.GREEN}ENABLED{Colors.ENDC}" if enabled else f"{Colors.RED}DISABLED{Colors.ENDC}"
                 print(f"Status: {status_text}")
                 print(f"Interval: {interval}s ({interval_min:.1f} min)")
+                
+                # Show driver-specific configuration
+                if 'i2c_address' in driver_config:
+                    print(f"I2C Address: {driver_config['i2c_address']}")
+                if 'gpio_pin' in driver_config:
+                    print(f"GPIO Pin: {driver_config['gpio_pin']}")
+                if 'hosts' in driver_config:
+                    print(f"Hosts: {', '.join(driver_config['hosts'])}")
+                if 'port' in driver_config:
+                    print(f"Port: {driver_config['port']}")
+                if 'unit' in driver_config:
+                    print(f"Unit: {driver_config['unit']}")
                 
                 # Show detection status
                 if current_driver in detected_drivers:
@@ -1147,10 +1206,9 @@ class NettempConfigMenu:
             
             # Display all drivers
             for idx, driver in enumerate(all_drivers):
-                driver_config = self.drivers_config.get(driver)
+                driver_config = self.drivers_config.get(driver, {})
                 if driver_config is None:
-                    driver_config = {'enabled': False, 'read_in_sec': 300}
-                    self.drivers_config[driver] = driver_config
+                    driver_config = {}
                 enabled = driver_config.get('enabled', False)
                 interval = driver_config.get('read_in_sec', 300)
                 interval_min = interval / 60
@@ -1168,7 +1226,7 @@ class NettempConfigMenu:
                 else:
                     print(f"  {status_color}{status}{Colors.ENDC} {driver:20} {interval} ({interval_min:.1f}min){hw_indicator}")
             
-            print(f"\n{Colors.LIGHT_BLUE}↑↓: Navigate | Space: Toggle | +/-: Change interval | Esc: Back{Colors.ENDC}")
+            print(f"\n{Colors.LIGHT_BLUE}↑↓: Navigate | Space: Toggle | +/-: Change interval | e: Edit | Esc: Back{Colors.ENDC}")
             print(f"{Colors.GREEN}[HW]{Colors.ENDC} = Hardware detected")
             
             key = get_key()
@@ -1181,32 +1239,139 @@ class NettempConfigMenu:
                 current_idx = (current_idx + 1) % len(all_drivers)
             elif key == ' ':  # Space to toggle
                 driver = all_drivers[current_idx]
-                driver_config = self.drivers_config.get(driver)
-                if driver_config is None:
-                    driver_config = {'enabled': False, 'read_in_sec': 300}
-                    self.drivers_config[driver] = driver_config
+                if self.drivers_config.get(driver) is None:
+                    self.drivers_config[driver] = {}
+                driver_config = self.drivers_config[driver]
                 current_state = driver_config.get('enabled', False)
                 driver_config['enabled'] = not current_state
+            elif key == 'e' or key == 'E':  # Edit driver settings
+                self._edit_driver_settings(all_drivers[current_idx])
             elif key == '+' or key == '=':  # Increase interval
                 driver = all_drivers[current_idx]
-                driver_config = self.drivers_config.get(driver)
-                if driver_config is None:
-                    driver_config = {'enabled': False, 'read_in_sec': 300}
-                    self.drivers_config[driver] = driver_config
+                if self.drivers_config.get(driver) is None:
+                    self.drivers_config[driver] = {}
+                driver_config = self.drivers_config[driver]
                 current_interval = driver_config.get('read_in_sec', 300)
                 driver_config['read_in_sec'] = current_interval + 60
             elif key == '-':  # Decrease interval
                 driver = all_drivers[current_idx]
-                driver_config = self.drivers_config.get(driver)
-                if driver_config is None:
-                    driver_config = {'enabled': False, 'read_in_sec': 300}
-                    self.drivers_config[driver] = driver_config
+                if self.drivers_config.get(driver) is None:
+                    self.drivers_config[driver] = {}
+                driver_config = self.drivers_config[driver]
                 current_interval = driver_config.get('read_in_sec', 300)
                 new_interval = current_interval - 60
                 if new_interval >= 60:
                     driver_config['read_in_sec'] = new_interval
             elif key == 'ESC':
                 break
+        
+        # Ask to save configuration on exit
+        save = input_styled("Save driver configuration? (y/n)", "y")
+        if save.lower() == 'y':
+            self.save_drivers_config()
+    
+    def _edit_driver_settings(self, driver):
+        """Edit driver-specific settings like I2C address, GPIO pin, etc."""
+        if self.drivers_config.get(driver) is None:
+            self.drivers_config[driver] = {}
+        
+        driver_config = self.drivers_config[driver]
+        
+        clear_screen()
+        print_header(f"EDIT DRIVER SETTINGS - {driver}")
+        
+        # Show current settings
+        print(f"\n{Colors.BOLD}Current settings:{Colors.ENDC}")
+        for key, value in driver_config.items():
+            if key not in ['enabled', 'read_in_sec']:
+                print(f"  {key}: {value}")
+        
+        print("\n" + "─" * 70 + "\n")
+        
+        # Common driver-specific properties
+        if driver in ['bme280', 'tmp102', 'bh1750', 'tsl2561', 'htu21d', 'hih6130', 'vl53l0x', 'adxl345', 'adxl343', 'mpl3115a2']:
+            print(f"{Colors.CYAN}I2C Address Configuration{Colors.ENDC}")
+            current = driver_config.get('i2c_address', '0x76' if driver == 'bme280' else '')
+            new_value = input_styled(f"I2C address (hex, e.g. 0x76)", current)
+            if new_value and new_value != current:
+                driver_config['i2c_address'] = new_value
+        
+        if driver in ['dht11', 'dht22']:
+            print(f"{Colors.CYAN}GPIO Pin Configuration{Colors.ENDC}")
+            current = driver_config.get('gpio_pin', 4)
+            new_value = input_styled(f"GPIO pin number", str(current))
+            if new_value and new_value.isdigit():
+                driver_config['gpio_pin'] = int(new_value)
+        
+        if driver == 'hcsr04':
+            print(f"{Colors.CYAN}HC-SR04 GPIO Configuration{Colors.ENDC}")
+            current_trig = driver_config.get('trigger_pin', 23)
+            new_trig = input_styled(f"TRIG pin number", str(current_trig))
+            if new_trig and new_trig.isdigit():
+                driver_config['trigger_pin'] = int(new_trig)
+            
+            current_echo = driver_config.get('echo_pin', 24)
+            new_echo = input_styled(f"ECHO pin number", str(current_echo))
+            if new_echo and new_echo.isdigit():
+                driver_config['echo_pin'] = int(new_echo)
+        
+        if driver == 'capacitive_soil':
+            print(f"{Colors.CYAN}Capacitive Soil Moisture Sensor Configuration{Colors.ENDC}")
+            current_addr = driver_config.get('i2c_address', '0x48')
+            new_addr = input_styled(f"ADC I2C address", str(current_addr))
+            if new_addr:
+                driver_config['i2c_address'] = new_addr
+            
+            current_ch = driver_config.get('adc_channel', 0)
+            new_ch = input_styled(f"ADC channel (0-3)", str(current_ch))
+            if new_ch and new_ch.isdigit():
+                driver_config['adc_channel'] = int(new_ch)
+            
+            current_dry = driver_config.get('voltage_dry', 3.0)
+            new_dry = input_styled(f"Dry voltage (V, calibration)", str(current_dry))
+            if new_dry:
+                try:
+                    driver_config['voltage_dry'] = float(new_dry)
+                except ValueError:
+                    pass
+            
+            current_wet = driver_config.get('voltage_wet', 1.2)
+            new_wet = input_styled(f"Wet voltage (V, calibration)", str(current_wet))
+            if new_wet:
+                try:
+                    driver_config['voltage_wet'] = float(new_wet)
+                except ValueError:
+                    pass
+        
+        if driver == 'ping':
+            print(f"{Colors.CYAN}Network Hosts Configuration{Colors.ENDC}")
+            current_hosts = driver_config.get('hosts', ['google.com', '8.8.8.8'])
+            print(f"Current hosts: {', '.join(current_hosts)}")
+            new_hosts = input_styled("Hosts (comma-separated)", ', '.join(current_hosts))
+            if new_hosts:
+                driver_config['hosts'] = [h.strip() for h in new_hosts.split(',')]
+        
+        if driver == 'sdm120':
+            print(f"{Colors.CYAN}Modbus Configuration{Colors.ENDC}")
+            current_port = driver_config.get('port', '/dev/ttyUSB0')
+            new_port = input_styled("Serial port", current_port)
+            if new_port:
+                driver_config['port'] = new_port
+            
+            current_unit = driver_config.get('unit', 1)
+            new_unit = input_styled("Modbus unit ID", str(current_unit))
+            if new_unit and new_unit.isdigit():
+                driver_config['unit'] = int(new_unit)
+        
+        if driver == 'w1_kernel':
+            print(f"{Colors.CYAN}1-Wire Configuration{Colors.ENDC}")
+            current = driver_config.get('ds2482', False)
+            use_ds2482 = input_styled("Use DS2482 I2C bridge? (true/false)", str(current).lower())
+            if use_ds2482 in ['true', 'false']:
+                driver_config['ds2482'] = (use_ds2482 == 'true')
+        
+        print_success("\nSettings updated!")
+        input(f"\n{Colors.GREEN}Press Enter to continue...{Colors.ENDC}")
     
     def discover_devices(self):
         """Discover I2C and 1-Wire devices"""
@@ -1252,7 +1417,7 @@ class NettempConfigMenu:
         input(f"\n{Colors.GREEN}Press Enter to continue...{Colors.ENDC}")
     
     def _suggest_drivers_from_i2c(self, devices: List[Dict]) -> Dict[str, str]:
-        """Suggest drivers based on detected I2C devices"""
+        """Suggest drivers based on detected I2C devices and auto-configure addresses"""
         suggestions = {}
         
         for device in devices:
@@ -1260,20 +1425,73 @@ class NettempConfigMenu:
             
             if addr in ['0x76', '0x77'] and 'BME280' in device['name']:
                 suggestions['bme280'] = f"Detected at {addr}"
+                # Auto-configure I2C address
+                if 'bme280' not in self.drivers_config or self.drivers_config['bme280'] is None:
+                    self.drivers_config['bme280'] = {}
+                self.drivers_config['bme280']['i2c_address'] = addr
             elif addr in ['0x76', '0x77'] and 'BMP180' in device['name']:
                 suggestions['bmp180'] = f"Detected at {addr}"
+                if 'bmp180' not in self.drivers_config or self.drivers_config['bmp180'] is None:
+                    self.drivers_config['bmp180'] = {}
+                self.drivers_config['bmp180']['i2c_address'] = addr
             elif addr == '0x23':
                 suggestions['bh1750'] = f"Detected at {addr}"
-            elif addr in ['0x29', '0x39']:
+                if 'bh1750' not in self.drivers_config or self.drivers_config['bh1750'] is None:
+                    self.drivers_config['bh1750'] = {}
+                self.drivers_config['bh1750']['i2c_address'] = addr
+            elif addr == '0x29':
+                # 0x29 can be TSL2561 or VL53L0X - suggest both
+                if 'TSL2561' in device['name']:
+                    suggestions['tsl2561'] = f"Detected at {addr}"
+                    if 'tsl2561' not in self.drivers_config or self.drivers_config['tsl2561'] is None:
+                        self.drivers_config['tsl2561'] = {}
+                    self.drivers_config['tsl2561']['i2c_address'] = addr
+                if 'VL53L0X' in device['name']:
+                    suggestions['vl53l0x'] = f"Detected at {addr}"
+                    if 'vl53l0x' not in self.drivers_config or self.drivers_config['vl53l0x'] is None:
+                        self.drivers_config['vl53l0x'] = {}
+                    self.drivers_config['vl53l0x']['i2c_address'] = addr
+            elif addr == '0x39':
                 suggestions['tsl2561'] = f"Detected at {addr}"
+                if 'tsl2561' not in self.drivers_config or self.drivers_config['tsl2561'] is None:
+                    self.drivers_config['tsl2561'] = {}
+                self.drivers_config['tsl2561']['i2c_address'] = addr
+            elif addr == '0x27':
+                suggestions['hih6130'] = f"Detected at {addr}"
+                if 'hih6130' not in self.drivers_config or self.drivers_config['hih6130'] is None:
+                    self.drivers_config['hih6130'] = {}
+                self.drivers_config['hih6130']['i2c_address'] = addr
             elif addr == '0x40':
                 suggestions['htu21d'] = f"Detected at {addr}"
-            elif addr in ['0x48', '0x49']:
-                suggestions['tmp102'] = f"Detected at {addr}"
+                if 'htu21d' not in self.drivers_config or self.drivers_config['htu21d'] is None:
+                    self.drivers_config['htu21d'] = {}
+                self.drivers_config['htu21d']['i2c_address'] = addr
+            elif addr in ['0x48', '0x49', '0x4a', '0x4b']:
+                # Could be TMP102 or ADS1115 ADC
+                suggestions['tmp102'] = f"TMP102 temp sensor detected at {addr}"
+                suggestions['capacitive_soil'] = f"ADS1115 ADC detected at {addr} (for analog sensors)"
+                if 'tmp102' not in self.drivers_config or self.drivers_config['tmp102'] is None:
+                    self.drivers_config['tmp102'] = {}
+                self.drivers_config['tmp102']['i2c_address'] = addr
+                # Also suggest capacitive soil sensor with ADC
+                if 'capacitive_soil' not in self.drivers_config or self.drivers_config['capacitive_soil'] is None:
+                    self.drivers_config['capacitive_soil'] = {}
+                self.drivers_config['capacitive_soil']['i2c_address'] = addr
+            elif addr == '0x53':
+                suggestions['adxl345'] = f"Detected at {addr}"
+                if 'adxl345' not in self.drivers_config or self.drivers_config['adxl345'] is None:
+                    self.drivers_config['adxl345'] = {}
+                self.drivers_config['adxl345']['i2c_address'] = addr
             elif addr == '0x60':
                 suggestions['mpl3115a2'] = f"Detected at {addr}"
+                if 'mpl3115a2' not in self.drivers_config or self.drivers_config['mpl3115a2'] is None:
+                    self.drivers_config['mpl3115a2'] = {}
+                self.drivers_config['mpl3115a2']['i2c_address'] = addr
             elif addr == '0x18':
                 suggestions['w1_kernel'] = f"DS2482 1-Wire bridge detected at {addr}"
+                if 'w1_kernel' not in self.drivers_config or self.drivers_config['w1_kernel'] is None:
+                    self.drivers_config['w1_kernel'] = {}
+                self.drivers_config['w1_kernel']['ds2482'] = True
         
         return suggestions
     
@@ -1293,6 +1511,10 @@ class NettempConfigMenu:
             loader = DriverLoader(config_file=str(self.drivers_file))
             
             try:
+                # Track last read time for DHT sensors to avoid polling too fast
+                dht_last_read = {}
+                dht_min_interval = 30  # DHT sensors need 30s minimum between reads in test mode
+                
                 while True:
                     print(f"\n{Colors.BOLD}[{time.strftime('%H:%M:%S')}]{Colors.ENDC}")
                     
@@ -1301,8 +1523,22 @@ class NettempConfigMenu:
                             continue
                         
                         if driver_config.get('enabled'):
+                            # Check if this is a DHT sensor and needs cooldown
+                            is_dht = driver_name in ['dht11', 'dht22']
+                            if is_dht:
+                                last_read = dht_last_read.get(driver_name, 0)
+                                time_since = time.time() - last_read
+                                if time_since < dht_min_interval:
+                                    # Skip this read, show countdown
+                                    wait_time = int(dht_min_interval - time_since)
+                                    print(f"  {Colors.CYAN}{driver_name}:{Colors.ENDC} {Colors.YELLOW}(waiting {wait_time}s...){Colors.ENDC}")
+                                    continue
+                            
                             try:
                                 readings = loader.run_driver(driver_name, driver_config)
+                                if is_dht:
+                                    dht_last_read[driver_name] = time.time()
+                                
                                 if readings:
                                     print(f"  {Colors.CYAN}{driver_name}:{Colors.ENDC}")
                                     for reading in readings:

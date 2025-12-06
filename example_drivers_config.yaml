@@ -106,6 +106,21 @@ dht22:
   read_in_sec: 300
   gpio_pin: 4
 
+# Ultrasonic distance sensor
+hcsr04:
+  enabled: false
+  read_in_sec: 300
+  trigger_pin: 23
+  echo_pin: 24
+  
+capacitive_soil:
+  enabled: false
+  read_in_sec: 300
+  i2c_address: '0x48'
+  adc_channel: 0
+  voltage_dry: 3.0
+  voltage_wet: 1.2
+
 # Network monitoring
 ping:
   enabled: false
