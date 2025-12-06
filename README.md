@@ -152,7 +152,13 @@ The client supports **22+ sensor drivers** with automatic hardware detection and
 - `ping` - Network latency monitoring (multiple hosts)
 
 ### Power Monitoring (Modbus RTU)
-- `sdm120` - Eastron SDM120 power meter (voltage, current, power, energy)
+- `sdm120` - Eastron SDM120 Modbus power meter
+  - Measures AC voltage, current, active power
+  - Modbus RTU over RS485 serial interface
+  - Configurable baudrate (9600, 19200, 38400)
+  - Configurable parity (N=None, E=Even, O=Odd)
+  - Requires USB-to-RS485 adapter (e.g., /dev/ttyUSB0)
+  - Reports: voltage (V), current (A), power (W)
 
 ## Running
 
@@ -365,6 +371,46 @@ i2cdetect -y 1
 
 ### GPIO Sensors (DHT22, DHT11)
 Connect to GPIO pins as configured in `drivers_config.yaml`.
+
+### Modbus RTU Sensors (SDM120)
+
+The SDM120 power meter uses Modbus RTU over RS485 serial interface.
+
+**Hardware Setup:**
+```bash
+# Connect USB-to-RS485 adapter to Raspberry Pi
+# Check device appears as /dev/ttyUSB0 (or /dev/ttyAMA0)
+ls -la /dev/tty*
+
+# Add user to dialout group for serial access
+sudo usermod -a -G dialout $USER
+sudo reboot
+```
+
+**Configuration:**
+```yaml
+# In drivers_config.yaml:
+sdm120:
+  enabled: true
+  read_in_sec: 60
+  port: /dev/ttyUSB0  # Serial port
+  unit: 1              # Modbus unit ID (check meter display/settings)
+  baudrate: 9600       # Common: 9600, 19200, 38400
+  parity: "N"          # N=None, E=Even, O=Odd
+```
+
+**Dependencies:**
+```bash
+# Install Modbus libraries
+pip install pymodbus==2.5.3 sdm-modbus==0.5.0
+```
+
+**Troubleshooting:**
+- Verify serial port permissions: `sudo chmod 666 /dev/ttyUSB0`
+- Check Modbus unit ID on meter (default is often 1 or 2)
+- Verify baudrate matches meter settings
+- Check RS485 wiring (A/B polarity, termination resistor)
+- Test connection: Check logs for "No response from meter" errors
 
 ### 1-Wire (DS18B20 Temperature Sensors)
 

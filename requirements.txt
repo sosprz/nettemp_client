@@ -28,8 +28,10 @@ pingparsing
 # Utilities
 deepdiff
 
-# Modbus (for SDM120)
-sdm_modbus
+# Modbus (for SDM120 power meter)
+# Use specific compatible versions
+pymodbus==2.5.3
+sdm-modbus==0.5.0
 
 # RPi specific (optional)
 RPi.GPIO
