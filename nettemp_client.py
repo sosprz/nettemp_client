@@ -221,6 +221,16 @@ class NettempClient:
             self.scheduler.shutdown()
             if self.bridge:
                 self.bridge.stop()
+    
+    def stop(self):
+        """Stop the scheduler and bridge"""
+        try:
+            if self.scheduler.running:
+                self.scheduler.shutdown(wait=False)
+            if self.bridge:
+                self.bridge.stop()
+        except Exception as e:
+            logging.error(f'Error during shutdown: {e}')
 
 
 def main():
@@ -262,7 +272,20 @@ def main():
     existing = read_pidfile()
     if existing and is_process_running(existing):
         if os.isatty(0):
-            logging.info(f'Detected background instance (pid {existing}) — stopping it to run locally')
+            print(f'\n⚠️  Background instance detected (PID {existing})')
+            print('If you stop this foreground session, the background instance will restart automatically.')
+            print('This ensures continuous data collection.\n')
+            
+            try:
+                response = input('Stop background and run in foreground for debugging? [Y/n]: ').strip().lower()
+                if response and response not in ['y', 'yes']:
+                    logging.info('Keeping background instance running')
+                    return
+            except (KeyboardInterrupt, EOFError):
+                logging.info('\nCancelled — keeping background instance running')
+                return
+            
+            logging.info(f'Stopping background instance (PID {existing})')
             try:
                 os.kill(existing, signal.SIGTERM)
                 restart_background_after = True
@@ -276,6 +299,7 @@ def main():
 
     # Run in foreground for debugging
     write_pidfile(os.getpid())
+    client = None
     try:
         client = NettempClient(
             config_file='config.conf',
@@ -283,11 +307,31 @@ def main():
             bg_mode=False
         )
         client.start()
+    except KeyboardInterrupt:
+        logging.info('\nReceived interrupt signal')
+        if client:
+            client.stop()
     finally:
         remove_pidfile()
 
-        # After local debug session, restore background if we stopped one earlier
-        if restart_background_after:
+        # After local debug session, ask about restarting background
+        if restart_background_after and os.isatty(0):
+            try:
+                print('\n' + '='*60)
+                response = input('Restart background process? [Y/n]: ').strip().lower()
+                if response and response not in ['y', 'yes']:
+                    logging.info('Background process NOT restarted — no data collection will occur')
+                    return
+            except (KeyboardInterrupt, EOFError):
+                logging.info('\nNo response — restarting background process automatically')
+            
+            env = os.environ.copy()
+            env['NETTEMP_CLIENT_BG'] = '1'
+            with open(os.devnull, 'wb') as devnull:
+                subprocess.Popen([sys.executable, __file__], stdout=devnull, stderr=devnull, start_new_session=True, env=env)
+            logging.info('✓ Background process restarted — data collection continues')
+        elif restart_background_after:
+            # Non-interactive: always restart
             env = os.environ.copy()
             env['NETTEMP_CLIENT_BG'] = '1'
             with open(os.devnull, 'wb') as devnull:

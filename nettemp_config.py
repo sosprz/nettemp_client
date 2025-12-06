@@ -689,14 +689,44 @@ class NettempConfigMenu:
                     self.save_drivers_config()
                     input(f"\n{Colors.GREEN}Press Enter to continue...{Colors.ENDC}")
                 elif current_option == 9:
+                    # Check if background process is running
+                    bg_pid = self.check_background_process()
+                    
                     clear_screen()
-                    print_success("Configuration saved! You can now run:")
-                    print(f"  {Colors.BOLD}python3 nettemp_client.py{Colors.ENDC}")
+                    print_success("Configuration saved!")
+                    
+                    if bg_pid:
+                        print(f"\n{Colors.GREEN}✓{Colors.ENDC} Background process is running (PID: {bg_pid})")
+                        print("Your sensors are actively collecting data.\n")
+                    else:
+                        print(f"\n{Colors.YELLOW}⚠{Colors.ENDC}  No background process detected!")
+                        print("To start data collection, run:")
+                        print(f"  {Colors.BOLD}python3 nettemp_client.py{Colors.ENDC}\n")
+                    
+                    try:
+                        response = input(f"Press Enter to exit...").strip()
+                    except (KeyboardInterrupt, EOFError):
+                        pass
                     break
             elif key == 'ESC':
+                # Check if background process is running
+                bg_pid = self.check_background_process()
+                
                 clear_screen()
-                print_success("Configuration saved! You can now run:")
-                print(f"  {Colors.BOLD}python3 nettemp_client.py{Colors.ENDC}")
+                print_success("Configuration saved!")
+                
+                if bg_pid:
+                    print(f"\n{Colors.GREEN}✓{Colors.ENDC} Background process is running (PID: {bg_pid})")
+                    print("Your sensors are actively collecting data.\n")
+                else:
+                    print(f"\n{Colors.YELLOW}⚠{Colors.ENDC}  No background process detected!")
+                    print("To start data collection, run:")
+                    print(f"  {Colors.BOLD}python3 nettemp_client.py{Colors.ENDC}\n")
+                
+                try:
+                    response = input(f"Press Enter to exit...").strip()
+                except (KeyboardInterrupt, EOFError):
+                    pass
                 break
     
     def configure_server(self):
@@ -1371,6 +1401,16 @@ class NettempConfigMenu:
             new_unit = input_styled("Modbus unit ID", str(current_unit))
             if new_unit and new_unit.isdigit():
                 driver_config['unit'] = int(new_unit)
+            
+            current_baudrate = driver_config.get('baudrate', 9600)
+            new_baudrate = input_styled("Baudrate", str(current_baudrate))
+            if new_baudrate and new_baudrate.isdigit():
+                driver_config['baudrate'] = int(new_baudrate)
+            
+            current_parity = driver_config.get('parity', 'N')
+            new_parity = input_styled("Parity (N/E/O)", current_parity)
+            if new_parity and new_parity.upper() in ['N', 'E', 'O']:
+                driver_config['parity'] = new_parity.upper()
         
         if driver == 'w1_kernel':
             print(f"{Colors.CYAN}1-Wire Configuration{Colors.ENDC}")

@@ -112,7 +112,7 @@ hcsr04:
   read_in_sec: 300
   trigger_pin: 23
   echo_pin: 24
-  
+
 capacitive_soil:
   enabled: false
   read_in_sec: 300
@@ -136,3 +136,5 @@ sdm120:
   read_in_sec: 300
   port: /dev/ttyUSB0
   unit: 1
+  baudrate: 9600
+  parity: "N"
