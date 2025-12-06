@@ -31,6 +31,13 @@ cd nettemp_client
 python3 nettemp_config.py
 ```
 
+<div align="center">
+<img src="img/nettemp_config_menu.png" alt="Configuration Menu" width="400" />
+<img src="img/nettemp_config_servers.png" alt="Server Configuration" width="400" />
+<img src="img/nettemp_config_drivers.png" alt="Driver Configuration" width="400" />
+<img src="img/nettemp_config_i2c_scan.png" alt="I2C Device Scanner" width="400" />
+</div>
+
 That's it! The configuration tool will:
 - ✅ Auto-install Python, venv, and system packages
 - ✅ Create virtual environment
@@ -65,32 +72,58 @@ python3 nettemp_client.py
 <img src="img/nettemp-sensors1.jpg" alt="Nettemp sensors" width="360" style="margin:8px" />
 </div>
 
-**System:**
-- `system` - CPU, RAM usage
-- `rpi` - Raspberry Pi CPU temperature
-- `lm_sensors` - Linux hardware sensors
+The client supports **22+ sensor drivers** with automatic hardware detection and configuration:
 
-**Temperature:**
-- `w1_kernel` - DS18B20 (1-Wire, supports DS2482 I2C bridge)
-- `w1_kernel_gpio` - DS18B20 via GPIO
-- `dht11`, `dht22` - DHT sensors (GPIO)
-- `bme280`, `bmp180` - I2C sensors
-- `tmp102`, `htu21d`, `hih6130`, `mpl3115a2`
+### System Monitoring
+- `system` - CPU usage, RAM usage, disk space
+- `rpi` - Raspberry Pi CPU temperature (reads from /sys/class/thermal)
+- `lm_sensors` - Linux hardware monitoring (CPU, GPU, fans, voltages)
 
-**Light:**
-- `bh1750`, `tsl2561`
+### Temperature & Humidity Sensors
 
-**Motion:**
-- `adxl343`, `adxl345` - Accelerometers
+**1-Wire (DS18B20):**
+- `w1_kernel` - Kernel-based 1-Wire sensors
+  - Direct GPIO connection (default)
+  - **DS2482 I2C-to-1Wire bridge** support (set `ds2482: true`)
+  - Auto-discovers all connected DS18B20 sensors
+  - Supports **Dallas Semiconductor DS9490R USB 1-Wire adapter**
+- `w1_kernel_gpio` - Simplified GPIO-only DS18B20 driver
 
-**Distance:**
-- `vl53l0x`
+**GPIO Sensors:**
+- `dht11` - DHT11 temperature/humidity sensor (GPIO)
+- `dht22` - DHT22/AM2302 temperature/humidity sensor (GPIO, higher accuracy)
 
-**Network:**
-- `ping` - Network latency
+**I2C Sensors:**
+- `tmp102` - High-accuracy temperature sensor (±0.5°C)
+- `bme280` - Temperature, humidity, pressure (Bosch)
+- `bmp180` - Temperature, pressure (Bosch, legacy)
+- `htu21d` - Temperature, humidity (±2% RH)
+- `hih6130` - Temperature, humidity (Honeywell)
+- `mpl3115a2` - Temperature, pressure, altitude
 
-**Modbus:**
-- `sdm120` - Power meter
+### Light Sensors (I2C)
+- `bh1750` - Ambient light sensor (0.5-100,000 lux)
+- `tsl2561` - Light sensor with IR detection
+
+### Motion & Acceleration (I2C)
+- `adxl345` - 3-axis accelerometer, ±16g
+- `adxl343` - 3-axis accelerometer (lower power version)
+
+### Distance Sensors
+- `vl53l0x` - Laser distance sensor, 30-1000mm (I2C)
+- `hcsr04` - Ultrasonic distance sensor, 2-400cm (GPIO via trigger/echo pins)
+
+### Analog Sensors (requires ADS1115 ADC)
+- `capacitive_soil` - Capacitive soil moisture sensor v1.2
+  - Requires ADS1115 16-bit ADC (I2C)
+  - Reports 0-100% moisture and raw voltage
+  - Calibration support (voltage_dry, voltage_wet)
+
+### Network & Utilities
+- `ping` - Network latency monitoring (multiple hosts)
+
+### Power Monitoring (Modbus RTU)
+- `sdm120` - Eastron SDM120 power meter (voltage, current, power, energy)
 
 ## Running
 
@@ -304,19 +337,28 @@ i2cdetect -y 1
 ### GPIO Sensors (DHT22, DHT11)
 Connect to GPIO pins as configured in `drivers_config.yaml`.
 
-### 1-Wire (DS18B20)
+### 1-Wire (DS18B20 Temperature Sensors)
 
-**Option 1: Direct GPIO connection**
+The `w1_kernel` driver supports multiple connection methods:
+
+**Option 1: Direct GPIO Connection**
 ```bash
-# Enable 1-wire
+# Enable 1-wire via raspi-config
 sudo raspi-config
 # Interface Options → 1-Wire → Enable
 
-# Or add to /boot/config.txt:
-dtoverlay=w1-gpio
+# Or manually add to /boot/config.txt:
+dtoverlay=w1-gpio,gpiopin=4  # Default GPIO 4
+
+# Reboot to apply
+sudo reboot
+
+# Check for sensors
+ls /sys/bus/w1/devices/
+# Example: 28-000007165506
 ```
 
-**Option 2: DS2482 I2C Bridge (for multiple sensors)**
+**Option 2: DS2482 I2C-to-1Wire Bridge (for many sensors)**
 ```yaml
 # In drivers_config.yaml:
 w1_kernel:
@@ -324,7 +366,39 @@ w1_kernel:
   read_in_sec: 60
   ds2482: true  # Enables DS2482 initialization at startup
 ```
-The DS2482 bridge allows connecting many 1-Wire sensors over I2C. Hardware is initialized automatically on startup.
+
+The DS2482 bridge (I2C address 0x18) allows connecting **many 1-Wire sensors** over a single I2C bus:
+- Supports up to 8 channels (DS2482-800)
+- Long cable runs (100+ meters)
+- Better noise immunity than GPIO
+- Hardware is initialized automatically on startup
+- Compatible with Nettemp Pi HAT and generic DS2482 breakout boards
+
+**Option 3: Dallas Semiconductor DS9490R USB 1-Wire Adapter**
+
+The DS9490R is a USB-to-1Wire adapter that appears as a kernel 1-wire master:
+
+```bash
+# Install kernel module (usually pre-installed)
+sudo modprobe ds2490
+
+# Connect DS9490R USB adapter
+# Sensors will appear in /sys/bus/w1/devices/
+
+# Enable in config:
+w1_kernel:
+  enabled: true
+  read_in_sec: 60
+  # No ds2482 flag needed - kernel handles USB adapter automatically
+```
+
+The USB adapter is ideal for:
+- Systems without GPIO (x86, laptops, servers)
+- Galvanically isolated 1-Wire networks
+- Hot-pluggable sensor networks
+- Testing without Raspberry Pi
+
+All three methods auto-discover connected DS18B20 sensors and create separate sensor readings for each device.
 
 Note about the Nettemp Pi HAT / DS2482 addon
 -------------------------------------------
