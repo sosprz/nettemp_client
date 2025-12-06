@@ -2,10 +2,39 @@
 
 IoT sensor client for Raspberry Pi and other Linux devices. Reads sensors and sends data to **Nettemp Cloud** or **self-hosted Nettemp** instance.
 
-**☁️ Cloud** - Managed hosting on Cloudflare Workers *(Coming Soon!)*
+**☁️ Cloud** - Managed hosting at [nettemp.pl](https://nettemp.pl) *(Available Now!)*  
+**🐳 Docker** - Self-hosted with Docker Compose *(Available Now)*  
 **🏠 Self-Hosted** - Deploy to your own server/VPS *(Available Now)*
 
-> **Note:** Nettemp Cloud (managed service) is currently in development. You can use the self-hosted option today by deploying the backend to your own infrastructure.
+## Deployment Options
+
+### ☁️ Nettemp Cloud - **nettemp.pl** *(Recommended)*
+**Fully managed service** - Production ready and hosted on Cloudflare Workers.
+
+- ✅ **Zero infrastructure** - No servers to maintain
+- ✅ **Instant setup** - Get API key and start sending data
+- ✅ **Global edge network** - Low latency worldwide
+- ✅ **Automatic scaling** - Handles any number of devices
+- ✅ **Web dashboard** - View and analyze sensor data
+- ✅ **Free tier available** - Perfect for hobby projects
+
+**Get started:** Visit [https://nettemp.pl](https://nettemp.pl), create account, copy your API key.
+
+### 🏠 Self-Hosted *(Full Control)*
+Run your own Nettemp server - available as Docker containers or manual deployment.
+
+- ✅ **Complete control** - Your data, your infrastructure
+- ✅ **Docker support** - One-command setup with `docker-compose up -d`
+- ✅ **LAN-only option** - Works offline/isolated networks
+- ✅ **Any platform** - Linux, Windows, cloud providers, Raspberry Pi
+- ✅ **Custom domains** - Use your own URLs
+
+**Repository:** [github.com/sosprz/nettemp](https://github.com/sosprz/nettemp) (includes Docker Compose setup)  
+**Docker Hub:** [przemeksdocker/nettemp](https://hub.docker.com/r/przemeksdocker/nettemp)
+
+---
+
+**This client works with both options** - just configure the server URL and API key!
 
 ## Features
 
@@ -475,48 +504,16 @@ crontab -l | grep -v nettemp_client | crontab -
 rm -rf /path/to/nettemp_cloud/client
 ```
 
-## Deployment Options
+## Community & Resources
 
-### ☁️ Nettemp Cloud *(Coming Soon)*
-- ✅ Fully managed service
-- ✅ No server setup required
-- 🚧 Currently in development
-
-
-### 🏠 Self-Hosted *(Available Now)*
-- ✅ Full control over your data
-- ✅ Run on your own infrastructure
-- ✅ No external dependencies
-- ✅ LAN-only option (offline mode)
-- ✅ Deploy to any server/VPS
-
-Docker image
-------------
-A Docker image is available for easier self-hosted deployment: przemeksdocker/nettemp. You can run the client or the server in a container if you prefer containerized deployments. Check the Docker Hub or the `przemeksdocker/nettemp` repository for usage examples and tags.
-
-Docker Hub
-----------
-Pull or inspect the published image on Docker Hub:
-
-https://hub.docker.com/r/przemeksdocker/nettemp
-
-Community
----------
-Join the project Discord server for help, discussions, and announcements:
-
+**Discord Server** - Get help, share projects, and discuss development:  
 https://discord.gg/S4egxNvQHM
 
-Nettemp Docker repository
-------------------------
-The main Nettemp project includes Docker deployment examples and images — see the repository for server and containerized setups:
-
+**Main Repository** - Backend, Docker setup, and documentation:  
 https://github.com/sosprz/nettemp
 
-Use that repository for Docker Compose examples and instructions to run Nettemp (server) and the client in containers.
-
-**Quick start:** Clone the backend repository and follow deployment instructions.
-
-Both options use the same client - just change the `cloud_server` URL in config.
+**Docker Hub** - Pre-built container images:  
+https://hub.docker.com/r/przemeksdocker/nettemp
 
 ## Support
 
