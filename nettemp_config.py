@@ -1503,12 +1503,23 @@ class NettempConfigMenu:
                 current_servers = []
             elif key.lower() == 's':
                 # Save and exit
-                driver_config['servers'] = current_servers
-                print_success(f"\nServer selection saved for {driver}!")
-                if current_servers:
-                    print_info(f"Will send to: {', '.join(current_servers)}")
-                else:
+                # Check if selection matches "all enabled servers" (default behavior)
+                all_enabled_names = [s.get('name', f'Server {i+1}') for i, s in enumerate(cloud_servers) if s.get('enabled', True)]
+                
+                if set(current_servers) == set(all_enabled_names):
+                    # Selection matches default = remove 'servers' field to use default behavior
+                    if 'servers' in driver_config:
+                        del driver_config['servers']
+                    print_success(f"\nServer selection saved for {driver}!")
                     print_info("Will send to all enabled servers (default)")
+                else:
+                    # Explicit selection - save it
+                    driver_config['servers'] = current_servers
+                    print_success(f"\nServer selection saved for {driver}!")
+                    if current_servers:
+                        print_info(f"Will send to: {', '.join(current_servers)}")
+                    else:
+                        print_info("Will send to: NONE (no servers selected)")
                 time.sleep(1.5)
                 break
             elif key == 'ESC':
