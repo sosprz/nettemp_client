@@ -434,6 +434,79 @@ class OneWireScanner:
         return devices
 
 
+class USBScanner:
+    """Scan USB devices"""
+    
+    KNOWN_DEVICES = {
+        '0403:6001': 'FTDI USB-Serial (FT232)',
+        '0403:6015': 'FTDI USB-Serial (FT231X)',
+        '10c4:ea60': 'CP2102 USB-Serial',
+        '10c4:ea70': 'CP210x USB-Serial',
+        '1a86:7523': 'CH340 USB-Serial',
+        '1a86:5523': 'CH341 USB-Serial',
+        '067b:2303': 'Prolific PL2303 USB-Serial',
+        '2341:0043': 'Arduino Uno',
+        '2341:0001': 'Arduino Uno (old bootloader)',
+        '1a86:55d4': 'ESP32 DevKit',
+        '303a:1001': 'ESP32-S2/S3',
+        '10c4:ea80': 'ESP8266 NodeMCU',
+    }
+    
+    @staticmethod
+    def scan() -> List[Dict[str, str]]:
+        """Scan USB devices and return list of found devices"""
+        devices = []
+        
+        try:
+            import subprocess
+            print_info("Scanning USB devices...")
+            
+            # Try lsusb first (Linux standard)
+            try:
+                result = subprocess.run(['lsusb'], capture_output=True, text=True, timeout=5)
+                if result.returncode == 0:
+                    for line in result.stdout.split('\n'):
+                        if not line.strip():
+                            continue
+                        # Parse: Bus 001 Device 003: ID 0403:6001 Future Technology Devices International, Ltd FT232 Serial (UART) IC
+                        if 'ID ' in line:
+                            parts = line.split('ID ')
+                            if len(parts) > 1:
+                                vendor_product = parts[1].split()[0]  # e.g., "0403:6001"
+                                description = ' '.join(parts[1].split()[1:]) if len(parts[1].split()) > 1 else 'Unknown'
+                                
+                                # Get known device name if available
+                                device_name = USBScanner.KNOWN_DEVICES.get(vendor_product, description)
+                                
+                                devices.append({
+                                    'id': vendor_product,
+                                    'name': device_name,
+                                    'description': description
+                                })
+            except FileNotFoundError:
+                pass
+            
+            # Also check /dev for serial devices
+            import glob
+            serial_devices = []
+            for pattern in ['/dev/ttyUSB*', '/dev/ttyACM*', '/dev/tty.usb*', '/dev/cu.usb*']:
+                serial_devices.extend(glob.glob(pattern))
+            
+            if serial_devices:
+                print_info(f"Found {len(serial_devices)} serial port(s)")
+                for dev in serial_devices:
+                    devices.append({
+                        'id': 'serial',
+                        'name': Path(dev).name,
+                        'description': f'Serial port: {dev}'
+                    })
+            
+        except Exception as e:
+            print_error(f"USB scan failed: {e}")
+        
+        return devices
+
+
 class NettempConfigMenu:
     """Interactive configuration menu for Nettemp Client"""
     
@@ -643,11 +716,10 @@ class NettempConfigMenu:
                 "Configure Device Name",
                 "Configure HTTP Bridge",
                 "Configure Drivers",
-                "Discover Devices (I2C + 1-Wire)",
+                "Discover Devices (I2C + 1-Wire + USB)",
                 "Test & View Readings",
                 "Test Connectivity & Send Data",
                 "System Management (Setup/Update/Cron/Background)",
-                "Save Configuration",
                 "Exit"
             ]
             
@@ -685,10 +757,6 @@ class NettempConfigMenu:
                 elif current_option == 7:
                     self.system_management()
                 elif current_option == 8:
-                    self.save_main_config()
-                    self.save_drivers_config()
-                    input(f"\n{Colors.GREEN}Press Enter to continue...{Colors.ENDC}")
-                elif current_option == 9:
                     # Check if background process is running
                     bg_pid = self.check_background_process()
                     
@@ -698,15 +766,51 @@ class NettempConfigMenu:
                     if bg_pid:
                         print(f"\n{Colors.GREEN}✓{Colors.ENDC} Background process is running (PID: {bg_pid})")
                         print("Your sensors are actively collecting data.\n")
+                        try:
+                            input(f"Press Enter to exit...")
+                        except (KeyboardInterrupt, EOFError):
+                            pass
                     else:
                         print(f"\n{Colors.YELLOW}⚠{Colors.ENDC}  No background process detected!")
-                        print("To start data collection, run:")
-                        print(f"  {Colors.BOLD}python3 nettemp_client.py{Colors.ENDC}\n")
+                        print("To start data collection, the nettemp_client.py process needs to be running.\n")
+                        
+                        start_now = input_styled("Start background process now? (y/n)", "y")
+                        
+                        if start_now.lower() == 'y':
+                            # Start the background client
+                            client_script = self.base_path / 'nettemp_client.py'
+                            if not client_script.exists():
+                                print_error("nettemp_client.py not found!")
+                            else:
+                                try:
+                                    # Use venv python if available
+                                    venv_python = self.base_path / 'venv' / 'bin' / 'python3'
+                                    python_cmd = str(venv_python) if venv_python.exists() else 'python3'
+                                    
+                                    # Start process in background
+                                    log_file = self.base_path / 'nettemp_client.log'
+                                    with open(log_file, 'a') as f:
+                                        subprocess.Popen(
+                                            [python_cmd, str(client_script)],
+                                            cwd=str(self.base_path),
+                                            stdout=f,
+                                            stderr=subprocess.STDOUT,
+                                            start_new_session=True
+                                        )
+                                    
+                                    time.sleep(1)  # Wait for process to start
+                                    
+                                    if self.check_background_process():
+                                        print_success("\n✓ Background process started successfully!")
+                                        print(f"Logs: {log_file}")
+                                    else:
+                                        print_error("\n✗ Failed to start process (check nettemp_client.log)")
+                                        
+                                except Exception as e:
+                                    print_error(f"\n✗ Failed to start process: {e}")
+                            
+                            input(f"\n{Colors.GREEN}Press Enter to exit...{Colors.ENDC}")
                     
-                    try:
-                        response = input(f"Press Enter to exit...").strip()
-                    except (KeyboardInterrupt, EOFError):
-                        pass
                     break
             elif key == 'ESC':
                 # Check if background process is running
@@ -718,15 +822,51 @@ class NettempConfigMenu:
                 if bg_pid:
                     print(f"\n{Colors.GREEN}✓{Colors.ENDC} Background process is running (PID: {bg_pid})")
                     print("Your sensors are actively collecting data.\n")
+                    try:
+                        input(f"Press Enter to exit...")
+                    except (KeyboardInterrupt, EOFError):
+                        pass
                 else:
                     print(f"\n{Colors.YELLOW}⚠{Colors.ENDC}  No background process detected!")
-                    print("To start data collection, run:")
-                    print(f"  {Colors.BOLD}python3 nettemp_client.py{Colors.ENDC}\n")
+                    print("To start data collection, the nettemp_client.py process needs to be running.\n")
+                    
+                    start_now = input_styled("Start background process now? (y/n)", "y")
+                    
+                    if start_now.lower() == 'y':
+                        # Start the background client
+                        client_script = self.base_path / 'nettemp_client.py'
+                        if not client_script.exists():
+                            print_error("nettemp_client.py not found!")
+                        else:
+                            try:
+                                # Use venv python if available
+                                venv_python = self.base_path / 'venv' / 'bin' / 'python3'
+                                python_cmd = str(venv_python) if venv_python.exists() else 'python3'
+                                
+                                # Start process in background
+                                log_file = self.base_path / 'nettemp_client.log'
+                                with open(log_file, 'a') as f:
+                                    subprocess.Popen(
+                                        [python_cmd, str(client_script)],
+                                        cwd=str(self.base_path),
+                                        stdout=f,
+                                        stderr=subprocess.STDOUT,
+                                        start_new_session=True
+                                    )
+                                
+                                time.sleep(1)  # Wait for process to start
+                                
+                                if self.check_background_process():
+                                    print_success("\n✓ Background process started successfully!")
+                                    print(f"Logs: {log_file}")
+                                else:
+                                    print_error("\n✗ Failed to start process (check nettemp_client.log)")
+                                    
+                            except Exception as e:
+                                print_error(f"\n✗ Failed to start process: {e}")
+                        
+                        input(f"\n{Colors.GREEN}Press Enter to exit...{Colors.ENDC}")
                 
-                try:
-                    response = input(f"Press Enter to exit...").strip()
-                except (KeyboardInterrupt, EOFError):
-                    pass
                 break
     
     def configure_server(self):
@@ -835,10 +975,8 @@ class NettempConfigMenu:
                 }
                 self.config['cloud_servers'].append(new_server)
                 print_success("Nettemp Cloud server added!")
+                self.save_main_config()
                 print()
-                save_now = input_styled("Save configuration now? (y/n)", "y")
-                if save_now.lower() == 'y':
-                    self.save_main_config()
             else:
                 print_warning("API key is required")
         
@@ -873,10 +1011,8 @@ class NettempConfigMenu:
                 self.config['cloud_servers'].append(new_server)
                 print_success(f"Cloud server '{name}' added!")
                 print_info("Default: SSL disabled, legacy format (change in Edit Server)")
+                self.save_main_config()
                 print()
-                save_now = input_styled("Save configuration now? (y/n)", "y")
-                if save_now.lower() == 'y':
-                    self.save_main_config()
             else:
                 print_warning("API key is required")
         
@@ -903,10 +1039,8 @@ class NettempConfigMenu:
             self.config['cloud_servers'].append(new_server)
             print_success(f"Local server '{name}' added!")
             print_info("Default: SSL disabled, legacy format (change in Edit Server)")
+            self.save_main_config()
             print()
-            save_now = input_styled("Save configuration now? (y/n)", "y")
-            if save_now.lower() == 'y':
-                self.save_main_config()
         
         elif selected == 3:
             # Custom server (any URL)
@@ -931,10 +1065,8 @@ class NettempConfigMenu:
             self.config['cloud_servers'].append(new_server)
             print_success(f"Custom server '{name}' added!")
             print_info("Default: SSL disabled, legacy format (change in Edit Server)")
+            self.save_main_config()
             print()
-            save_now = input_styled("Save configuration now? (y/n)", "y")
-            if save_now.lower() == 'y':
-                self.save_main_config()
         
         input(f"\n{Colors.GREEN}Press Enter to continue...{Colors.ENDC}")
     
@@ -1001,10 +1133,8 @@ class NettempConfigMenu:
                 server['verify_ssl'] = verify_choice.lower() in ['yes', 'y', 'true', '1']
         
         print_success("Server updated!")
+        self.save_main_config()
         print()
-        save_now = input_styled("Save configuration now? (y/n)", "y")
-        if save_now.lower() == 'y':
-            self.save_main_config()
         input(f"\n{Colors.GREEN}Press Enter to continue...{Colors.ENDC}")
     
     def _toggle_server(self):
@@ -1030,10 +1160,8 @@ class NettempConfigMenu:
         
         status = "enabled" if server['enabled'] else "disabled"
         print_success(f"Server '{server.get('name', 'Server')}' is now {status}!")
+        self.save_main_config()
         print()
-        save_now = input_styled("Save configuration now? (y/n)", "y")
-        if save_now.lower() == 'y':
-            self.save_main_config()
         input(f"\n{Colors.GREEN}Press Enter to continue...{Colors.ENDC}")
     
     def _remove_server(self):
@@ -1060,10 +1188,8 @@ class NettempConfigMenu:
         if confirm.lower() == 'yes':
             cloud_servers.pop(selected)
             print_success("Server removed!")
+            self.save_main_config()
             print()
-            save_now = input_styled("Save configuration now? (y/n)", "y")
-            if save_now.lower() == 'y':
-                self.save_main_config()
         else:
             print_info("Cancelled")
         
@@ -1071,65 +1197,257 @@ class NettempConfigMenu:
     
     def configure_http_bridge(self):
         """Configure HTTP Bridge settings"""
-        clear_screen()
-        print_header("HTTP BRIDGE CONFIGURATION")
+        current_option = 0
         
-        print("HTTP Bridge accepts HTTP requests on local network and forwards")
-        print("to cloud servers over HTTPS. Useful for devices without TLS support.\n")
+        while True:
+            clear_screen()
+            print_header("HTTP BRIDGE CONFIGURATION")
+            
+            print("HTTP Bridge accepts HTTP requests on local network and forwards")
+            print("to cloud servers over HTTPS. Useful for devices without TLS support.\n")
+            
+            # Get current settings
+            http_bridge = self.config.get('http_bridge', {})
+            if not isinstance(http_bridge, dict):
+                http_bridge = {}
+            
+            current_enabled = http_bridge.get('enabled', False)
+            current_host = http_bridge.get('host', '0.0.0.0')
+            current_port = http_bridge.get('port', 8080)
+            current_token = http_bridge.get('auth_token', '')
+            
+            # Show current status
+            if current_enabled:
+                print(f"Status: {Colors.GREEN}Enabled{Colors.ENDC}")
+                print(f"  Host: {current_host}")
+                print(f"  Port: {current_port}")
+                if current_token:
+                    print(f"  Auth token: {current_token[:8]}...")
+                
+                # Show server destinations
+                servers = http_bridge.get('servers', [])
+                if servers:
+                    print(f"  Destinations: {Colors.CYAN}{', '.join(servers)}{Colors.ENDC}")
+                else:
+                    print(f"  Destinations: {Colors.CYAN}All enabled servers{Colors.ENDC}")
+            else:
+                print(f"Status: {Colors.YELLOW}Disabled{Colors.ENDC}")
+            
+            print("\n" + "─" * 70 + "\n")
+            
+            menu_options = [
+                "e: Enable/Disable",
+                "h: Configure Host",
+                "p: Configure Port",
+                "t: Configure Auth Token",
+                "s: Select Destination Servers",
+                "Back to Main Menu"
+            ]
+            
+            for idx, option in enumerate(menu_options):
+                if idx == current_option:
+                    print(f"{Colors.LIGHT_BLUE}▶ {option}{Colors.ENDC}")
+                else:
+                    print(f"  {option}")
+            
+            print(f"\n{Colors.LIGHT_BLUE}Use ↑↓ arrows, Enter to select, Esc to go back{Colors.ENDC}")
+            
+            key = get_key()
+            
+            if key == '':
+                continue
+            elif key == 'UP':
+                current_option = (current_option - 1) % len(menu_options)
+            elif key == 'DOWN':
+                current_option = (current_option + 1) % len(menu_options)
+            elif key == '\r' or key == '\n':  # Enter
+                if current_option == 0:  # Enable/Disable
+                    enabled_str = input_styled("Enable HTTP Bridge? (y/n)", "y" if current_enabled else "n")
+                    enabled = enabled_str.lower() in ['y', 'yes']
+                    
+                    if 'http_bridge' not in self.config or not isinstance(self.config['http_bridge'], dict):
+                        self.config['http_bridge'] = {}
+                    
+                    self.config['http_bridge']['enabled'] = enabled
+                    
+                    if enabled:
+                        # Set defaults if not present
+                        if 'host' not in self.config['http_bridge']:
+                            self.config['http_bridge']['host'] = '0.0.0.0'
+                        if 'port' not in self.config['http_bridge']:
+                            self.config['http_bridge']['port'] = 8080
+                        print_success("\nHTTP Bridge enabled")
+                    else:
+                        print_info("\nHTTP Bridge disabled")
+                    
+                    self.save_main_config()
+                    time.sleep(1)
+                    
+                elif current_option == 1:  # Configure Host
+                    if 'http_bridge' not in self.config or not isinstance(self.config['http_bridge'], dict):
+                        self.config['http_bridge'] = {'enabled': False, 'host': '0.0.0.0', 'port': 8080}
+                    
+                    host = input_styled("Listen host (0.0.0.0 = all interfaces)", str(current_host))
+                    self.config['http_bridge']['host'] = host
+                    print_success(f"\nHost set to: {host}")
+                    self.save_main_config()
+                    time.sleep(1)
+                    
+                elif current_option == 2:  # Configure Port
+                    if 'http_bridge' not in self.config or not isinstance(self.config['http_bridge'], dict):
+                        self.config['http_bridge'] = {'enabled': False, 'host': '0.0.0.0', 'port': 8080}
+                    
+                    port_str = input_styled("Listen port", str(current_port))
+                    try:
+                        port = int(port_str)
+                        self.config['http_bridge']['port'] = port
+                        print_success(f"\nPort set to: {port}")
+                        self.save_main_config()
+                    except:
+                        print_error("\nInvalid port number")
+                    time.sleep(1)
+                    
+                elif current_option == 3:  # Configure Auth Token
+                    if 'http_bridge' not in self.config or not isinstance(self.config['http_bridge'], dict):
+                        self.config['http_bridge'] = {'enabled': False, 'host': '0.0.0.0', 'port': 8080}
+                    
+                    auth_token = input_styled("Auth token (leave empty to remove)", current_token)
+                    if auth_token:
+                        self.config['http_bridge']['auth_token'] = auth_token
+                        print_success(f"\nAuth token set")
+                        print_info("Clients must include header: Authorization: Bearer <token>")
+                    else:
+                        self.config['http_bridge'].pop('auth_token', None)
+                        print_info("\nAuth token removed")
+                    self.save_main_config()
+                    time.sleep(1)
+                    
+                elif current_option == 4:  # Select Servers
+                    self._configure_http_bridge_servers()
+                    
+                elif current_option == 5:  # Back
+                    break
+                    
+            elif key == 'e':
+                # Quick toggle enable/disable
+                if 'http_bridge' not in self.config or not isinstance(self.config['http_bridge'], dict):
+                    self.config['http_bridge'] = {'enabled': True, 'host': '0.0.0.0', 'port': 8080}
+                else:
+                    self.config['http_bridge']['enabled'] = not self.config['http_bridge'].get('enabled', False)
+                self.save_main_config()
+            elif key in ['h', 'p', 't', 's']:
+                # Quick access keys
+                if key == 'h':
+                    current_option = 1
+                elif key == 'p':
+                    current_option = 2
+                elif key == 't':
+                    current_option = 3
+                elif key == 's':
+                    current_option = 4
+            elif key == 'ESC':
+                break
+    
+    def _configure_http_bridge_servers(self):
+        """Configure which servers receive data from HTTP bridge"""
+        if 'http_bridge' not in self.config or not isinstance(self.config['http_bridge'], dict):
+            self.config['http_bridge'] = {'enabled': False, 'host': '0.0.0.0', 'port': 8080}
         
-        # Get current settings
-        http_bridge = self.config.get('http_bridge', {})
-        if not isinstance(http_bridge, dict):
-            http_bridge = {}
+        http_bridge = self.config['http_bridge']
         
-        current_enabled = http_bridge.get('enabled', False)
-        current_host = http_bridge.get('host', '0.0.0.0')
-        current_port = http_bridge.get('port', 8080)
-        current_token = http_bridge.get('auth_token', '')
+        # Get list of all configured servers
+        cloud_servers = self.config.get('cloud_servers', [])
         
-        # Show current status
-        if current_enabled:
-            print(f"Current status: {Colors.GREEN}Enabled{Colors.ENDC}")
-            print(f"  Host: {current_host}")
-            print(f"  Port: {current_port}")
-            if current_token:
-                print(f"  Auth token: {current_token[:8]}...")
+        if not cloud_servers:
+            clear_screen()
+            print_header("SERVER SELECTION - HTTP BRIDGE")
+            print_error("\nNo servers configured yet!")
+            print_info("Please configure servers first in 'Configure Servers' menu.")
+            input(f"\n{Colors.GREEN}Press Enter to continue...{Colors.ENDC}")
+            return
+        
+        # Get current server selection for HTTP bridge
+        # If no 'servers' field exists (default = all enabled servers), populate with enabled servers
+        if 'servers' not in http_bridge:
+            current_servers = [s.get('name', f'Server {i+1}') for i, s in enumerate(cloud_servers) if s.get('enabled', True)]
         else:
-            print(f"Current status: {Colors.YELLOW}Disabled{Colors.ENDC}")
+            current_servers = http_bridge.get('servers', [])
+        current_idx = 0
         
-        print()
-        
-        # Configure
-        enabled_str = input_styled("Enable HTTP Bridge? (y/n)", "y" if current_enabled else "n")
-        enabled = enabled_str.lower() in ['y', 'yes']
-        
-        if enabled:
-            host = input_styled("Listen host (0.0.0.0 = all interfaces)", str(current_host))
-            port_str = input_styled("Listen port", str(current_port))
-            try:
-                port = int(port_str)
-            except:
-                port = current_port
+        while True:
+            clear_screen()
+            print_header("SERVER SELECTION - HTTP BRIDGE")
             
-            auth_token = input_styled("Auth token (optional, for basic security)", current_token)
+            print(f"\n{Colors.BOLD}Select which servers should receive data from HTTP Bridge:{Colors.ENDC}\n")
+            print(f"{Colors.CYAN}Empty selection = send to all enabled servers (default){Colors.ENDC}\n")
             
-            self.config['http_bridge'] = {
-                'enabled': True,
-                'host': host,
-                'port': port,
-            }
+            # Display all servers with checkboxes and navigation
+            for idx, server in enumerate(cloud_servers):
+                server_name = server.get('name', f'Server {idx+1}')
+                server_url = server.get('url', '')
+                is_enabled = server.get('enabled', True)
+                is_selected = server_name in current_servers
+                
+                # Status indicators
+                checkbox = "☑" if is_selected else "☐"
+                
+                # Show ENABLED (green) when selected, DISABLED (red) when not selected for HTTP bridge
+                if is_selected:
+                    enabled_text = f"{Colors.GREEN}[ENABLED]{Colors.ENDC}"
+                else:
+                    enabled_text = f"{Colors.RED}[DISABLED]{Colors.ENDC}"
+                
+                # Highlight current selection
+                if idx == current_idx:
+                    print(f"{Colors.LIGHT_BLUE}▶ {checkbox} {Colors.BOLD}{server_name}{Colors.ENDC} - {server_url} {enabled_text}")
+                else:
+                    print(f"  {checkbox} {server_name} - {server_url} {enabled_text}")
             
-            if auth_token:
-                self.config['http_bridge']['auth_token'] = auth_token
+            print("\n" + "─" * 70 + "\n")
+            print(f"{Colors.LIGHT_BLUE}↑↓: Navigate | Enter: Toggle | c: Clear all | s: Save | Esc: Cancel{Colors.ENDC}")
             
-            print_success(f"\nHTTP Bridge enabled on {host}:{port}")
-            if auth_token:
-                print_info("Clients must include header: Authorization: Bearer <token>")
-        else:
-            self.config['http_bridge'] = {'enabled': False}
-            print_info("\nHTTP Bridge disabled")
-        
-        input(f"\n{Colors.GREEN}Press Enter to continue...{Colors.ENDC}")
+            key = get_key()
+            
+            if key == '':
+                continue
+            elif key == 'UP':
+                current_idx = (current_idx - 1) % len(cloud_servers)
+            elif key == 'DOWN':
+                current_idx = (current_idx + 1) % len(cloud_servers)
+            elif key == '\r' or key == '\n':  # Enter to toggle
+                server_name = cloud_servers[current_idx].get('name', f'Server {current_idx+1}')
+                if server_name in current_servers:
+                    current_servers.remove(server_name)
+                else:
+                    current_servers.append(server_name)
+            elif key.lower() == 'c':
+                # Clear all selections
+                current_servers = []
+            elif key.lower() == 's':
+                # Save and exit
+                # Check if selection matches "all enabled servers" (default behavior)
+                all_enabled_names = [s.get('name', f'Server {i+1}') for i, s in enumerate(cloud_servers) if s.get('enabled', True)]
+                
+                if set(current_servers) == set(all_enabled_names):
+                    # Selection is default, remove 'servers' field to use default behavior
+                    http_bridge.pop('servers', None)
+                    print_success("\nHTTP Bridge will send to all enabled servers (default)")
+                else:
+                    # Custom selection, save it
+                    http_bridge['servers'] = current_servers
+                    if current_servers:
+                        print_success(f"\nHTTP Bridge will send to: {', '.join(current_servers)}")
+                    else:
+                        print_warning("\nNo servers selected - HTTP Bridge will not forward data!")
+                
+                self.save_main_config()
+                time.sleep(2)
+                break
+            elif key == 'ESC':
+                # Cancel without saving
+                print_info("\nCancelled")
+                time.sleep(1)
+                break
     
     def configure_device_name(self):
         """Configure device name (sets both device_id and group)"""
@@ -1319,10 +1637,8 @@ class NettempConfigMenu:
             elif key == 'ESC':
                 break
         
-        # Ask to save configuration on exit
-        save = input_styled("Save driver configuration? (y/n)", "y")
-        if save.lower() == 'y':
-            self.save_drivers_config()
+        # Auto-save configuration on exit
+        self.save_drivers_config()
     
     def _edit_driver_settings(self, driver):
         """Edit driver-specific settings like I2C address, GPIO pin, etc."""
@@ -1538,7 +1854,7 @@ class NettempConfigMenu:
                 break
     
     def discover_devices(self):
-        """Discover I2C and 1-Wire devices"""
+        """Discover I2C, 1-Wire, and USB devices"""
         clear_screen()
         print_header("DEVICE DISCOVERY")
         
@@ -1577,6 +1893,28 @@ class NettempConfigMenu:
                     print(f"  • {driver:20} {status}")
         else:
             print_warning("  No 1-Wire devices found")
+        
+        # USB scan
+        print(f"\n{Colors.BOLD}USB Devices:{Colors.ENDC}")
+        usb_devices = USBScanner.scan()
+        
+        if usb_devices:
+            for device in usb_devices:
+                if device['id'] == 'serial':
+                    print(f"  {Colors.GREEN}✓{Colors.ENDC} {device['name']} - {device['description']}")
+                else:
+                    print(f"  {Colors.GREEN}✓{Colors.ENDC} {device['id']} - {device['name']}")
+            
+            # Show USB-related driver suggestions
+            serial_ports = [d for d in usb_devices if d['id'] == 'serial']
+            if serial_ports:
+                print(f"\n{Colors.BOLD}Suggested drivers for USB/Serial:{Colors.ENDC}")
+                if 'sdm120' in self.drivers_config:
+                    enabled = self.drivers_config['sdm120'].get('enabled', False)
+                    status = f"{Colors.GREEN}✓ ENABLED{Colors.ENDC}" if enabled else f"{Colors.RED}✗ DISABLED{Colors.ENDC}"
+                    print(f"  • sdm120              {status} - {Colors.CYAN}SDM120 energy meter (Modbus RTU){Colors.ENDC}")
+        else:
+            print_warning("  No USB devices found")
         
         input(f"\n{Colors.GREEN}Press Enter to continue...{Colors.ENDC}")
     
