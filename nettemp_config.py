@@ -1467,13 +1467,11 @@ class NettempConfigMenu:
                 # Status indicators
                 checkbox = "☑" if is_selected else "☐"
                 
-                # Show green when both enabled AND selected
-                if is_enabled and is_selected:
+                # Show ENABLED (green) when selected, DISABLED (red) when not selected for this driver
+                if is_selected:
                     enabled_text = f"{Colors.GREEN}[ENABLED]{Colors.ENDC}"
-                elif is_enabled:
-                    enabled_text = f"{Colors.CYAN}[enabled]{Colors.ENDC}"
                 else:
-                    enabled_text = f"{Colors.CYAN}[disabled]{Colors.ENDC}"
+                    enabled_text = f"{Colors.RED}[DISABLED]{Colors.ENDC}"
                 
                 # Highlight current selection
                 if idx == current_idx:
