@@ -1265,7 +1265,7 @@ class NettempConfigMenu:
                 else:
                     print(f"  {status_color}{status}{Colors.ENDC} {driver:20} {interval} ({interval_min:.1f}min){hw_indicator}")
             
-            print(f"\n{Colors.LIGHT_BLUE}↑↓: Navigate | Space: Toggle | +/-: Change interval | e: Edit | s: Servers | Esc: Back{Colors.ENDC}")
+            print(f"\n{Colors.LIGHT_BLUE}↑↓: Navigate | Space: Toggle | +/-: Interval | e: Edit | s: Servers | Esc: Back{Colors.ENDC}")
             print(f"{Colors.GREEN}[HW]{Colors.ENDC} = Hardware detected")
             
             key = get_key()
