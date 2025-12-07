@@ -1417,7 +1417,7 @@ class NettempConfigMenu:
             if new_unit and new_unit.isdigit():
                 driver_config['unit'] = int(new_unit)
             
-            current_baudrate = driver_config.get('baudrate', 9600)
+            current_baudrate = driver_config.get('baudrate', 2400)
             new_baudrate = input_styled("Baudrate", str(current_baudrate))
             if new_baudrate and new_baudrate.isdigit():
                 driver_config['baudrate'] = int(new_baudrate)

@@ -147,5 +147,5 @@ sdm120:
   read_in_sec: 300
   port: /dev/ttyUSB0
   unit: 1
-  baudrate: 9600
+  baudrate: 2400
   parity: "N"
