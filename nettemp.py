@@ -285,13 +285,12 @@ class CloudClient:
         # Strip leading underscores that drivers commonly include
         rom = rom.lstrip('_')
 
-        # DS18B20: 28-00000a1b2c or 28_00000a1b2c (normalize underscores to dashes)
+        # DS18B20: 28-00000a1b2c or 28_00000a1b2c (keep underscore format for cloud)
         if rom.startswith('28-') or rom.startswith('28_'):
-            # Normalize format: replace underscores with dashes for consistency
-            normalized_rom = rom.replace('_', '-', 1) if rom.startswith('28_') else rom
+            # Keep original format (underscore preferred for cloud API)
             if group:
-                return {'id': f'{group}-{normalized_rom}', 'type': '1wire'}
-            return {'id': normalized_rom, 'type': '1wire'}
+                return {'id': f'{group}-{rom}', 'type': '1wire'}
+            return {'id': rom, 'type': '1wire'}
 
         # DHT: _dht22_temp_gpio_D4
         if 'dht' in rom.lower():
