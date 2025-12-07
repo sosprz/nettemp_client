@@ -1234,6 +1234,19 @@ class NettempConfigMenu:
                 if 'unit' in driver_config:
                     print(f"Unit: {driver_config['unit']}")
                 
+                # Show server destinations
+                driver_servers = driver_config.get('servers', [])
+                if driver_servers:
+                    print(f"Servers: {Colors.CYAN}{', '.join(driver_servers)}{Colors.ENDC}")
+                else:
+                    # Count enabled servers
+                    cloud_servers = self.config.get('cloud_servers', [])
+                    enabled_count = sum(1 for s in cloud_servers if s.get('enabled', True))
+                    if enabled_count > 0:
+                        print(f"Servers: {Colors.CYAN}All enabled ({enabled_count}){Colors.ENDC}")
+                    else:
+                        print(f"Servers: {Colors.YELLOW}None configured{Colors.ENDC}")
+                
                 # Show detection status
                 if current_driver in detected_drivers:
                     print(f"Hardware: {Colors.GREEN}✓ {detected_drivers[current_driver]}{Colors.ENDC}")
