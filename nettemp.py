@@ -247,9 +247,14 @@ class CloudClient:
         for item in data:
             # Parse old ROM format
             sensor_info = self._parse_rom(item.get('rom', ''))
+            
+            # Always prepend device_id to sensor_id if not already present
+            sensor_id = sensor_info['id']
+            if self.device_id and not sensor_id.startswith(f'{self.device_id}-'):
+                sensor_id = f'{self.device_id}-{sensor_id}'
 
             readings.append({
-                'sensor_id': sensor_info['id'],
+                'sensor_id': sensor_id,
                 'sensor_type': item.get('type', ''),  # Send as-is, backend normalizes
                 'value': float(item.get('value', 0)),
                 'unit': item.get('unit', ''),  # Send unit if provided, backend fills if empty
@@ -259,7 +264,7 @@ class CloudClient:
                     'original_rom': item.get('rom', '')
                 }
             })
-            logging.debug(f"[Cloud]   - {sensor_info['id']}: {item.get('value')} ({item.get('type')})")
+            logging.debug(f"[Cloud]   - {sensor_id}: {item.get('value')} ({item.get('type')})")
 
         logging.info(f"[Cloud] Sending {len(readings)} reading(s) to cloud")
         return {
@@ -280,11 +285,13 @@ class CloudClient:
         # Strip leading underscores that drivers commonly include
         rom = rom.lstrip('_')
 
-        # DS18B20: 28-00000a1b2c
-        if rom.startswith('28-'):
+        # DS18B20: 28-00000a1b2c or 28_00000a1b2c (normalize underscores to dashes)
+        if rom.startswith('28-') or rom.startswith('28_'):
+            # Normalize format: replace underscores with dashes for consistency
+            normalized_rom = rom.replace('_', '-', 1) if rom.startswith('28_') else rom
             if group:
-                return {'id': f'{group}-{rom}', 'type': '1wire'}
-            return {'id': rom, 'type': '1wire'}
+                return {'id': f'{group}-{normalized_rom}', 'type': '1wire'}
+            return {'id': normalized_rom, 'type': '1wire'}
 
         # DHT: _dht22_temp_gpio_D4
         if 'dht' in rom.lower():
