@@ -1443,7 +1443,11 @@ class NettempConfigMenu:
             return
         
         # Get current server selection for this driver
-        current_servers = driver_config.get('servers', [])
+        # If no 'servers' field exists (default = all enabled servers), populate with enabled servers
+        if 'servers' not in driver_config:
+            current_servers = [s.get('name', f'Server {i+1}') for i, s in enumerate(cloud_servers) if s.get('enabled', True)]
+        else:
+            current_servers = driver_config.get('servers', [])
         current_idx = 0
         
         while True:
