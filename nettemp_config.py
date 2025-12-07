@@ -1265,7 +1265,7 @@ class NettempConfigMenu:
                 else:
                     print(f"  {status_color}{status}{Colors.ENDC} {driver:20} {interval} ({interval_min:.1f}min){hw_indicator}")
             
-            print(f"\n{Colors.LIGHT_BLUE}↑↓: Navigate | Space: Toggle | +/-: Change interval | e: Edit | Esc: Back{Colors.ENDC}")
+            print(f"\n{Colors.LIGHT_BLUE}↑↓: Navigate | Space: Toggle | +/-: Change interval | e: Edit | s: Servers | Esc: Back{Colors.ENDC}")
             print(f"{Colors.GREEN}[HW]{Colors.ENDC} = Hardware detected")
             
             key = get_key()
@@ -1285,6 +1285,8 @@ class NettempConfigMenu:
                 driver_config['enabled'] = not current_state
             elif key == 'e' or key == 'E':  # Edit driver settings
                 self._edit_driver_settings(all_drivers[current_idx])
+            elif key == 's' or key == 'S':  # Configure servers for this driver
+                self._configure_driver_servers(all_drivers[current_idx])
             elif key == '+' or key == '=':  # Increase interval
                 driver = all_drivers[current_idx]
                 if self.drivers_config.get(driver) is None:
@@ -1421,6 +1423,77 @@ class NettempConfigMenu:
         
         print_success("\nSettings updated!")
         input(f"\n{Colors.GREEN}Press Enter to continue...{Colors.ENDC}")
+    
+    def _configure_driver_servers(self, driver):
+        """Configure which servers receive data from this driver"""
+        if self.drivers_config.get(driver) is None:
+            self.drivers_config[driver] = {}
+        
+        driver_config = self.drivers_config[driver]
+        
+        # Get list of all configured servers
+        cloud_servers = self.config.get('cloud_servers', [])
+        
+        if not cloud_servers:
+            clear_screen()
+            print_header(f"SERVER SELECTION - {driver}")
+            print_error("\nNo servers configured yet!")
+            print_info("Please configure servers first in 'Configure server settings' menu.")
+            input(f"\n{Colors.GREEN}Press Enter to continue...{Colors.ENDC}")
+            return
+        
+        # Get current server selection for this driver
+        current_servers = driver_config.get('servers', [])
+        
+        while True:
+            clear_screen()
+            print_header(f"SERVER SELECTION - {driver}")
+            
+            print(f"\n{Colors.BOLD}Select which servers should receive data from this driver:{Colors.ENDC}\n")
+            print(f"{Colors.CYAN}Empty selection = send to all enabled servers (default){Colors.ENDC}\n")
+            
+            # Display all servers with checkboxes
+            for i, server in enumerate(cloud_servers, 1):
+                server_name = server.get('name', f'Server {i}')
+                server_url = server.get('url', '')
+                is_enabled = server.get('enabled', True)
+                is_selected = server_name in current_servers
+                
+                # Status indicators
+                checkbox = "☑" if is_selected else "☐"
+                enabled_text = f"{Colors.GREEN}[ENABLED]{Colors.ENDC}" if is_enabled else f"{Colors.CYAN}[disabled]{Colors.ENDC}"
+                
+                print(f"  {i}. {checkbox} {server_name} - {server_url} {enabled_text}")
+            
+            print("\n" + "─" * 70 + "\n")
+            print(f"{Colors.LIGHT_BLUE}Enter server number to toggle (1-{len(cloud_servers)}), 'c' to clear all, 's' to save, or Esc to cancel{Colors.ENDC}")
+            
+            choice = input_styled("Your choice", "s").lower()
+            
+            if choice == 's':
+                # Save and exit
+                driver_config['servers'] = current_servers
+                print_success(f"\nServer selection saved for {driver}!")
+                if current_servers:
+                    print_info(f"Will send to: {', '.join(current_servers)}")
+                else:
+                    print_info("Will send to all enabled servers (default)")
+                time.sleep(1.5)
+                break
+            elif choice == 'c':
+                # Clear all selections
+                current_servers = []
+            elif choice.isdigit():
+                idx = int(choice) - 1
+                if 0 <= idx < len(cloud_servers):
+                    server_name = cloud_servers[idx].get('name', f'Server {idx+1}')
+                    if server_name in current_servers:
+                        current_servers.remove(server_name)
+                    else:
+                        current_servers.append(server_name)
+            elif choice == '' or choice == 'esc':
+                # Cancel without saving
+                break
     
     def discover_devices(self):
         """Discover I2C and 1-Wire devices"""

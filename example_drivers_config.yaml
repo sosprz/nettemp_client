@@ -6,6 +6,17 @@
 #
 # Enable/disable sensors and set their reading intervals.
 # This file can also be edited manually if needed.
+#
+# PER-DRIVER SERVER FILTERING:
+# Add 'servers: []' field to send driver data to specific servers only.
+# - Empty or missing 'servers' field = send to all enabled servers (default)
+# - servers: ["Cloud Primary", "Local Server"] = send only to those servers
+#
+# Example:
+#   sdm120:
+#     enabled: true
+#     read_in_sec: 300
+#     servers: ["Local Power Monitor"]  # Only send power data here
 # ============================================================
 
 # 15 min 900 sec

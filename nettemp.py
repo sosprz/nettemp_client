@@ -102,12 +102,65 @@ class CloudClient:
         except Exception as e:
             logging.error(f"Buffer init error: {e}")
 
-    def send(self, data: List[Dict]) -> bool:
+    def _filter_servers_for_driver(self, driver_name: str = None) -> List[Dict]:
         """
-        Send data to all enabled cloud servers (works with old nettemp format)
+        Filter cloud servers based on driver configuration.
+        
+        Returns servers that should receive data from this driver:
+        - If driver has 'servers' list: only return servers with matching names
+        - If driver has no 'servers' or empty list: return all enabled servers
+        - If driver_name is None: return all enabled servers
+        """
+        # Return all enabled servers if no driver specified
+        if not driver_name:
+            return [s for s in self.cloud_servers if s.get('enabled', True)]
+        
+        # Load driver config to check for server filtering
+        try:
+            import yaml
+            config_file = Path(__file__).parent / 'drivers_config.yaml'
+            if config_file.exists():
+                with open(config_file, 'r') as f:
+                    drivers_config = yaml.safe_load(f) or {}
+                    driver_cfg = drivers_config.get(driver_name, {})
+                    target_server_names = driver_cfg.get('servers', [])
+                    
+                    # If driver has no 'servers' field or empty list, send to all enabled
+                    if not target_server_names:
+                        return [s for s in self.cloud_servers if s.get('enabled', True)]
+                    
+                    # Filter to only servers listed in driver config
+                    filtered = []
+                    for server in self.cloud_servers:
+                        if not server.get('enabled', True):
+                            continue
+                        server_name = server.get('name', '')
+                        if server_name in target_server_names:
+                            filtered.append(server)
+                    
+                    if filtered:
+                        logging.debug(f"[{driver_name}] Sending to servers: {[s.get('name') for s in filtered]}")
+                    else:
+                        logging.warning(f"[{driver_name}] No matching servers found for: {target_server_names}")
+                    
+                    return filtered
+        except Exception as e:
+            logging.warning(f"Failed to load driver config for filtering: {e}")
+        
+        # Fallback: return all enabled servers
+        return [s for s in self.cloud_servers if s.get('enabled', True)]
+
+    def send(self, data: List[Dict], driver_name: str = None) -> bool:
+        """
+        Send data to cloud servers (works with old nettemp format)
+        
+        Filters servers based on driver configuration:
+        - If driver has 'servers' field: only send to those servers
+        - If driver has no 'servers' field or empty list: send to all enabled servers
 
         Args:
             data: List of dicts with keys: rom, type, value, name
+            driver_name: Name of the driver generating this data (for server filtering)
 
         Returns:
             True if sent successfully to at least one server
@@ -124,8 +177,11 @@ class CloudClient:
         # Track if we successfully sent to at least one server
         any_success = False
 
-        # Send to each enabled cloud server with appropriate format
-        for server in self.cloud_servers:
+        # Filter servers based on driver configuration
+        target_servers = self._filter_servers_for_driver(driver_name)
+
+        # Send to each target server with appropriate format
+        for server in target_servers:
             # Check if server needs legacy format
             server_format = server.get('format', 'cloud')
             if server_format == 'legacy':

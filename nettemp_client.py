@@ -103,9 +103,10 @@ class NettempClient:
         logging.info(f"Reading: {driver_name} {summary}")
 
         try:
-            sender = insert2(readings)
-            sender.request()
-            #logging.info(f'Sent {len(readings)} readings for {driver_name}')
+            # Send readings with driver_name for per-driver server filtering
+            success = self.cloud_client.send(readings, driver_name=driver_name)
+            if not success:
+                logging.warning(f'Failed to send {driver_name} to any server')
         except Exception as e:
             logging.error(f'Failed to send {driver_name}: {e}')
 
