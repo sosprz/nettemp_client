@@ -1444,6 +1444,7 @@ class NettempConfigMenu:
         
         # Get current server selection for this driver
         current_servers = driver_config.get('servers', [])
+        current_idx = 0
         
         while True:
             clear_screen()
@@ -1452,25 +1453,51 @@ class NettempConfigMenu:
             print(f"\n{Colors.BOLD}Select which servers should receive data from this driver:{Colors.ENDC}\n")
             print(f"{Colors.CYAN}Empty selection = send to all enabled servers (default){Colors.ENDC}\n")
             
-            # Display all servers with checkboxes
-            for i, server in enumerate(cloud_servers, 1):
-                server_name = server.get('name', f'Server {i}')
+            # Display all servers with checkboxes and navigation
+            for idx, server in enumerate(cloud_servers):
+                server_name = server.get('name', f'Server {idx+1}')
                 server_url = server.get('url', '')
                 is_enabled = server.get('enabled', True)
                 is_selected = server_name in current_servers
                 
                 # Status indicators
                 checkbox = "☑" if is_selected else "☐"
-                enabled_text = f"{Colors.GREEN}[ENABLED]{Colors.ENDC}" if is_enabled else f"{Colors.CYAN}[disabled]{Colors.ENDC}"
                 
-                print(f"  {i}. {checkbox} {server_name} - {server_url} {enabled_text}")
+                # Show green when both enabled AND selected
+                if is_enabled and is_selected:
+                    enabled_text = f"{Colors.GREEN}[ENABLED]{Colors.ENDC}"
+                elif is_enabled:
+                    enabled_text = f"{Colors.CYAN}[enabled]{Colors.ENDC}"
+                else:
+                    enabled_text = f"{Colors.CYAN}[disabled]{Colors.ENDC}"
+                
+                # Highlight current selection
+                if idx == current_idx:
+                    print(f"{Colors.LIGHT_BLUE}▶ {checkbox} {Colors.BOLD}{server_name}{Colors.ENDC} - {server_url} {enabled_text}")
+                else:
+                    print(f"  {checkbox} {server_name} - {server_url} {enabled_text}")
             
             print("\n" + "─" * 70 + "\n")
-            print(f"{Colors.LIGHT_BLUE}Enter server number to toggle (1-{len(cloud_servers)}), 'c' to clear all, 's' to save, or Esc to cancel{Colors.ENDC}")
+            print(f"{Colors.LIGHT_BLUE}↑↓: Navigate | Enter: Toggle | c: Clear all | s: Save | Esc: Cancel{Colors.ENDC}")
             
-            choice = input_styled("Your choice", "s").lower()
+            key = get_key()
             
-            if choice == 's':
+            if key == '':
+                continue
+            elif key == 'UP':
+                current_idx = (current_idx - 1) % len(cloud_servers)
+            elif key == 'DOWN':
+                current_idx = (current_idx + 1) % len(cloud_servers)
+            elif key == '\r' or key == '\n':  # Enter to toggle
+                server_name = cloud_servers[current_idx].get('name', f'Server {current_idx+1}')
+                if server_name in current_servers:
+                    current_servers.remove(server_name)
+                else:
+                    current_servers.append(server_name)
+            elif key.lower() == 'c':
+                # Clear all selections
+                current_servers = []
+            elif key.lower() == 's':
                 # Save and exit
                 driver_config['servers'] = current_servers
                 print_success(f"\nServer selection saved for {driver}!")
@@ -1480,18 +1507,7 @@ class NettempConfigMenu:
                     print_info("Will send to all enabled servers (default)")
                 time.sleep(1.5)
                 break
-            elif choice == 'c':
-                # Clear all selections
-                current_servers = []
-            elif choice.isdigit():
-                idx = int(choice) - 1
-                if 0 <= idx < len(cloud_servers):
-                    server_name = cloud_servers[idx].get('name', f'Server {idx+1}')
-                    if server_name in current_servers:
-                        current_servers.remove(server_name)
-                    else:
-                        current_servers.append(server_name)
-            elif choice == '' or choice == 'esc':
+            elif key == 'ESC':
                 # Cancel without saving
                 break
     
