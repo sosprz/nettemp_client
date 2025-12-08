@@ -377,6 +377,16 @@ class CloudClient:
                 if response.status_code == 200:
                     logging.info(f"[Cloud:{name}] Successfully sent {readings_count} readings")
                     return True
+                elif response.status_code == 207:
+                    # 207 Multi-Status: partial success (some readings rejected)
+                    try:
+                        result = response.json()
+                        accepted = result.get('accepted', 0)
+                        rejected = result.get('rejected', 0)
+                        logging.warning(f"[Cloud:{name}] Partial success: {accepted} accepted, {rejected} rejected (min/max limits)")
+                    except Exception:
+                        logging.warning(f"[Cloud:{name}] Partial success (some readings rejected)")
+                    return True  # Don't buffer rejected readings
                 elif response.status_code == 401:
                     logging.error(f"[Cloud:{name}] Invalid API key")
                     return False
