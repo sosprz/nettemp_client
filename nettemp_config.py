@@ -1404,7 +1404,7 @@ class NettempConfigMenu:
                     print(f"  {checkbox} {server_name} - {server_url} {enabled_text}")
             
             print("\n" + "─" * 70 + "\n")
-            print(f"{Colors.LIGHT_BLUE}↑↓: Navigate | Enter: Toggle | c: Clear all | s: Save | Esc: Cancel{Colors.ENDC}")
+            print(f"{Colors.LIGHT_BLUE}↑↓: Navigate | Space: Toggle | c: Clear all | s: Save | Esc: Cancel{Colors.ENDC}")
             
             key = get_key()
             
@@ -1414,7 +1414,7 @@ class NettempConfigMenu:
                 current_idx = (current_idx - 1) % len(cloud_servers)
             elif key == 'DOWN':
                 current_idx = (current_idx + 1) % len(cloud_servers)
-            elif key == '\r' or key == '\n':  # Enter to toggle
+            elif key == ' ':  # Space to toggle
                 server_name = cloud_servers[current_idx].get('name', f'Server {current_idx+1}')
                 if server_name in current_servers:
                     current_servers.remove(server_name)
@@ -1809,7 +1809,7 @@ class NettempConfigMenu:
                     print(f"  {checkbox} {server_name} - {server_url} {enabled_text}")
             
             print("\n" + "─" * 70 + "\n")
-            print(f"{Colors.LIGHT_BLUE}↑↓: Navigate | Enter: Toggle | c: Clear all | s: Save | Esc: Cancel{Colors.ENDC}")
+            print(f"{Colors.LIGHT_BLUE}↑↓: Navigate | Space: Toggle | c: Clear all | s: Save | Esc: Cancel{Colors.ENDC}")
             
             key = get_key()
             
@@ -1819,7 +1819,7 @@ class NettempConfigMenu:
                 current_idx = (current_idx - 1) % len(cloud_servers)
             elif key == 'DOWN':
                 current_idx = (current_idx + 1) % len(cloud_servers)
-            elif key == '\r' or key == '\n':  # Enter to toggle
+            elif key == ' ':  # Space to toggle
                 server_name = cloud_servers[current_idx].get('name', f'Server {current_idx+1}')
                 if server_name in current_servers:
                     current_servers.remove(server_name)
