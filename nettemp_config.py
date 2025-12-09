@@ -531,9 +531,15 @@ class BLEScanner:
             try:
                 ble = adafruit_ble.BLERadio()
                 found_devices = {}
+                scan_count = 0
                 
                 # Scan for devices
+                print("Scanning", end="", flush=True)
                 for adv in ble.start_scan(Advertisement, timeout=20):
+                    scan_count += 1
+                    if scan_count % 10 == 0:
+                        print(".", end="", flush=True)
+                    
                     if adv.address and adv.address.string:
                         mac = adv.address.string
                         name = adv.complete_name or adv.short_name or "Unknown"
@@ -550,8 +556,15 @@ class BLEScanner:
                             if name == "LYWSD03MMC":
                                 found_devices[mac]['type'] = 'Xiaomi Mi Temp/Humidity Sensor'
                                 found_devices[mac]['description'] = f"LYWSD03MMC at {mac}"
+                            
+                            # Show progress for LYWSD03MMC
+                            if name == "LYWSD03MMC":
+                                print(f"\n  Found: {name} at {mac}", end="", flush=True)
                 
+                print()  # New line after scanning
                 ble.stop_scan()
+                
+                print(f"Scan complete. Found {len(found_devices)} unique device(s)")
                 
                 # Convert to list
                 devices = list(found_devices.values())
@@ -2009,11 +2022,15 @@ class NettempConfigMenu:
         ble_devices = BLEScanner.scan()
         
         if ble_devices:
+            # Show all BLE devices found
+            print(f"\n{Colors.CYAN}All BLE devices discovered:{Colors.ENDC}")
+            for device in ble_devices:
+                device_type = device.get('type', 'BLE Device')
+                print(f"  {Colors.GREEN}✓{Colors.ENDC} {device['mac']} - {device['name']} ({device_type})")
+            
+            # Filter LYWSD03MMC sensors
             lywsd_sensors = [d for d in ble_devices if d['name'] == 'LYWSD03MMC']
             lywsd_count = len(lywsd_sensors)
-            
-            for device in lywsd_sensors:
-                print(f"  {Colors.GREEN}✓{Colors.ENDC} {device['mac']} - {device['type']}")
             
             # Auto-add found sensors to config
             if lywsd_count > 0:
