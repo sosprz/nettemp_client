@@ -507,6 +507,68 @@ class USBScanner:
         return devices
 
 
+class BLEScanner:
+    """Scan for Bluetooth Low Energy devices (LYWSD03MMC sensors)"""
+    
+    @staticmethod
+    def scan():
+        """Scan for BLE devices, specifically LYWSD03MMC sensors"""
+        devices = []
+        
+        try:
+            # Check if BLE libraries are available
+            try:
+                import adafruit_ble
+                from adafruit_ble.advertising.standard import Advertisement
+            except ImportError:
+                print_warning("BLE libraries not installed. Install with:")
+                print("  pip3 install adafruit-circuitpython-ble adafruit-circuitpython-ble-lywsd03mmc")
+                return devices
+            
+            print_info("Scanning for BLE devices (10 seconds)...")
+            print_warning("Note: May require sudo permissions")
+            
+            try:
+                ble = adafruit_ble.BLERadio()
+                found_devices = {}
+                
+                # Scan for devices
+                for adv in ble.start_scan(Advertisement, timeout=10):
+                    if adv.address and adv.address.string:
+                        mac = adv.address.string
+                        name = adv.complete_name or adv.short_name or "Unknown"
+                        
+                        # Track unique devices by MAC
+                        if mac not in found_devices:
+                            found_devices[mac] = {
+                                'mac': mac,
+                                'name': name,
+                                'type': 'BLE Device'
+                            }
+                            
+                            # Mark LYWSD03MMC sensors
+                            if name == "LYWSD03MMC":
+                                found_devices[mac]['type'] = 'Xiaomi Mi Temp/Humidity Sensor'
+                                found_devices[mac]['description'] = f"LYWSD03MMC at {mac}"
+                
+                ble.stop_scan()
+                
+                # Convert to list
+                devices = list(found_devices.values())
+                
+            except Exception as e:
+                if "Permission denied" in str(e) or "not permitted" in str(e):
+                    print_error("Permission denied. Try running with sudo:")
+                    print("  sudo python3 nettemp_config.py")
+                else:
+                    print_error(f"BLE scan error: {e}")
+        
+        except Exception as e:
+            print_error(f"BLE scan failed: {e}")
+        
+        return devices
+
+
 class NettempConfigMenu:
     """Interactive configuration menu for Nettemp Client"""
     
@@ -1511,6 +1573,7 @@ class NettempConfigMenu:
             'I2C Humidity': ['htu21d', 'hih6130'],
             'I2C Light': ['bh1750', 'tsl2561'],
             'GPIO Sensors': ['dht11', 'dht22', 'hcsr04'],
+            'BLE Sensors': ['lywsd03mmc'],
             'Other': ['ping', 'sdm120', 'vl53l0x', 'adxl345', 'mpl3115a2', 'capacitive_soil']
         }
         
@@ -1743,6 +1806,32 @@ class NettempConfigMenu:
             if new_parity and new_parity.upper() in ['N', 'E', 'O']:
                 driver_config['parity'] = new_parity.upper()
         
+        if driver == 'lywsd03mmc':
+            print(f"{Colors.CYAN}BLE Sensor Configuration{Colors.ENDC}")
+            print(f"{Colors.YELLOW}Xiaomi Mi Temperature Humidity Sensor 2 (LYWSD03MMC){Colors.ENDC}")
+            
+            current_name = driver_config.get('device_name', 'LYWSD03MMC')
+            new_name = input_styled("BLE device name", current_name)
+            if new_name:
+                driver_config['device_name'] = new_name
+            
+            current_mac = driver_config.get('mac_address', None)
+            mac_str = str(current_mac) if current_mac else 'none'
+            new_mac = input_styled("MAC address (or 'none' for auto-discover)", mac_str)
+            if new_mac:
+                if new_mac.lower() in ['none', 'null', '']:
+                    driver_config['mac_address'] = None
+                else:
+                    driver_config['mac_address'] = new_mac
+            
+            current_id = driver_config.get('sensor_id', 'default')
+            new_id = input_styled("Sensor ID (unique name for multiple sensors)", current_id)
+            if new_id:
+                driver_config['sensor_id'] = new_id
+            
+            print(f"\n{Colors.YELLOW}Note: BLE sensors require sudo permissions{Colors.ENDC}")
+            print(f"Install: pip3 install adafruit-circuitpython-ble adafruit-circuitpython-ble-lywsd03mmc")
+        
         if driver == 'w1_kernel':
             print(f"{Colors.CYAN}1-Wire Configuration{Colors.ENDC}")
             current = driver_config.get('ds2482', False)
@@ -1916,6 +2005,27 @@ class NettempConfigMenu:
         else:
             print_warning("  No USB devices found")
         
+        # BLE scan
+        print(f"\n{Colors.BOLD}BLE Devices:{Colors.ENDC}")
+        ble_devices = BLEScanner.scan()
+        
+        if ble_devices:
+            lywsd_count = 0
+            for device in ble_devices:
+                if device['name'] == 'LYWSD03MMC':
+                    lywsd_count += 1
+                    print(f"  {Colors.GREEN}✓{Colors.ENDC} {device['mac']} - {device['type']}")
+            
+            # Show BLE driver suggestions
+            if lywsd_count > 0:
+                print(f"\n{Colors.BOLD}Suggested drivers for BLE:{Colors.ENDC}")
+                if 'lywsd03mmc' in self.drivers_config:
+                    enabled = self.drivers_config['lywsd03mmc'].get('enabled', False)
+                    status = f"{Colors.GREEN}✓ ENABLED{Colors.ENDC}" if enabled else f"{Colors.RED}✗ DISABLED{Colors.ENDC}"
+                    print(f"  • lywsd03mmc          {status} - {Colors.CYAN}Found {lywsd_count} Xiaomi sensor(s){Colors.ENDC}")
+        else:
+            print_warning("  No BLE devices found (may require sudo)")
+        
         input(f"\n{Colors.GREEN}Press Enter to continue...{Colors.ENDC}")
     
     def _suggest_drivers_from_i2c(self, devices: List[Dict]) -> Dict[str, str]:
@@ -2003,6 +2113,18 @@ class NettempConfigMenu:
         print_header("TEST READINGS")
         
         print_info("Testing sensor readings with current configuration...")
+        
+        # Check if BLE sensors are enabled and warn about sudo
+        ble_enabled = any(
+            driver in ['lywsd03mmc'] and 
+            isinstance(self.drivers_config.get(driver), dict) and 
+            self.drivers_config[driver].get('enabled')
+            for driver in self.drivers_config
+        )
+        if ble_enabled and os.geteuid() != 0:
+            print_warning("BLE sensors require sudo permissions. If readings fail, try:")
+            print("  sudo python3 nettemp_config.py")
+        
         print_warning("Press Ctrl+C to stop\n")
         
         # Import driver loader
@@ -2013,9 +2135,10 @@ class NettempConfigMenu:
             loader = DriverLoader(config_file=str(self.drivers_file))
             
             try:
-                # Track last read time for DHT sensors to avoid polling too fast
-                dht_last_read = {}
+                # Track last read time for DHT and BLE sensors to avoid polling too fast
+                sensor_last_read = {}
                 dht_min_interval = 30  # DHT sensors need 30s minimum between reads in test mode
+                ble_min_interval = 10  # BLE sensors need 10s minimum between reads in test mode
                 
                 while True:
                     print(f"\n{Colors.BOLD}[{time.strftime('%H:%M:%S')}]{Colors.ENDC}")
@@ -2025,21 +2148,24 @@ class NettempConfigMenu:
                             continue
                         
                         if driver_config.get('enabled'):
-                            # Check if this is a DHT sensor and needs cooldown
+                            # Check if this sensor needs cooldown
                             is_dht = driver_name in ['dht11', 'dht22']
-                            if is_dht:
-                                last_read = dht_last_read.get(driver_name, 0)
+                            is_ble = driver_name in ['lywsd03mmc']
+                            
+                            if is_dht or is_ble:
+                                min_interval = dht_min_interval if is_dht else ble_min_interval
+                                last_read = sensor_last_read.get(driver_name, 0)
                                 time_since = time.time() - last_read
-                                if time_since < dht_min_interval:
+                                if time_since < min_interval:
                                     # Skip this read, show countdown
-                                    wait_time = int(dht_min_interval - time_since)
+                                    wait_time = int(min_interval - time_since)
                                     print(f"  {Colors.CYAN}{driver_name}:{Colors.ENDC} {Colors.YELLOW}(waiting {wait_time}s...){Colors.ENDC}")
                                     continue
                             
                             try:
                                 readings = loader.run_driver(driver_name, driver_config)
-                                if is_dht:
-                                    dht_last_read[driver_name] = time.time()
+                                if is_dht or is_ble:
+                                    sensor_last_read[driver_name] = time.time()
                                 
                                 if readings:
                                     print(f"  {Colors.CYAN}{driver_name}:{Colors.ENDC}")

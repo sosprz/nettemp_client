@@ -22,6 +22,10 @@ adafruit-circuitpython-adxl34x
 adafruit-circuitpython-dht
 adafruit-circuitpython-vl53l0x
 
+# BLE sensors
+adafruit-circuitpython-ble
+adafruit-circuitpython-ble-lywsd03mmc
+
 # Network tools
 pingparsing
 

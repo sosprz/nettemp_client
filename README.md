@@ -122,6 +122,12 @@ The client supports **22+ sensor drivers** with automatic hardware detection and
 - `dht11` - DHT11 temperature/humidity sensor (GPIO)
 - `dht22` - DHT22/AM2302 temperature/humidity sensor (GPIO, higher accuracy)
 
+**BLE Sensors:**
+- `lywsd03mmc` - Xiaomi Mi Temperature Humidity Sensor 2 (Bluetooth Low Energy)
+  - Auto-connects to LYWSD03MMC sensors
+  - Reports temperature and humidity
+  - Supports multiple sensors via MAC address filtering
+
 **I2C Sensors:**
 - `tmp102` - High-accuracy temperature sensor (±0.5°C)
 - `bme280` - Temperature, humidity, pressure (Bosch)
@@ -371,6 +377,64 @@ i2cdetect -y 1
 
 ### GPIO Sensors (DHT22, DHT11)
 Connect to GPIO pins as configured in `drivers_config.yaml`.
+
+### BLE Sensors (Xiaomi LYWSD03MMC)
+
+The `lywsd03mmc` driver supports Xiaomi Mi Temperature Humidity Sensor 2 via Bluetooth Low Energy.
+
+**Hardware Requirements:**
+- Raspberry Pi with Bluetooth (Pi 3, 4, Zero W, or USB BLE dongle)
+- Xiaomi LYWSD03MMC sensor (CR2032 battery powered)
+
+**Dependencies:**
+```bash
+# Install BLE libraries
+pip3 install adafruit-circuitpython-ble
+pip3 install adafruit-circuitpython-ble-lywsd03mmc
+```
+
+**Configuration:**
+```yaml
+# In drivers_config.yaml:
+lywsd03mmc:
+  enabled: true
+  read_in_sec: 300
+  device_name: "LYWSD03MMC"  # BLE device name
+  mac_address: null          # Optional: MAC address for specific sensor
+  sensor_id: "default"       # Unique ID for multiple sensors
+```
+
+**Multiple Sensors:**
+To use multiple LYWSD03MMC sensors, create separate entries with different IDs:
+```yaml
+lywsd03mmc_living:
+  enabled: true
+  read_in_sec: 300
+  device_name: "LYWSD03MMC"
+  mac_address: "A4:C1:38:XX:XX:XX"
+  sensor_id: "living_room"
+
+lywsd03mmc_bedroom:
+  enabled: true
+  read_in_sec: 300
+  device_name: "LYWSD03MMC"
+  mac_address: "A4:C1:38:YY:YY:YY"
+  sensor_id: "bedroom"
+```
+
+**Finding MAC Address:**
+```bash
+# Scan for BLE devices
+sudo hcitool lescan
+# Look for "LYWSD03MMC" and note the MAC address
+```
+
+**Troubleshooting:**
+- Ensure Bluetooth is enabled: `sudo systemctl status bluetooth`
+- Check BLE scan: `sudo hcitool lescan`
+- Run client with sudo for BLE access: `sudo python3 nettemp.py`
+- Keep sensor within 10m range
+- Replace battery if readings fail intermittently
 
 ### Modbus RTU Sensors (SDM120)
 

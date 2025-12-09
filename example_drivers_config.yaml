@@ -117,6 +117,14 @@ dht22:
   read_in_sec: 300
   gpio_pin: 4
 
+# Xiaomi Mi Temperature Humidity Sensor 2 (BLE)
+lywsd03mmc:
+  enabled: false
+  read_in_sec: 300
+  device_name: "LYWSD03MMC"  # BLE device name
+  mac_address: null  # Optional: specify MAC for faster connection
+  sensor_id: "default"  # Unique ID if using multiple sensors
+
 # Ultrasonic distance sensor
 hcsr04:
   enabled: false
