@@ -10,7 +10,7 @@ _last_error_time = 0
 _error_interval = 300  # Only log errors every 5 minutes
 _last_read_time = 0
 _min_read_interval = 5  # Minimum 5 seconds between reads
-_scan_timeout = 20  # BLE scan timeout
+_scan_timeout = 60  # BLE scan timeout
 
 def lywsd03mmc(config_dict):
     global _ble, _connection, _last_read_time, _last_error_time
