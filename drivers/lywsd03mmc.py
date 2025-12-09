@@ -5,12 +5,12 @@ from adafruit_ble_lywsd03mmc import LYWSD03MMCService
 
 # Track BLE connection state
 _ble = None
-_connection = None
+_connections = {}  # Store connections by MAC address
 _last_error_time = 0
 _error_interval = 300  # Only log errors every 5 minutes
 _last_read_time = 0
 _min_read_interval = 5  # Minimum 5 seconds between reads
-_scan_timeout = 60  # BLE scan timeout
+_scan_timeout = 20  # BLE scan timeout
 
 def lywsd03mmc(config_dict):
     global _ble, _connection, _last_read_time, _last_error_time
@@ -42,24 +42,33 @@ def lywsd03mmc(config_dict):
         # Iterate through each MAC address
         for mac_address in mac_addresses:
             try:
-                # Scan for specific device by MAC
-                found = False
-                connection = None
+                # Check if we have an existing connection for this MAC
+                connection = _connections.get(mac_address)
                 
-                for adv in _ble.start_scan(Advertisement, timeout=_scan_timeout):
-                    if adv.complete_name == device_name and adv.address.string == mac_address:
-                        connection = _ble.connect(adv)
-                        found = True
-                        break
-                
-                _ble.stop_scan()
-                
-                if not found or not connection:
-                    error_time = time.time()
-                    if error_time - _last_error_time > _error_interval:
-                        print(f"LYWSD03MMC: Device at {mac_address} not found")
-                        _last_error_time = error_time
-                    continue
+                # If no connection or connection lost, establish new one
+                if connection is None or not connection.connected:
+                    found = False
+                    
+                    for adv in _ble.start_scan(Advertisement, timeout=_scan_timeout):
+                        if adv.complete_name == device_name and adv.address.string == mac_address:
+                            try:
+                                connection = _ble.connect(adv)
+                                _connections[mac_address] = connection
+                                found = True
+                                break
+                            except Exception as e:
+                                print(f"LYWSD03MMC: Failed to connect to {mac_address}: {e}")
+                                connection = None
+                                break
+                    
+                    _ble.stop_scan()
+                    
+                    if not found or not connection:
+                        error_time = time.time()
+                        if error_time - _last_error_time > _error_interval:
+                            print(f"LYWSD03MMC: Device at {mac_address} not found")
+                            _last_error_time = error_time
+                        continue
                 
                 # Read data from connected device
                 if connection and connection.connected:
@@ -88,15 +97,20 @@ def lywsd03mmc(config_dict):
                         type = 'humid'
                         name = f'lywsd03mmc_humid'
                         all_data.append({"rom": rom, "type": type, "value": value, "name": name})
-                    
-                    # Disconnect after reading
-                    connection.disconnect()
                 
             except Exception as e:
                 error_time = time.time()
                 if error_time - _last_error_time > _error_interval:
                     print(f"LYWSD03MMC Error reading {mac_address}: {e}")
                     _last_error_time = error_time
+                
+                # Remove failed connection from cache
+                if mac_address in _connections:
+                    try:
+                        _connections[mac_address].disconnect()
+                    except:
+                        pass
+                    del _connections[mac_address]
     
     except Exception as e:
         error_time = time.time()

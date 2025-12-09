@@ -525,7 +525,7 @@ class BLEScanner:
                 print("  pip3 install adafruit-circuitpython-ble adafruit-circuitpython-ble-lywsd03mmc")
                 return devices
             
-            print_info("Scanning for BLE devices (60 seconds)...")
+            print_info("Scanning for BLE devices (20 seconds)...")
             print_warning("Note: May require sudo permissions")
             
             try:
@@ -535,7 +535,7 @@ class BLEScanner:
                 
                 # Scan for devices
                 print("Scanning", end="", flush=True)
-                for adv in ble.start_scan(Advertisement, timeout=60):
+                for adv in ble.start_scan(Advertisement, timeout=20):
                     scan_count += 1
                     if scan_count % 10 == 0:
                         print(".", end="", flush=True)
