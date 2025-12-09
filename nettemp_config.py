@@ -1823,26 +1823,16 @@ class NettempConfigMenu:
             print(f"{Colors.CYAN}BLE Sensor Configuration{Colors.ENDC}")
             print(f"{Colors.YELLOW}Xiaomi Mi Temperature Humidity Sensor 2 (LYWSD03MMC){Colors.ENDC}")
             
-            current_name = driver_config.get('device_name', 'LYWSD03MMC')
-            new_name = input_styled("BLE device name", current_name)
-            if new_name:
-                driver_config['device_name'] = new_name
-            
-            current_mac = driver_config.get('mac_address', None)
-            mac_str = str(current_mac) if current_mac else 'none'
-            new_mac = input_styled("MAC address (or 'none' for auto-discover)", mac_str)
+            current_mac = driver_config.get('mac_address', '')
+            print(f"\nCurrent MAC addresses: {current_mac or 'none'}")
+            print(f"Enter MAC addresses separated by commas")
+            print(f"Example: A4:C1:38:DE:45:9E,A4:C1:38:AA:BB:CC")
+            new_mac = input_styled("MAC addresses (comma-separated)", current_mac)
             if new_mac:
-                if new_mac.lower() in ['none', 'null', '']:
-                    driver_config['mac_address'] = None
-                else:
-                    driver_config['mac_address'] = new_mac
-            
-            current_id = driver_config.get('sensor_id', 'default')
-            new_id = input_styled("Sensor ID (unique name for multiple sensors)", current_id)
-            if new_id:
-                driver_config['sensor_id'] = new_id
+                driver_config['mac_address'] = new_mac
             
             print(f"\n{Colors.YELLOW}Note: BLE sensors require sudo permissions{Colors.ENDC}")
+            print(f"{Colors.CYAN}Use 'Discover Devices' to auto-detect sensors{Colors.ENDC}")
         
         if driver == 'w1_kernel':
             print(f"{Colors.CYAN}1-Wire Configuration{Colors.ENDC}")
@@ -2035,26 +2025,41 @@ class NettempConfigMenu:
             # Auto-add found sensors to config
             if lywsd_count > 0:
                 print(f"\n{Colors.BOLD}Auto-configuring {lywsd_count} sensor(s):{Colors.ENDC}")
-                for device in lywsd_sensors:
-                    mac = device['mac']
-                    # Create device ID from MAC address (remove colons)
-                    device_id = mac.replace(':', '').lower()
-                    driver_key = f"lywsd03mmc_{device_id}"
-                    
-                    # Add to config if not already present
-                    if driver_key not in self.drivers_config:
-                        self.drivers_config[driver_key] = {
-                            'enabled': False,
-                            'read_in_sec': 300,
-                            'device_name': 'LYWSD03MMC',
-                            'mac_address': mac,
-                            'sensor_id': device_id
-                        }
-                        print(f"  {Colors.GREEN}+{Colors.ENDC} Added {driver_key} ({mac})")
-                    else:
-                        print(f"  {Colors.YELLOW}○{Colors.ENDC} {driver_key} already configured")
                 
-                print(f"\n{Colors.CYAN}Use 'Configure Drivers' menu to enable sensors{Colors.ENDC}")
+                # Collect all MAC addresses
+                mac_addresses = [device['mac'] for device in lywsd_sensors]
+                
+                # Create or update single lywsd03mmc entry
+                if 'lywsd03mmc' not in self.drivers_config:
+                    self.drivers_config['lywsd03mmc'] = {}
+                
+                # Get existing MACs if any
+                existing_macs = self.drivers_config['lywsd03mmc'].get('mac_address', '')
+                if existing_macs and isinstance(existing_macs, str) and existing_macs.strip():
+                    existing_list = [m.strip() for m in existing_macs.split(',') if m.strip()]
+                else:
+                    existing_list = []
+                
+                # Add new MACs
+                added_count = 0
+                for mac in mac_addresses:
+                    if mac not in existing_list:
+                        existing_list.append(mac)
+                        added_count += 1
+                        print(f"  {Colors.GREEN}+{Colors.ENDC} Added {mac}")
+                    else:
+                        print(f"  {Colors.YELLOW}○{Colors.ENDC} {mac} already configured")
+                
+                # Update config
+                self.drivers_config['lywsd03mmc'] = {
+                    'enabled': self.drivers_config['lywsd03mmc'].get('enabled', True),
+                    'read_in_sec': self.drivers_config['lywsd03mmc'].get('read_in_sec', 300),
+                    'mac_address': ','.join(existing_list)
+                }
+                
+                if added_count > 0:
+                    print(f"\n{Colors.GREEN}Added {added_count} new sensor(s) to lywsd03mmc config{Colors.ENDC}")
+                print(f"{Colors.CYAN}Use 'Configure Drivers' menu to enable if needed{Colors.ENDC}")
         else:
             print_warning("  No BLE devices found (may require sudo)")
         

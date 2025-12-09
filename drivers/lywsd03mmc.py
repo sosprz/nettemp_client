@@ -22,92 +22,86 @@ def lywsd03mmc(config_dict):
         time.sleep(_min_read_interval - time_since_last)
     
     # Get device name from config (default to LYWSD03MMC)
-    device_name = config_dict.get("device_name", "LYWSD03MMC")
-    # Get MAC address if provided (required for multiple sensors)
-    mac_address = config_dict.get("mac_address", None)
-    # Get unique identifier - use MAC-based ID if available
-    sensor_id = config_dict.get("sensor_id", "default")
-    if mac_address and sensor_id == "default":
-        # Auto-generate sensor_id from MAC if not specified
-        sensor_id = mac_address.replace(':', '').lower()
+    device_name = "LYWSD03MMC"
+    
+    # Get MAC addresses (comma-separated list)
+    mac_address_config = config_dict.get("mac_address", None)
+    if not mac_address_config:
+        return []
+    
+    # Parse comma-separated MAC addresses
+    mac_addresses = [mac.strip() for mac in mac_address_config.split(',') if mac.strip()]
+    
+    all_data = []
     
     try:
         # Initialize BLE radio if needed
         if _ble is None:
             _ble = adafruit_ble.BLERadio()
         
-        # Check if connection exists and is still valid
-        if _connection is None or not _connection.connected:
-            # Scan for device
-            found = False
-            for adv in _ble.start_scan(Advertisement, timeout=_scan_timeout):
-                # Match by name or MAC address
-                if adv.complete_name == device_name:
-                    if mac_address is None or adv.address.string == mac_address:
-                        _connection = _ble.connect(adv)
+        # Iterate through each MAC address
+        for mac_address in mac_addresses:
+            try:
+                # Scan for specific device by MAC
+                found = False
+                connection = None
+                
+                for adv in _ble.start_scan(Advertisement, timeout=_scan_timeout):
+                    if adv.complete_name == device_name and adv.address.string == mac_address:
+                        connection = _ble.connect(adv)
                         found = True
                         break
-            
-            _ble.stop_scan()
-            
-            if not found:
+                
+                _ble.stop_scan()
+                
+                if not found or not connection:
+                    error_time = time.time()
+                    if error_time - _last_error_time > _error_interval:
+                        print(f"LYWSD03MMC: Device at {mac_address} not found")
+                        _last_error_time = error_time
+                    continue
+                
+                # Read data from connected device
+                if connection and connection.connected:
+                    service = connection[LYWSD03MMCService]
+                    temp_humid = service.temperature_humidity
+                    
+                    if temp_humid and len(temp_humid) >= 2:
+                        temperature = temp_humid[0]
+                        humidity = temp_humid[1]
+                        
+                        _last_read_time = time.time()
+                        
+                        # Use MAC as device_id (remove colons, uppercase)
+                        device_id = mac_address.replace(':', '').upper()
+                        
+                        # Temperature reading
+                        value = '{0:0.1f}'.format(temperature)
+                        rom = f'lywsd03mmc_{device_id}_temp'
+                        type = 'temp'
+                        name = f'lywsd03mmc_temp'
+                        all_data.append({"rom": rom, "type": type, "value": value, "name": name})
+                        
+                        # Humidity reading
+                        value = '{0:0.1f}'.format(humidity)
+                        rom = f'lywsd03mmc_{device_id}_humid'
+                        type = 'humid'
+                        name = f'lywsd03mmc_humid'
+                        all_data.append({"rom": rom, "type": type, "value": value, "name": name})
+                    
+                    # Disconnect after reading
+                    connection.disconnect()
+                
+            except Exception as e:
                 error_time = time.time()
                 if error_time - _last_error_time > _error_interval:
-                    print(f"LYWSD03MMC: Device '{device_name}' not found")
+                    print(f"LYWSD03MMC Error reading {mac_address}: {e}")
                     _last_error_time = error_time
-                return []
-        
-        # Read data from connected device
-        if _connection and _connection.connected:
-            service = _connection[LYWSD03MMCService]
-            temp_humid = service.temperature_humidity
-            
-            if temp_humid and len(temp_humid) >= 2:
-                temperature = temp_humid[0]
-                humidity = temp_humid[1]
-                
-                _last_read_time = time.time()
-                
-                data = []
-                
-                # Temperature reading
-                value = '{0:0.1f}'.format(temperature)
-                rom = f'_lywsd03mmc_{sensor_id}_temp'
-                type = 'temp'
-                name = f'lywsd03mmc_temp'
-                data.append({"rom": rom, "type": type, "value": value, "name": name})
-                
-                # Humidity reading
-                value = '{0:0.1f}'.format(humidity)
-                rom = f'_lywsd03mmc_{sensor_id}_humid'
-                type = 'humid'
-                name = f'lywsd03mmc_humid'
-                data.append({"rom": rom, "type": type, "value": value, "name": name})
-                
-                return data
-            else:
-                error_time = time.time()
-                if error_time - _last_error_time > _error_interval:
-                    print(f"LYWSD03MMC: Invalid data received")
-                    _last_error_time = error_time
-                return []
-        else:
-            # Connection lost
-            _connection = None
-            return []
     
     except Exception as e:
         error_time = time.time()
         if error_time - _last_error_time > _error_interval:
             print(f"LYWSD03MMC Error: {e}")
             _last_error_time = error_time
-        
-        # Reset connection on error
-        if _connection:
-            try:
-                _connection.disconnect()
-            except:
-                pass
-            _connection = None
-        
-        return []
+    
+    return all_data
