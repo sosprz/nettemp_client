@@ -23,10 +23,13 @@ def lywsd03mmc(config_dict):
     
     # Get device name from config (default to LYWSD03MMC)
     device_name = config_dict.get("device_name", "LYWSD03MMC")
-    # Get MAC address if provided (optional, for faster connection)
+    # Get MAC address if provided (required for multiple sensors)
     mac_address = config_dict.get("mac_address", None)
-    # Get unique identifier for multiple sensors
+    # Get unique identifier - use MAC-based ID if available
     sensor_id = config_dict.get("sensor_id", "default")
+    if mac_address and sensor_id == "default":
+        # Auto-generate sensor_id from MAC if not specified
+        sensor_id = mac_address.replace(':', '').lower()
     
     try:
         # Initialize BLE radio if needed

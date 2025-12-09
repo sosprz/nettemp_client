@@ -1830,7 +1830,6 @@ class NettempConfigMenu:
                 driver_config['sensor_id'] = new_id
             
             print(f"\n{Colors.YELLOW}Note: BLE sensors require sudo permissions{Colors.ENDC}")
-            print(f"Install: pip3 install adafruit-circuitpython-ble adafruit-circuitpython-ble-lywsd03mmc")
         
         if driver == 'w1_kernel':
             print(f"{Colors.CYAN}1-Wire Configuration{Colors.ENDC}")
@@ -2010,19 +2009,35 @@ class NettempConfigMenu:
         ble_devices = BLEScanner.scan()
         
         if ble_devices:
-            lywsd_count = 0
-            for device in ble_devices:
-                if device['name'] == 'LYWSD03MMC':
-                    lywsd_count += 1
-                    print(f"  {Colors.GREEN}✓{Colors.ENDC} {device['mac']} - {device['type']}")
+            lywsd_sensors = [d for d in ble_devices if d['name'] == 'LYWSD03MMC']
+            lywsd_count = len(lywsd_sensors)
             
-            # Show BLE driver suggestions
+            for device in lywsd_sensors:
+                print(f"  {Colors.GREEN}✓{Colors.ENDC} {device['mac']} - {device['type']}")
+            
+            # Auto-add found sensors to config
             if lywsd_count > 0:
-                print(f"\n{Colors.BOLD}Suggested drivers for BLE:{Colors.ENDC}")
-                if 'lywsd03mmc' in self.drivers_config:
-                    enabled = self.drivers_config['lywsd03mmc'].get('enabled', False)
-                    status = f"{Colors.GREEN}✓ ENABLED{Colors.ENDC}" if enabled else f"{Colors.RED}✗ DISABLED{Colors.ENDC}"
-                    print(f"  • lywsd03mmc          {status} - {Colors.CYAN}Found {lywsd_count} Xiaomi sensor(s){Colors.ENDC}")
+                print(f"\n{Colors.BOLD}Auto-configuring {lywsd_count} sensor(s):{Colors.ENDC}")
+                for device in lywsd_sensors:
+                    mac = device['mac']
+                    # Create device ID from MAC address (remove colons)
+                    device_id = mac.replace(':', '').lower()
+                    driver_key = f"lywsd03mmc_{device_id}"
+                    
+                    # Add to config if not already present
+                    if driver_key not in self.drivers_config:
+                        self.drivers_config[driver_key] = {
+                            'enabled': False,
+                            'read_in_sec': 300,
+                            'device_name': 'LYWSD03MMC',
+                            'mac_address': mac,
+                            'sensor_id': device_id
+                        }
+                        print(f"  {Colors.GREEN}+{Colors.ENDC} Added {driver_key} ({mac})")
+                    else:
+                        print(f"  {Colors.YELLOW}○{Colors.ENDC} {driver_key} already configured")
+                
+                print(f"\n{Colors.CYAN}Use 'Configure Drivers' menu to enable sensors{Colors.ENDC}")
         else:
             print_warning("  No BLE devices found (may require sudo)")
         
