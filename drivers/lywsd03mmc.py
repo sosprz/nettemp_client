@@ -1,7 +1,14 @@
 import time
-import adafruit_ble
-from adafruit_ble.advertising.standard import Advertisement
-from adafruit_ble_lywsd03mmc import LYWSD03MMCService
+
+# BLE libraries are optional - only required if driver is enabled
+try:
+    import adafruit_ble
+    from adafruit_ble.advertising.standard import Advertisement
+    from adafruit_ble_lywsd03mmc import LYWSD03MMCService
+    BLE_AVAILABLE = True
+except ImportError as e:
+    BLE_AVAILABLE = False
+    _import_error = str(e)
 
 # Track BLE connection state
 _ble = None
@@ -13,7 +20,14 @@ _min_read_interval = 5  # Minimum 5 seconds between reads
 _scan_timeout = 20  # BLE scan timeout
 
 def lywsd03mmc(config_dict):
-    global _ble, _connection, _last_read_time, _last_error_time
+    global _ble, _connections, _last_read_time, _last_error_time
+    
+    # Check if BLE libraries are available
+    if not BLE_AVAILABLE:
+        print(f"LYWSD03MMC: BLE libraries not available. Install with:")
+        print(f"  pip3 install adafruit-circuitpython-ble adafruit-circuitpython-ble-lywsd03mmc")
+        print(f"  Error: {_import_error}")
+        return []
     
     # Enforce minimum read interval
     current_time = time.time()
