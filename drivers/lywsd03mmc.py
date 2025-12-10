@@ -40,12 +40,17 @@ def _reset_bluetooth():
     try:
         print("LYWSD03MMC: Resetting Bluetooth adapter...", file=sys.stderr)
         
-        # Try btmgmt first (preferred method)
-        result = subprocess.run(['btmgmt', 'power', 'off'], 
+        # Try btmgmt first (preferred method) - needs sudo
+        result = subprocess.run(['sudo', 'btmgmt', 'power', 'off'], 
                               capture_output=True, timeout=5)
+        if result.returncode != 0:
+            print(f"LYWSD03MMC: btmgmt power off failed: {result.stderr.decode()}", file=sys.stderr)
         time.sleep(1)
-        result = subprocess.run(['btmgmt', 'power', 'on'], 
+        
+        result = subprocess.run(['sudo', 'btmgmt', 'power', 'on'], 
                               capture_output=True, timeout=5)
+        if result.returncode != 0:
+            print(f"LYWSD03MMC: btmgmt power on failed: {result.stderr.decode()}", file=sys.stderr)
         time.sleep(2)
         
         print("LYWSD03MMC: Bluetooth adapter reset complete", file=sys.stderr)
@@ -64,7 +69,7 @@ def _reset_bluetooth():
             _last_bt_reset = current_time
         except Exception as e:
             print(f"LYWSD03MMC: Could not reset Bluetooth: {e}", file=sys.stderr)
-            print(f"LYWSD03MMC: Add to sudoers: {os.getenv('USER')} ALL=(ALL) NOPASSWD: /usr/bin/btmgmt", file=sys.stderr)
+            print(f"LYWSD03MMC: Run setup script to configure sudoers: python3 nettemp_config.py", file=sys.stderr)
             
     except subprocess.TimeoutExpired:
         print("LYWSD03MMC: Bluetooth reset timed out", file=sys.stderr)
