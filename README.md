@@ -207,12 +207,32 @@ If you enable the optional `http_bridge` in `config.conf`, your Nettemp client e
 
 ### Enable HTTP Bridge
 
+**Via Interactive Configuration (Recommended):**
+```bash
+python3 nettemp_config.py
+# → Configure HTTP Bridge
+# • Enable/Disable
+# • Configure host and port
+# • Set auth token
+# • Select Destination Servers (send to all or specific servers)
+```
+
+The configuration tool allows you to:
+- ✅ **Select specific servers** - Choose which Nettemp servers receive HTTP bridge data
+- ✅ **Send to all servers** - Leave empty to forward to all enabled servers (default)
+- ✅ **Test configuration** - Validate settings before saving
+
+**Manual Configuration** (`config.conf`):
 ```yaml
 http_bridge:
   enabled: true
   host: 0.0.0.0
   port: 8080
   auth_token: local_shared_secret   # optional but recommended
+  servers:                           # optional: specific servers only
+    - Server1
+    - Server2
+    # Empty or omitted = send to all enabled servers
 ```
 
 ### 1. Cloud Payload (Device + readings)
@@ -301,6 +321,436 @@ curl "http://your-client:8080/generic_http?name=esp1&task=dht22&valuename=temper
 
 The bridge converts that into the legacy format and forwards it just like a local driver reading.
 
+## MQTT Bridge
+
+The Nettemp client includes a powerful **MQTT Bridge** that enables bidirectional integration with MQTT brokers. This allows you to:
+
+- **Publish sensor data** to MQTT topics (Publisher mode) - **All driver readings are automatically published**
+- **Receive MQTT messages** and forward them to Nettemp Cloud (Subscriber mode)
+- **Both modes simultaneously** for full IoT ecosystem integration
+
+**Configure via Interactive Tool:**
+```bash
+python3 nettemp_config.py
+# → Configure MQTT Bridge
+# • Enable/Disable
+# • Set mode (publisher/subscriber/both)
+# • Configure broker, port, authentication
+# • Publisher settings (topic prefix, QoS, retain)
+# • Subscriber settings (topics, auth token)
+# • Select Destination Servers (for subscriber mode)
+# • Test Connection
+```
+
+### Enable MQTT Bridge
+
+Configure via `nettemp_config.py` → Configure MQTT Bridge, or edit `config.conf`:
+
+```yaml
+mqtt:
+  enabled: true
+  mode: both              # publisher, subscriber, or both
+  broker: mqtt.example.com
+  port: 1883
+  username: user          # optional
+  password: pass          # optional
+  tls: false              # enable TLS/SSL (port 8883)
+  
+  # Publisher settings (Sensors → MQTT)
+  topic_prefix: nettemp
+  qos: 0                  # 0, 1, or 2
+  retain: false
+  
+  # Subscriber settings (MQTT → Cloud)
+  subscribe_topics:
+    - sensors/#
+    - home/+/temperature
+  auth_token: shared_secret  # optional validation
+  servers:                   # optional: specific servers for MQTT data
+    - Server1
+    - Server2
+```
+
+### Architecture Diagram
+
+```
+┌─────────────────────────────────────────────────────────────────┐
+│                     MQTT Bridge Architecture                     │
+└─────────────────────────────────────────────────────────────────┘
+
+PUBLISHER MODE (Sensors → MQTT):
+┌──────────────┐    ┌──────────────┐    ┌──────────────┐
+│   DS18B20    │───▶│              │───▶│     MQTT     │
+│   BME280     │    │   Nettemp    │    │    Broker    │
+│   DHT22      │───▶│    Client    │───▶│ (Mosquitto)  │
+│   System     │    │ (Publisher)  │    │              │
+└──────────────┘    └──────────────┘    └──────────────┘
+                                              │
+                                              ▼
+                    Topics: nettemp/{device_id}/{sensor_id}/{type}
+                    Payload: {"value": 21.5, "timestamp": 1234567890}
+
+SUBSCRIBER MODE (MQTT → Cloud/Docker):
+┌──────────────┐    ┌──────────────┐    ┌──────────────┐
+│   ESP8266    │───▶│     MQTT     │───▶│   Nettemp    │
+│   Arduino    │    │    Broker    │    │    Client    │
+│   Tasmota    │───▶│ (Mosquitto)  │───▶│ (Subscriber) │
+│   Zigbee2M   │    │              │    │              │
+└──────────────┘    └──────────────┘    └──────────────┘
+                                              │
+                                              ▼
+                                        ┌──────────────┐
+                                        │ Nettemp Cloud│
+                                        │  (nettemp.pl)│
+                                        │      or      │
+                                        │Self-Hosted   │
+                                        │   (Docker)   │
+                                        └──────────────┘
+
+BOTH MODES (Full IoT Ecosystem):
+┌──────────────┐                    ┌──────────────┐
+│  All Sensors │───▶ MQTT Broker ◀──│ All IoT      │
+│  (Drivers)   │         │          │  Devices     │
+└──────────────┘         │          └──────────────┘
+                         ▼
+              ┌──────────────────────┐
+              │ Home Automation       │
+              │ (Home Assistant, etc) │
+              └──────────────────────┘
+                         ▼
+              ┌──────────────────────┐
+              │ Nettemp Cloud/Docker │
+              │ (filtered servers)   │
+              └──────────────────────┘
+```
+
+**Supported Backends:**
+- ☁️ **Nettemp Cloud** - Managed hosting at [nettemp.pl](https://nettemp.pl)
+- 🐳 **Docker Self-Hosted** - Run your own instance with Docker Compose
+- 🏠 **Manual Self-Hosted** - Deploy to any Linux server/VPS
+
+### Publisher Mode (Sensors → MQTT)
+
+When enabled, the client publishes all sensor readings to MQTT topics.
+
+**Topic Structure:**
+```
+{topic_prefix}/{device_id}/{sensor_id}/{type}
+
+Examples:
+  nettemp/raspberry-pi-1/28-000007165506/temperature
+  nettemp/office-sensor/bme280_0x76/humidity
+  nettemp/living-room/system/cpu_usage
+```
+
+**Message Payload (JSON):**
+```json
+{
+  "value": 21.75,
+  "type": "temperature",
+  "sensor_id": "28-000007165506",
+  "timestamp": 1732036297,
+  "unit": "°C",
+  "name": "Living Room Temp"
+}
+```
+
+**Use Cases:**
+- Home Assistant integration
+- Node-RED dashboards
+- Grafana/InfluxDB monitoring
+- MQTT-based automation
+- Multi-site data aggregation
+
+### Subscriber Mode (MQTT → Cloud)
+
+The client subscribes to MQTT topics and forwards received messages to Nettemp Cloud.
+
+**Supported Message Formats:**
+
+#### 1. JSON Array (Nettemp native format)
+```json
+[
+  {
+    "rom": "esp8266_sensor1",
+    "type": "temperature",
+    "value": 23.5,
+    "unit": "°C",
+    "name": "ESP8266 Temp"
+  }
+]
+```
+
+#### 2. JSON Object (Single Reading)
+```json
+{
+  "sensor_id": "esp01",
+  "type": "temperature",
+  "value": 22.1,
+  "unit": "°C"
+}
+```
+
+#### 3. Cloud Format (Device + Readings)
+```json
+{
+  "device_id": "mqtt-device-1",
+  "readings": [
+    {
+      "sensor_id": "sensor1",
+      "sensor_type": "temperature",
+      "value": 21.5,
+      "timestamp": 1732036297
+    }
+  ]
+}
+```
+
+#### 4. Simple Value (Non-JSON)
+```
+Topic: home/living/temperature
+Payload: 21.5
+```
+Auto-parsed: sensor_id from topic, value from payload.
+
+**Server Filtering:**
+
+Configure which Nettemp servers receive MQTT data (similar to HTTP Bridge):
+
+```yaml
+mqtt:
+  servers:
+    - Server1      # Only forward to specific servers
+    - Server2
+    # Empty or omitted = forward to all enabled servers
+```
+
+Configure via: `nettemp_config.py` → Configure MQTT Bridge → Select Destination Servers
+
+**Authentication:**
+
+Optional token validation for incoming MQTT messages:
+
+```yaml
+mqtt:
+  auth_token: shared_secret
+```
+
+Messages must include token:
+```json
+{
+  "auth_token": "shared_secret",
+  "sensor_id": "sensor1",
+  "value": 22.5
+}
+```
+
+### Example Configurations
+
+#### Home Assistant Integration
+
+**Nettemp Client (Publisher):**
+```yaml
+mqtt:
+  enabled: true
+  mode: publisher
+  broker: homeassistant.local
+  port: 1883
+  username: mqtt_user
+  password: mqtt_pass
+  topic_prefix: nettemp
+  qos: 1
+  retain: true
+```
+
+**Home Assistant `configuration.yaml`:**
+```yaml
+sensor:
+  - platform: mqtt
+    name: "Living Room Temperature"
+    state_topic: "nettemp/raspberry-pi-1/28-000007165506/temperature"
+    unit_of_measurement: "°C"
+    value_template: "{{ value_json.value }}"
+```
+
+#### ESP8266 → MQTT → Nettemp Cloud
+
+**ESP8266 (Arduino):**
+```cpp
+#include <PubSubClient.h>
+
+const char* mqtt_server = "mqtt.example.com";
+const char* topic = "sensors/esp01/temperature";
+
+void loop() {
+  float temp = readTemperature();
+  
+  String payload = "{\"sensor_id\":\"esp01\",\"type\":\"temperature\",\"value\":";
+  payload += String(temp);
+  payload += "}";
+  
+  client.publish(topic, payload.c_str());
+  delay(60000);
+}
+```
+
+**Nettemp Client (Subscriber):**
+```yaml
+mqtt:
+  enabled: true
+  mode: subscriber
+  broker: mqtt.example.com
+  port: 1883
+  subscribe_topics:
+    - sensors/#
+  servers:
+    - ProductionServer  # Forward only to specific server
+```
+
+#### Zigbee2MQTT Integration
+
+Forward Zigbee sensor data to Nettemp Cloud:
+
+```yaml
+mqtt:
+  enabled: true
+  mode: subscriber
+  broker: localhost
+  port: 1883
+  subscribe_topics:
+    - zigbee2mqtt/+/temperature
+    - zigbee2mqtt/+/humidity
+```
+
+Zigbee2MQTT publishes:
+```
+Topic: zigbee2mqtt/0x00158d00045a1234/temperature
+Payload: 22.5
+```
+
+Nettemp client auto-converts to sensor reading.
+
+### Testing MQTT Connection
+
+**Via Configuration Menu:**
+```bash
+python3 nettemp_config.py
+# → Configure MQTT Bridge → Test Connection
+```
+
+**Manual Test (Mosquitto clients):**
+```bash
+# Subscribe to published sensor data
+mosquitto_sub -h mqtt.example.com -t "nettemp/#" -v
+
+# Publish test message
+mosquitto_pub -h mqtt.example.com -t "sensors/test/temperature" \
+  -m '{"sensor_id":"test","type":"temperature","value":21.5}'
+```
+
+### Installing Mosquitto Broker
+
+**Automatic Installation (Recommended):**
+```bash
+python3 nettemp_config.py
+# → System Management → Environment Setup
+```
+
+The configuration tool automatically:
+- ✅ **Detects** if Mosquitto is installed
+- ✅ **Offers to install** Mosquitto broker and clients if missing
+- ✅ **Configures** system packages and dependencies
+- ✅ **Enables** and starts the Mosquitto service
+
+**Manual installation (if needed):**
+```bash
+sudo apt-get update
+sudo apt-get install -y mosquitto mosquitto-clients
+
+# Enable and start
+sudo systemctl enable mosquitto
+sudo systemctl start mosquitto
+
+# Check status
+sudo systemctl status mosquitto
+```
+
+**Basic Mosquitto config** (`/etc/mosquitto/mosquitto.conf`):
+```
+listener 1883
+allow_anonymous true
+```
+
+For production, enable authentication:
+```bash
+# Create password file
+sudo mosquitto_passwd -c /etc/mosquitto/passwd mqtt_user
+
+# Update config
+listener 1883
+allow_anonymous false
+password_file /etc/mosquitto/passwd
+
+# Restart
+sudo systemctl restart mosquitto
+```
+
+### MQTT Bridge Features
+
+✅ **Dual Mode** - Publish sensor data AND receive MQTT messages  
+✅ **Auto-Reconnect** - Maintains connection with automatic retry  
+✅ **TLS/SSL Support** - Secure MQTT connections (port 8883)  
+✅ **QoS Levels** - Configurable message delivery guarantees (0, 1, 2)  
+✅ **Authentication** - Username/password + optional token validation  
+✅ **Multiple Topics** - Subscribe to multiple topic patterns (wildcards supported)  
+✅ **Server Filtering** - Route MQTT data to specific Nettemp servers  
+✅ **Message Formats** - Supports JSON, simple values, and Nettemp native format  
+✅ **Connection Testing** - Built-in broker connectivity validation  
+
+### Troubleshooting MQTT
+
+**Connection refused:**
+```bash
+# Check if Mosquitto is running
+sudo systemctl status mosquitto
+
+# Test connection
+mosquitto_pub -h localhost -t test -m "hello"
+
+# Check firewall (if remote broker)
+sudo ufw allow 1883/tcp
+```
+
+**No messages received:**
+```bash
+# Verify subscription topics
+mosquitto_sub -h localhost -t "#" -v
+
+# Check MQTT logs
+sudo journalctl -u mosquitto -f
+
+# Enable debug in config.conf
+log_level: DEBUG
+```
+
+**Authentication failed:**
+```bash
+# Test with credentials
+mosquitto_pub -h mqtt.example.com -u user -P pass -t test -m "hello"
+
+# Verify username/password in config.conf
+```
+
+**TLS/SSL errors:**
+```bash
+# Test TLS connection
+mosquitto_pub -h mqtt.example.com -p 8883 \
+  --cafile /etc/ssl/certs/ca-certificates.crt \
+  -t test -m "hello"
+```
+
+For detailed MQTT setup guide, see: `doc/MQTT_SETUP.md`
+
 ## Updating
 
 ### Quick Update (Recommended)
@@ -347,27 +797,6 @@ The update only modifies:
 
 **Note:** If new configuration options are added, check `example_config.conf` or `example_drivers_config.yaml` for reference.
 
-## File Structure
-
-```
-client/
-├── nettemp_config.py              # Interactive configuration tool (all-in-one)
-├── nettemp_client.py              # Production runner (scheduled)
-├── nettemp.py                     # Cloud client library
-├── driver_loader.py               # Driver management
-├── example_config.conf            # Config template (tracked in git)
-├── example_drivers_config.yaml    # Drivers template (tracked in git)
-├── config.conf                    # Your device settings (git ignored)
-├── drivers_config.yaml            # Your sensor config (git ignored)
-├── demo_all_sensors.py            # Test with fake data
-├── drivers/                       # Sensor drivers
-│   ├── system.py
-│   ├── dht22.py
-│   ├── bme280.py
-│   └── ...
-└── requirements.txt               # Python dependencies
-```
-
 ## Hardware Setup
 
 ### I2C Sensors
@@ -391,7 +820,20 @@ The `lywsd03mmc` driver supports Xiaomi Mi Temperature Humidity Sensor 2 via Blu
 - Raspberry Pi with Bluetooth (Pi 3, 4, Zero W, or USB BLE dongle)
 - Xiaomi LYWSD03MMC sensor (CR2032 battery powered)
 
-**Dependencies:**
+**Automatic Setup (Recommended):**
+```bash
+python3 nettemp_config.py
+# → System Management → Environment Setup
+# → Configure Drivers → Enable lywsd03mmc
+```
+
+The configuration tool automatically:
+- ✅ **Installs** all required BLE Python packages from `requirements.txt`
+- ✅ **Checks** for missing dependencies
+- ✅ **Configures** BLE sensor settings interactively
+- ✅ **Tests** sensor connectivity before saving
+
+**Manual Dependencies (if needed):**
 ```bash
 # Install BLE libraries
 pip3 install adafruit-circuitpython-ble

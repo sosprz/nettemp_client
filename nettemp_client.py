@@ -33,6 +33,7 @@ sys.path.insert(0, str(script_dir))
 from nettemp import CloudClient, insert2
 from driver_loader import DriverLoader
 from bridge import HTTPBridge
+from mqtt import MQTTBridge
 
 logging.basicConfig(level=logging.INFO, format='[%(asctime)s] %(levelname)s: %(message)s')
 # Quiet down APScheduler noise (job executed/run messages)
@@ -91,6 +92,11 @@ class NettempClient:
             self.cloud_client.device_id,
             self.cloud_client.config.get('http_bridge')
         )
+        self.mqtt = MQTTBridge(
+            self.cloud_client,
+            self.cloud_client.device_id,
+            self.cloud_client.config.get('mqtt')
+        )
 
 
     def read_and_send(self, driver_name, driver_config):
@@ -114,6 +120,10 @@ class NettempClient:
             success = self.cloud_client.send(readings, driver_name=driver_name)
             if not success:
                 logging.warning(f'Failed to send {driver_name} to any server')
+            
+            # Publish to MQTT if enabled
+            if self.mqtt and self.mqtt.enabled and self.mqtt.mode_publisher:
+                self.mqtt.publish_readings(readings, self.cloud_client.device_id)
         except Exception as e:
             logging.error(f'Failed to send {driver_name}: {e}')
 
@@ -217,6 +227,9 @@ class NettempClient:
 
         if self.bridge:
             self.bridge.start()
+        
+        if self.mqtt:
+            self.mqtt.start()
 
         try:
             while True:
@@ -252,6 +265,8 @@ class NettempClient:
             self.ble_scheduler.shutdown()
             if self.bridge:
                 self.bridge.stop()
+            if self.mqtt:
+                self.mqtt.stop()
     
     def stop(self):
         """Stop the schedulers and bridge"""
@@ -262,6 +277,8 @@ class NettempClient:
                 self.ble_scheduler.shutdown(wait=False)
             if self.bridge:
                 self.bridge.stop()
+            if self.mqtt:
+                self.mqtt.stop()
         except Exception as e:
             logging.error(f'Error during shutdown: {e}')
 

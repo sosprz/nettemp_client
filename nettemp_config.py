@@ -68,36 +68,98 @@ def check_and_setup_environment():
     # Check/install requirements
     if requirements_file.exists():
         print("📦 Checking Python packages...")
+        
+        # Check for tty and termios (built-in on Unix, may not be on Windows)
         try:
-            # Try importing key packages
-            import yaml
             import tty
             import termios
-            print("✓ Core packages installed")
-            
-            # Check for optional sensor packages
-            missing_sensor_packages = []
-            try:
-                import adafruit_ads1x15
-            except ImportError:
-                missing_sensor_packages.append('adafruit-circuitpython-ads1x15')
-            
-            if missing_sensor_packages:
-                print(f"ℹ Optional sensor packages not installed: {', '.join(missing_sensor_packages)}")
-                print("  (Install if using capacitive soil moisture sensor with ADS1115 ADC)")
         except ImportError:
-            print("Installing required packages...")
-            pip_path = venv_path / 'bin' / 'pip3'
+            pass  # These are Unix-only, skip on Windows
+        
+        pip_path = venv_path / 'bin' / 'pip3'
+        
+        # Read requirements.txt and extract core packages (non-optional, non-commented)
+        core_requirements = []
+        try:
+            with open(requirements_file, 'r') as f:
+                for line in f:
+                    line = line.strip()
+                    # Skip comments, empty lines, and optional packages
+                    if line and not line.startswith('#') and not line.startswith('git+'):
+                        # Extract package name without version specifier
+                        if '>=' in line:
+                            pkg = line.split('>=')[0].strip()
+                        elif '==' in line:
+                            pkg = line.split('==')[0].strip()
+                        elif '<' in line:
+                            pkg = line.split('<')[0].strip()
+                        else:
+                            pkg = line.strip()
+                        
+                        # Only check core packages (first 5 lines before sensor libraries)
+                        # requests, pyyaml, psutil, apscheduler, paho-mqtt
+                        if pkg.lower() in ['requests', 'pyyaml', 'psutil', 'apscheduler', 'paho-mqtt']:
+                            core_requirements.append(line)  # Keep full line with version
+        except Exception as e:
+            print(f"⚠ Could not read requirements.txt: {e}")
+            # Fallback to minimal core packages
+            core_requirements = ['requests>=2.28.0', 'pyyaml>=6.0', 'psutil>=5.9.0', 'apscheduler>=3.10.0', 'paho-mqtt>=1.6.1']
+        
+        if not core_requirements:
+            # Fallback if nothing found
+            core_requirements = ['requests>=2.28.0', 'pyyaml>=6.0', 'psutil>=5.9.0', 'apscheduler>=3.10.0', 'paho-mqtt>=1.6.1']
+        
+        # Map package names to import names
+        import_map = {
+            'pyyaml': 'yaml',
+            'paho-mqtt': 'paho.mqtt.client',
+        }
+        
+        # Check which packages are missing
+        missing_packages = []
+        for req in core_requirements:
+            # Extract package name from requirement
+            pkg_name = req.split('>=')[0].split('==')[0].split('<')[0].strip()
+            import_name = import_map.get(pkg_name.lower(), pkg_name.lower())
+            
             try:
-                subprocess.run([str(pip_path), 'install', '-r', str(requirements_file)], check=True)
-                print("✓ Packages installed")
+                __import__(import_name)
+            except ImportError:
+                missing_packages.append(req)
+        
+        # Install missing core packages
+        if missing_packages:
+            print(f"Installing missing packages: {', '.join([p.split('>=')[0].split('==')[0] for p in missing_packages])}...")
+            try:
+                subprocess.run([str(pip_path), 'install'] + missing_packages, check=True)
+                print("✓ Required packages installed")
                 print("🔄 Restarting with new packages...")
-                # Restart to pick up newly installed packages
                 venv_python = venv_path / 'bin' / 'python3'
                 os.execv(str(venv_python), [str(venv_python)] + sys.argv)
             except Exception as e:
-                print(f"⚠ Warning: Failed to install packages: {e}")
-                print("You may need to run: pip3 install -r requirements.txt")
+                print(f"⚠ Failed to install packages: {e}")
+                print(f"  Please run manually: pip install {' '.join(missing_packages)}")
+                sys.exit(1)
+        else:
+            print("✓ All required packages installed")
+            
+            # Double-check paho-mqtt specifically since it's critical for MQTT
+            try:
+                import paho.mqtt.client
+                print("✓ paho-mqtt verified (MQTT support available)")
+            except ImportError:
+                print("⚠ paho-mqtt import failed despite installation")
+        
+        # Check for optional sensor packages
+        missing_sensor_packages = []
+        try:
+            import adafruit_ads1x15
+        except ImportError:
+            missing_sensor_packages.append('adafruit-circuitpython-ads1x15')
+        
+        if missing_sensor_packages:
+            print(f"ℹ Optional sensor packages not installed: {', '.join(missing_sensor_packages)}")
+            print("  (Install if using capacitive soil moisture sensor with ADS1115 ADC)")
     
     # Check system tools
     missing_tools = []
@@ -117,6 +179,20 @@ def check_and_setup_environment():
     except FileNotFoundError:
         print("⚠ I2C tools not found")
         missing_tools.append('i2c-tools')
+    
+    # Check Mosquitto (MQTT broker)
+    try:
+        result = subprocess.run(['mosquitto', '-h'], capture_output=True, check=False)
+        if result.returncode in [0, 3]:  # 0 = help shown, 3 = invalid args (but installed)
+            print("✓ Mosquitto MQTT broker installed")
+        else:
+            print("⚠ Mosquitto not found")
+            missing_tools.append('mosquitto')
+            missing_tools.append('mosquitto-clients')
+    except FileNotFoundError:
+        print("⚠ Mosquitto MQTT broker not found")
+        missing_tools.append('mosquitto')
+        missing_tools.append('mosquitto-clients')
     
     # Check lm-sensors
     try:
@@ -724,6 +800,10 @@ class NettempConfigMenu:
         if 'http_bridge' in self.config:
             config_data['http_bridge'] = self.config['http_bridge']
         
+        # Preserve mqtt configuration if it exists
+        if 'mqtt' in self.config:
+            config_data['mqtt'] = self.config['mqtt']
+        
         # Write as YAML
         with open(self.config_file, 'w') as f:
             f.write("# Nettemp Client Configuration\n")
@@ -796,12 +876,23 @@ class NettempConfigMenu:
             else:
                 print(f"HTTP Bridge: {Colors.YELLOW}✗ Disabled{Colors.ENDC}")
             
+            # Check MQTT Bridge status
+            mqtt = self.config.get('mqtt', {})
+            if isinstance(mqtt, dict) and mqtt.get('enabled'):
+                mode = mqtt.get('mode', 'both')
+                broker = mqtt.get('broker', 'not set')
+                port = mqtt.get('port', 1883)
+                print(f"MQTT Bridge: {Colors.GREEN}✓ Enabled ({mode} mode, {broker}:{port}){Colors.ENDC}")
+            else:
+                print(f"MQTT Bridge: {Colors.YELLOW}✗ Disabled{Colors.ENDC}")
+            
             print("\n" + "─" * 70 + "\n")
             
             menu_options = [
                 "Configure Servers",
                 "Configure Device Name",
                 "Configure HTTP Bridge",
+                "Configure MQTT Bridge",
                 "Configure Drivers",
                 "Discover Devices (I2C + 1-Wire + USB + BT)",
                 "Test & View Readings",
@@ -834,16 +925,18 @@ class NettempConfigMenu:
                 elif current_option == 2:
                     self.configure_http_bridge()
                 elif current_option == 3:
-                    self.configure_drivers()
+                    self.configure_mqtt_bridge()
                 elif current_option == 4:
-                    self.discover_devices()
+                    self.configure_drivers()
                 elif current_option == 5:
-                    self.test_readings()
+                    self.discover_devices()
                 elif current_option == 6:
-                    self.test_connectivity()
+                    self.test_readings()
                 elif current_option == 7:
-                    self.system_management()
+                    self.test_connectivity()
                 elif current_option == 8:
+                    self.system_management()
+                elif current_option == 9:
                     # Check if background process is running
                     bg_pid = self.check_background_process()
                     
@@ -1534,6 +1627,433 @@ class NettempConfigMenu:
                 # Cancel without saving
                 print_info("\nCancelled")
                 time.sleep(1)
+                break
+    
+    def _configure_mqtt_servers(self):
+        """Configure which servers receive data from MQTT subscriber"""
+        if 'mqtt' not in self.config or not isinstance(self.config['mqtt'], dict):
+            self.config['mqtt'] = {'enabled': False}
+        
+        mqtt = self.config['mqtt']
+        
+        # Get list of all configured servers
+        cloud_servers = self.config.get('cloud_servers', [])
+        
+        if not cloud_servers:
+            clear_screen()
+            print_header("SERVER SELECTION - MQTT BRIDGE")
+            print_error("\nNo servers configured yet!")
+            print_info("Please configure servers first in 'Configure Servers' menu.")
+            input(f"\n{Colors.GREEN}Press Enter to continue...{Colors.ENDC}")
+            return
+        
+        # Get current server selection for MQTT subscriber
+        # If no 'servers' field exists (default = all enabled servers), populate with enabled servers
+        if 'servers' not in mqtt:
+            current_servers = [s.get('name', f'Server {i+1}') for i, s in enumerate(cloud_servers) if s.get('enabled', True)]
+        else:
+            current_servers = mqtt.get('servers', [])
+        current_idx = 0
+        
+        while True:
+            clear_screen()
+            print_header("SERVER SELECTION - MQTT BRIDGE (SUBSCRIBER)")
+            
+            print(f"\n{Colors.BOLD}Select which servers should receive data from MQTT Subscriber:{Colors.ENDC}\n")
+            print(f"{Colors.CYAN}Empty selection = send to all enabled servers (default){Colors.ENDC}")
+            print(f"{Colors.YELLOW}Note: This only applies to Subscriber mode (MQTT → Cloud){Colors.ENDC}\n")
+            
+            # Display all servers with checkboxes and navigation
+            for idx, server in enumerate(cloud_servers):
+                server_name = server.get('name', f'Server {idx+1}')
+                server_url = server.get('url', '')
+                is_enabled = server.get('enabled', True)
+                is_selected = server_name in current_servers
+                
+                # Status indicators
+                checkbox = "☑" if is_selected else "☐"
+                
+                # Show ENABLED (green) when selected, DISABLED (red) when not selected for MQTT
+                if is_selected:
+                    enabled_text = f"{Colors.GREEN}[ENABLED]{Colors.ENDC}"
+                else:
+                    enabled_text = f"{Colors.RED}[DISABLED]{Colors.ENDC}"
+                
+                # Highlight current selection
+                if idx == current_idx:
+                    print(f"{Colors.LIGHT_BLUE}▶ {checkbox} {Colors.BOLD}{server_name}{Colors.ENDC} - {server_url} {enabled_text}")
+                else:
+                    print(f"  {checkbox} {server_name} - {server_url} {enabled_text}")
+            
+            print("\n" + "─" * 70 + "\n")
+            print(f"{Colors.LIGHT_BLUE}↑↓: Navigate | Space: Toggle | c: Clear all | s: Save | Esc: Cancel{Colors.ENDC}")
+            
+            key = get_key()
+            
+            if key == '':
+                continue
+            elif key == 'UP':
+                current_idx = (current_idx - 1) % len(cloud_servers)
+            elif key == 'DOWN':
+                current_idx = (current_idx + 1) % len(cloud_servers)
+            elif key == ' ':  # Space to toggle
+                server_name = cloud_servers[current_idx].get('name', f'Server {current_idx+1}')
+                if server_name in current_servers:
+                    current_servers.remove(server_name)
+                else:
+                    current_servers.append(server_name)
+            elif key.lower() == 'c':
+                # Clear all selections
+                current_servers = []
+            elif key.lower() == 's':
+                # Save and exit
+                # Check if selection matches "all enabled servers" (default behavior)
+                all_enabled_names = [s.get('name', f'Server {i+1}') for i, s in enumerate(cloud_servers) if s.get('enabled', True)]
+                
+                if set(current_servers) == set(all_enabled_names):
+                    # Selection is default, remove 'servers' field to use default behavior
+                    mqtt.pop('servers', None)
+                    print_success("\nMQTT Subscriber will forward to all enabled servers (default)")
+                else:
+                    # Custom selection, save it
+                    mqtt['servers'] = current_servers
+                    if current_servers:
+                        print_success(f"\nMQTT Subscriber will forward to: {', '.join(current_servers)}")
+                    else:
+                        print_warning("\nNo servers selected - MQTT Subscriber will not forward data!")
+                
+                self.save_main_config()
+                time.sleep(2)
+                break
+            elif key == 'ESC':
+                # Cancel without saving
+                print_info("\nCancelled")
+                time.sleep(1)
+                break
+    
+    def configure_mqtt_bridge(self):
+        """Configure MQTT Bridge settings"""
+        current_option = 0
+        
+        while True:
+            clear_screen()
+            print_header("MQTT BRIDGE CONFIGURATION")
+            
+            print("MQTT Bridge can:")
+            print("  • Publish sensor data to remote MQTT broker (Publisher mode)")
+            print("  • Receive MQTT messages and forward to cloud servers (Subscriber mode)")
+            print("  • Both modes simultaneously\n")
+            
+            # Get current settings
+            mqtt = self.config.get('mqtt', {})
+            if not isinstance(mqtt, dict):
+                mqtt = {}
+            
+            current_enabled = mqtt.get('enabled', False)
+            current_mode = mqtt.get('mode', 'both')
+            current_broker = mqtt.get('broker', '')
+            current_port = mqtt.get('port', 1883)
+            current_username = mqtt.get('username', '')
+            current_password = mqtt.get('password', '')
+            current_tls = mqtt.get('tls', False)
+            current_topic_prefix = mqtt.get('topic_prefix', 'nettemp')
+            current_qos = mqtt.get('qos', 0)
+            current_retain = mqtt.get('retain', False)
+            current_subscribe_topics = mqtt.get('subscribe_topics', [])
+            current_auth_token = mqtt.get('auth_token', '')
+            
+            # Show current status
+            if current_enabled:
+                print(f"Status: {Colors.GREEN}Enabled{Colors.ENDC}")
+                print(f"  Mode: {Colors.CYAN}{current_mode}{Colors.ENDC}")
+                print(f"  Broker: {current_broker}:{current_port}")
+                
+                if current_username:
+                    print(f"  Username: {current_username}")
+                if current_tls:
+                    print(f"  TLS/SSL: {Colors.GREEN}Enabled{Colors.ENDC}")
+                
+                if current_mode in ['publisher', 'both']:
+                    print(f"\n  {Colors.BOLD}Publisher Settings:{Colors.ENDC}")
+                    print(f"    Topic Prefix: {current_topic_prefix}")
+                    print(f"    QoS: {current_qos}")
+                    print(f"    Retain: {current_retain}")
+                
+                if current_mode in ['subscriber', 'both']:
+                    print(f"\n  {Colors.BOLD}Subscriber Settings:{Colors.ENDC}")
+                    if current_subscribe_topics:
+                        print(f"    Topics: {', '.join(current_subscribe_topics)}")
+                    else:
+                        print(f"    Topics: {Colors.YELLOW}None configured{Colors.ENDC}")
+                    if current_auth_token:
+                        print(f"    Auth token: {current_auth_token[:8]}...")
+                    
+                    # Show server destinations
+                    servers = mqtt.get('servers', [])
+                    if servers:
+                        print(f"    Destinations: {Colors.CYAN}{', '.join(servers)}{Colors.ENDC}")
+                    else:
+                        print(f"    Destinations: {Colors.CYAN}All enabled servers{Colors.ENDC}")
+            else:
+                print(f"Status: {Colors.YELLOW}Disabled{Colors.ENDC}")
+            
+            print("\n" + "─" * 70 + "\n")
+            
+            menu_options = [
+                "e: Enable/Disable",
+                "m: Set Mode (publisher/subscriber/both)",
+                "b: Configure Broker & Port",
+                "u: Configure Username & Password",
+                "t: Toggle TLS/SSL",
+                "p: Publisher Settings (topic prefix, QoS, retain)",
+                "s: Subscriber Settings (topics, auth token)",
+                "d: Select Destination Servers",
+                "c: Test Connection",
+                "Back to Main Menu"
+            ]
+            
+            for idx, option in enumerate(menu_options):
+                if idx == current_option:
+                    print(f"{Colors.LIGHT_BLUE}▶ {option}{Colors.ENDC}")
+                else:
+                    print(f"  {option}")
+            
+            print(f"\n{Colors.LIGHT_BLUE}Use ↑↓ arrows, Enter to select, Esc to go back{Colors.ENDC}")
+            
+            key = get_key()
+            
+            if key == '':
+                continue
+            elif key == 'UP':
+                current_option = (current_option - 1) % len(menu_options)
+            elif key == 'DOWN':
+                current_option = (current_option + 1) % len(menu_options)
+            elif key == '\r' or key == '\n':  # Enter
+                if current_option == 0:  # Enable/Disable
+                    enabled_str = input_styled("Enable MQTT Bridge? (y/n)", "y" if current_enabled else "n")
+                    enabled = enabled_str.lower() in ['y', 'yes']
+                    
+                    if 'mqtt' not in self.config or not isinstance(self.config['mqtt'], dict):
+                        self.config['mqtt'] = {}
+                    
+                    self.config['mqtt']['enabled'] = enabled
+                    
+                    if enabled:
+                        # Set defaults if not present
+                        if 'mode' not in self.config['mqtt']:
+                            self.config['mqtt']['mode'] = 'both'
+                        if 'port' not in self.config['mqtt']:
+                            self.config['mqtt']['port'] = 1883
+                        if 'topic_prefix' not in self.config['mqtt']:
+                            self.config['mqtt']['topic_prefix'] = 'nettemp'
+                        if 'qos' not in self.config['mqtt']:
+                            self.config['mqtt']['qos'] = 0
+                        print_success("\nMQTT Bridge enabled")
+                        
+                        # Prompt for broker if not set
+                        if not self.config['mqtt'].get('broker'):
+                            print_warning("\nBroker not configured!")
+                            broker = input_styled("MQTT Broker hostname/IP", "mqtt.example.com")
+                            if broker:
+                                self.config['mqtt']['broker'] = broker
+                    else:
+                        print_info("\nMQTT Bridge disabled")
+                    
+                    self.save_main_config()
+                    time.sleep(1)
+                    
+                elif current_option == 1:  # Set Mode
+                    if 'mqtt' not in self.config or not isinstance(self.config['mqtt'], dict):
+                        self.config['mqtt'] = {'enabled': False}
+                    
+                    print("\nSelect MQTT mode:")
+                    print("  1: Publisher (send sensor data to MQTT)")
+                    print("  2: Subscriber (receive MQTT and forward to cloud)")
+                    print("  3: Both (publisher + subscriber)")
+                    
+                    mode_choice = input_styled("Mode", "3")
+                    
+                    if mode_choice == '1':
+                        self.config['mqtt']['mode'] = 'publisher'
+                        print_success("\nMode set to: Publisher")
+                    elif mode_choice == '2':
+                        self.config['mqtt']['mode'] = 'subscriber'
+                        print_success("\nMode set to: Subscriber")
+                    else:
+                        self.config['mqtt']['mode'] = 'both'
+                        print_success("\nMode set to: Both")
+                    
+                    self.save_main_config()
+                    time.sleep(1)
+                    
+                elif current_option == 2:  # Configure Broker & Port
+                    if 'mqtt' not in self.config or not isinstance(self.config['mqtt'], dict):
+                        self.config['mqtt'] = {'enabled': False}
+                    
+                    broker = input_styled("MQTT Broker hostname/IP", str(current_broker))
+                    port_str = input_styled("MQTT Port", str(current_port))
+                    
+                    try:
+                        port = int(port_str)
+                        self.config['mqtt']['broker'] = broker
+                        self.config['mqtt']['port'] = port
+                        print_success(f"\nBroker set to: {broker}:{port}")
+                        self.save_main_config()
+                    except:
+                        print_error("\nInvalid port number")
+                    time.sleep(1)
+                    
+                elif current_option == 3:  # Configure Username & Password
+                    if 'mqtt' not in self.config or not isinstance(self.config['mqtt'], dict):
+                        self.config['mqtt'] = {'enabled': False}
+                    
+                    username = input_styled("MQTT Username (leave empty for none)", str(current_username))
+                    
+                    if username:
+                        password = input_styled("MQTT Password", str(current_password))
+                        self.config['mqtt']['username'] = username
+                        self.config['mqtt']['password'] = password
+                        print_success(f"\nAuthentication configured for user: {username}")
+                    else:
+                        self.config['mqtt'].pop('username', None)
+                        self.config['mqtt'].pop('password', None)
+                        print_info("\nAuthentication removed")
+                    
+                    self.save_main_config()
+                    time.sleep(1)
+                    
+                elif current_option == 4:  # Toggle TLS/SSL
+                    if 'mqtt' not in self.config or not isinstance(self.config['mqtt'], dict):
+                        self.config['mqtt'] = {'enabled': False}
+                    
+                    tls_str = input_styled("Enable TLS/SSL? (y/n)", "y" if current_tls else "n")
+                    tls = tls_str.lower() in ['y', 'yes']
+                    
+                    self.config['mqtt']['tls'] = tls
+                    
+                    if tls:
+                        print_success("\nTLS/SSL enabled")
+                        # Suggest port 8883 for TLS
+                        if self.config['mqtt'].get('port', 1883) == 1883:
+                            use_8883 = input_styled("Change port to 8883 (standard MQTT+TLS port)? (y/n)", "y")
+                            if use_8883.lower() in ['y', 'yes']:
+                                self.config['mqtt']['port'] = 8883
+                    else:
+                        print_info("\nTLS/SSL disabled")
+                    
+                    self.save_main_config()
+                    time.sleep(1)
+                    
+                elif current_option == 5:  # Publisher Settings
+                    if 'mqtt' not in self.config or not isinstance(self.config['mqtt'], dict):
+                        self.config['mqtt'] = {'enabled': False}
+                    
+                    print("\nPublisher Settings")
+                    print("Topics will be: {prefix}/{device_id}/{sensor_id}/{type}")
+                    
+                    prefix = input_styled("Topic Prefix", str(current_topic_prefix))
+                    qos_str = input_styled("QoS (0=at most once, 1=at least once, 2=exactly once)", str(current_qos))
+                    retain_str = input_styled("Retain messages? (y/n)", "y" if current_retain else "n")
+                    
+                    try:
+                        qos = int(qos_str)
+                        if qos not in [0, 1, 2]:
+                            qos = 0
+                        
+                        retain = retain_str.lower() in ['y', 'yes']
+                        
+                        self.config['mqtt']['topic_prefix'] = prefix
+                        self.config['mqtt']['qos'] = qos
+                        self.config['mqtt']['retain'] = retain
+                        
+                        print_success(f"\nPublisher settings saved")
+                        print_info(f"  Topic prefix: {prefix}")
+                        print_info(f"  QoS: {qos}")
+                        print_info(f"  Retain: {retain}")
+                        
+                        self.save_main_config()
+                    except:
+                        print_error("\nInvalid QoS value")
+                    time.sleep(2)
+                    
+                elif current_option == 6:  # Subscriber Settings
+                    if 'mqtt' not in self.config or not isinstance(self.config['mqtt'], dict):
+                        self.config['mqtt'] = {'enabled': False}
+                    
+                    print("\nSubscriber Settings")
+                    print("Enter topics to subscribe to (supports MQTT wildcards + and #)")
+                    print("Examples: sensors/#, home/+/temperature, devices/sensor1/data")
+                    print(f"\nCurrent topics: {', '.join(current_subscribe_topics) if current_subscribe_topics else 'None'}")
+                    
+                    topics_str = input_styled("Topics (comma-separated)", ','.join(current_subscribe_topics))
+                    
+                    if topics_str:
+                        topics = [t.strip() for t in topics_str.split(',') if t.strip()]
+                        self.config['mqtt']['subscribe_topics'] = topics
+                        print_success(f"\nSubscribe topics: {', '.join(topics)}")
+                    else:
+                        self.config['mqtt']['subscribe_topics'] = []
+                        print_info("\nNo subscribe topics configured")
+                    
+                    # Auth token for validating incoming messages
+                    print("\nOptional: Auth token to validate incoming MQTT messages")
+                    auth_token = input_styled("Auth Token (leave empty for none)", str(current_auth_token))
+                    
+                    if auth_token:
+                        self.config['mqtt']['auth_token'] = auth_token
+                        print_info("\nIncoming messages must include this token")
+                    else:
+                        self.config['mqtt'].pop('auth_token', None)
+                        print_info("\nNo auth token validation")
+                    
+                    self.save_main_config()
+                    time.sleep(2)
+                    
+                elif current_option == 7:  # Select Servers
+                    self._configure_mqtt_servers()
+                    
+                elif current_option == 8:  # Test Connection
+                    if 'mqtt' not in self.config or not isinstance(self.config['mqtt'], dict):
+                        print_error("\nMQTT not configured yet!")
+                        time.sleep(2)
+                        continue
+                    
+                    mqtt_cfg = self.config['mqtt']
+                    broker = mqtt_cfg.get('broker', '')
+                    port = mqtt_cfg.get('port', 1883)
+                    username = mqtt_cfg.get('username', '')
+                    password = mqtt_cfg.get('password', '')
+                    tls = mqtt_cfg.get('tls', False)
+                    
+                    if not broker:
+                        print_error("\nNo broker configured!")
+                        time.sleep(2)
+                        continue
+                    
+                    print(f"\n{Colors.BOLD}Testing connection to {broker}:{port}...{Colors.ENDC}")
+                    print("This may take a few seconds...\n")
+                    
+                    success, message = self.check_mqtt_broker_connection(broker, port, username, password, tls)
+                    
+                    if success:
+                        print_success(f"✓ {message}")
+                        print_info("\nMQTT broker is accessible and working!")
+                    else:
+                        print_error(f"✗ {message}")
+                        print_warning("\nTroubleshooting:")
+                        print("  1. Check if broker is running (systemctl status mosquitto)")
+                        print("  2. Verify hostname/IP and port are correct")
+                        print("  3. Check firewall rules")
+                        print("  4. Verify username/password if authentication is enabled")
+                        if tls:
+                            print("  5. Verify TLS/SSL certificate is valid")
+                    
+                    input(f"\n{Colors.GREEN}Press Enter to continue...{Colors.ENDC}")
+                    
+                elif current_option == 9:  # Back
+                    break
+            
+            elif key == 'ESC':
                 break
     
     def configure_device_name(self):
@@ -2252,6 +2772,70 @@ class NettempConfigMenu:
         except Exception as e:
             print_error(f"Failed to check cron: {e}")
             return False
+    
+    def check_mqtt_broker_connection(self, broker: str, port: int, username: str = None, password: str = None, tls: bool = False) -> tuple[bool, str]:
+        """Test connection to MQTT broker. Returns (success, message)"""
+        try:
+            # Try importing paho-mqtt
+            try:
+                import paho.mqtt.client as mqtt_client
+            except ImportError:
+                return False, "paho-mqtt not installed (run: pip install paho-mqtt)"
+            
+            connected = False
+            error_msg = ""
+            
+            def on_connect(client, userdata, flags, rc):
+                nonlocal connected, error_msg
+                if rc == 0:
+                    connected = True
+                else:
+                    error_codes = {
+                        1: 'Connection refused - incorrect protocol version',
+                        2: 'Connection refused - invalid client identifier',
+                        3: 'Connection refused - server unavailable',
+                        4: 'Connection refused - bad username or password',
+                        5: 'Connection refused - not authorized'
+                    }
+                    error_msg = error_codes.get(rc, f'Connection failed with code {rc}')
+            
+            # Create client
+            client = mqtt_client.Client(client_id="nettemp_config_test")
+            client.on_connect = on_connect
+            
+            # Set authentication if provided
+            if username:
+                client.username_pw_set(username, password)
+            
+            # Set TLS if enabled
+            if tls:
+                client.tls_set()
+            
+            # Try to connect (non-blocking)
+            try:
+                client.connect_async(broker, port, 5)
+                client.loop_start()
+                
+                # Wait up to 5 seconds for connection
+                import time
+                for _ in range(50):  # 5 seconds total
+                    if connected:
+                        break
+                    time.sleep(0.1)
+                
+                client.loop_stop()
+                client.disconnect()
+                
+                if connected:
+                    return True, f"Successfully connected to {broker}:{port}"
+                else:
+                    return False, error_msg or f"Connection timeout to {broker}:{port}"
+                    
+            except Exception as e:
+                return False, f"Connection error: {str(e)}"
+                
+        except Exception as e:
+            return False, f"Test failed: {str(e)}"
     
     def check_background_process(self) -> Optional[int]:
         """Check if nettemp_client.py is running in background. Returns PID if found."""

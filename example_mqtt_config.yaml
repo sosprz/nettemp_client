@@ -1,0 +1,97 @@
+# Nettemp MQTT Bridge Configuration Example
+# Copy relevant sections to your config.conf
+
+mqtt:
+  enabled: true
+  
+  # Operation mode:
+  # - publisher: Send sensor readings to MQTT broker
+  # - subscriber: Receive MQTT messages and forward to cloud servers
+  # - both: Publisher + Subscriber simultaneously
+  mode: both
+  
+  # Broker connection settings
+  broker: mqtt.example.com        # MQTT broker hostname or IP
+  port: 1883                      # 1883 = standard, 8883 = TLS/SSL
+  username: your_username         # Optional - leave empty for anonymous
+  password: your_password         # Optional
+  tls: false                      # Enable TLS/SSL encryption
+  keepalive: 60                   # Connection keepalive in seconds
+  
+  # Publisher settings (when mode = publisher or both)
+  topic_prefix: nettemp           # Topic: {prefix}/{device_id}/{sensor_id}/{type}
+  qos: 0                          # Quality of Service: 0, 1, or 2
+  retain: false                   # Retain messages on broker
+  
+  # Subscriber settings (when mode = subscriber or both)
+  subscribe_topics:               # Topics to listen to (supports + and # wildcards)
+    - sensors/#                   # All topics under sensors/
+    - home/+/temperature          # home/bedroom/temperature, home/kitchen/temperature, etc.
+    - devices/sensor1/data
+  
+  auth_token: shared_secret       # Optional - validates incoming MQTT messages
+
+# Example topic structure for Publisher mode:
+# nettemp/my-device/lywsd03mmc_A4C138165B5D_temp/temperature
+# nettemp/my-device/lywsd03mmc_A4C138165B5D_humid/humidity
+# nettemp/my-device/ds18b20_28-00000abcdef1/temperature
+
+# Example MQTT payload (Publisher mode):
+# {
+#   "value": 22.5,
+#   "type": "temperature",
+#   "sensor_id": "lywsd03mmc_A4C138165B5D_temp",
+#   "timestamp": 1702234567,
+#   "unit": "°C",
+#   "name": "Living Room/temperature"
+# }
+
+# Example incoming MQTT message formats (Subscriber mode):
+#
+# 1. JSON array (Nettemp format):
+# [
+#   {
+#     "rom": "sensor1",
+#     "type": "temperature",
+#     "value": 22.5,
+#     "unit": "°C"
+#   }
+# ]
+#
+# 2. JSON object with readings:
+# {
+#   "device_id": "my-device",
+#   "readings": [
+#     {"rom": "sensor1", "type": "temperature", "value": 22.5}
+#   ]
+# }
+#
+# 3. Simple value (parsed from topic):
+# Topic: home/bedroom/temperature
+# Payload: 22.5
+#
+# 4. Generic JSON object:
+# {
+#   "sensor_id": "sensor1",
+#   "value": 22.5,
+#   "type": "temperature",
+#   "unit": "°C"
+# }
+
+# Common MQTT Brokers:
+# - Mosquitto (self-hosted): mosquitto.org
+# - HiveMQ Cloud: www.hivemq.com/mqtt-cloud-broker/
+# - AWS IoT Core: aws.amazon.com/iot-core/
+# - Azure IoT Hub: azure.microsoft.com/services/iot-hub/
+# - CloudMQTT: www.cloudmqtt.com/
+
+# Install Mosquitto on Linux:
+# sudo apt-get install mosquitto mosquitto-clients
+# sudo systemctl enable mosquitto
+# sudo systemctl start mosquitto
+
+# Test with mosquitto_sub:
+# mosquitto_sub -h mqtt.example.com -t "nettemp/#" -v
+
+# Test with mosquitto_pub:
+# mosquitto_pub -h mqtt.example.com -t "sensors/test" -m '{"sensor_id":"test","value":25}'
