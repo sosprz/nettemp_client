@@ -125,6 +125,19 @@ def lywsd03mmc(config_dict):
                     except:
                         pass
                     del _connections[mac_address]
+        
+        # Disconnect all connections after reading to save battery
+        # They will reconnect on next read cycle
+        for mac, conn in list(_connections.items()):
+            try:
+                if conn and conn.connected:
+                    conn.disconnect()
+            except Exception as e:
+                print(f"LYWSD03MMC: Error disconnecting {mac}: {e}")
+            finally:
+                # Remove from cache so next read will create fresh connection
+                if mac in _connections:
+                    del _connections[mac]
     
     except Exception as e:
         error_time = time.time()

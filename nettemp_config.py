@@ -197,7 +197,7 @@ def check_and_setup_environment():
             setup_cron = input("Setup auto-start on boot? (y/n) [y]: ").strip().lower()
             if setup_cron in ['', 'y', 'yes']:
                 venv_python = venv_path / 'bin' / 'python3'
-                client_script = base_path / 'nettemp.py'
+                client_script = base_path / 'nettemp_client.py'
                 
                 if venv_python.exists() and client_script.exists():
                     cron_entry = f"@reboot /bin/sleep 30 && {venv_python} {client_script} > /dev/null 2>&1 &"
@@ -2463,9 +2463,9 @@ class NettempConfigMenu:
             input(f"\n{Colors.GREEN}Press Enter to continue...{Colors.ENDC}")
             return
         
-        client_script = self.base_path / 'nettemp.py'
+        client_script = self.base_path / 'nettemp_client.py'
         if not client_script.exists():
-            print_error("nettemp.py not found!")
+            print_error("nettemp_client.py not found!")
             input(f"\n{Colors.GREEN}Press Enter to continue...{Colors.ENDC}")
             return
         

@@ -37,6 +37,9 @@ logging.getLogger('apscheduler').setLevel(logging.WARNING)
 
 PIDFILE = Path(__file__).parent / '.nettemp_client.pid'
 
+# BLE drivers that need separate scheduling (to avoid blocking other sensors)
+BLE_DRIVERS = ['lywsd03mmc']
+
 
 def is_process_running(pid: int) -> bool:
     try:
@@ -78,7 +81,8 @@ class NettempClient:
         self.cloud_client = CloudClient(config_file)
         self.config_file = config_file
         self.bg_mode = bg_mode
-        self.scheduler = BackgroundScheduler()
+        self.scheduler = BackgroundScheduler()  # For non-BLE sensors
+        self.ble_scheduler = BackgroundScheduler()  # Separate scheduler for BLE sensors
         self.bridge = HTTPBridge(
             self.cloud_client,
             self.cloud_client.device_id,
@@ -114,18 +118,27 @@ class NettempClient:
         enabled = self.loader.get_enabled_drivers()
         for name, cfg in enabled:
             interval = int(cfg.get('read_in_sec', 60))
-            if self.scheduler.get_job(name):
+            
+            # Determine which scheduler to use
+            is_ble = name in BLE_DRIVERS
+            scheduler = self.ble_scheduler if is_ble else self.scheduler
+            
+            if scheduler.get_job(name):
                 continue
             
-            # Send data immediately on start
-            try:
-                self.read_and_send(name, cfg)
-            except Exception as e:
-                logging.error(f'Initial read failed for {name}: {e}')
+            # Send data immediately on start (skip for BLE to avoid initial connection issues)
+            if not is_ble:
+                try:
+                    self.read_and_send(name, cfg)
+                except Exception as e:
+                    logging.error(f'Initial read failed for {name}: {e}')
+            else:
+                logging.info(f'BLE sensor {name} will read on first scheduled interval (avoiding initial connection issues)')
             
             # Then schedule regular intervals
-            self.scheduler.add_job(self.read_and_send, 'interval', seconds=interval, args=[name, cfg], id=name)
-            logging.info(f'Scheduled {name} every {interval}s')
+            scheduler.add_job(self.read_and_send, 'interval', seconds=interval, args=[name, cfg], id=name)
+            sensor_type = 'BLE sensor' if is_ble else 'sensor'
+            logging.info(f'Scheduled {sensor_type} {name} every {interval}s')
 
     def _reschedule_drivers(self):
         """Reload driver config and reschedule jobs to match enabled drivers."""
@@ -133,26 +146,38 @@ class NettempClient:
         new_config = self.loader.load_config()
         self.loader.config = new_config
 
-        # remove all existing driver jobs
+        # remove all existing driver jobs from both schedulers
         for job in list(self.scheduler.get_jobs()):
             try:
                 self.scheduler.remove_job(job.id)
                 logging.info(f'Removed job: {job.id}')
             except Exception:
                 logging.debug(f'Failed to remove job: {job.id}')
+        
+        for job in list(self.ble_scheduler.get_jobs()):
+            try:
+                self.ble_scheduler.remove_job(job.id)
+                logging.info(f'Removed BLE job: {job.id}')
+            except Exception:
+                logging.debug(f'Failed to remove BLE job: {job.id}')
 
         # schedule according to new config
         enabled = self.loader.load_drivers_from_config(new_config)
         for name, cfg, interval in enabled:
             try:
-                # Send data immediately when reloading
-                try:
-                    self.read_and_send(name, cfg)
-                except Exception as e:
-                    logging.error(f'Initial read failed for {name}: {e}')
+                is_ble = name in BLE_DRIVERS
+                scheduler = self.ble_scheduler if is_ble else self.scheduler
                 
-                self.scheduler.add_job(self.read_and_send, 'interval', seconds=int(interval), args=[name, cfg], id=name)
-                logging.info(f'Scheduled {name} every {int(interval)}s')
+                # Send data immediately when reloading (skip BLE)
+                if not is_ble:
+                    try:
+                        self.read_and_send(name, cfg)
+                    except Exception as e:
+                        logging.error(f'Initial read failed for {name}: {e}')
+                
+                scheduler.add_job(self.read_and_send, 'interval', seconds=int(interval), args=[name, cfg], id=name)
+                sensor_type = 'BLE sensor' if is_ble else 'sensor'
+                logging.info(f'Scheduled {sensor_type} {name} every {int(interval)}s')
             except Exception as e:
                 logging.error(f'Failed to schedule {name}: {e}')
 
@@ -167,7 +192,8 @@ class NettempClient:
     def start(self):
         self.schedule_drivers()
         self.scheduler.start()
-        logging.info('Runner started')
+        self.ble_scheduler.start()
+        logging.info('Runner started (including separate BLE scheduler)')
 
         # track drivers_config.yaml mtime for reloads
         drivers_mtime = None
@@ -220,14 +246,17 @@ class NettempClient:
         except KeyboardInterrupt:
             logging.info('Stopping runner')
             self.scheduler.shutdown()
+            self.ble_scheduler.shutdown()
             if self.bridge:
                 self.bridge.stop()
     
     def stop(self):
-        """Stop the scheduler and bridge"""
+        """Stop the schedulers and bridge"""
         try:
             if self.scheduler.running:
                 self.scheduler.shutdown(wait=False)
+            if self.ble_scheduler.running:
+                self.ble_scheduler.shutdown(wait=False)
             if self.bridge:
                 self.bridge.stop()
         except Exception as e:
