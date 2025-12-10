@@ -1853,9 +1853,37 @@ class NettempConfigMenu:
                         # Prompt for broker if not set
                         if not self.config['mqtt'].get('broker'):
                             print_warning("\nBroker not configured!")
-                            broker = input_styled("MQTT Broker hostname/IP", "mqtt.example.com")
+                            broker = input_styled("MQTT Broker hostname/IP", "localhost")
                             if broker:
                                 self.config['mqtt']['broker'] = broker
+                        
+                        # Check if Mosquitto service is running (if using localhost)
+                        broker = self.config['mqtt'].get('broker', '')
+                        if broker in ['localhost', '127.0.0.1', '::1']:
+                            try:
+                                result = subprocess.run(['systemctl', 'is-active', 'mosquitto'], 
+                                                      capture_output=True, text=True, check=False)
+                                if result.returncode != 0 or result.stdout.strip() != 'active':
+                                    print_warning("\nMosquitto broker is not running!")
+                                    start_mosquitto = input_styled("Start Mosquitto service now? (y/n)", "y")
+                                    if start_mosquitto.lower() in ['y', 'yes']:
+                                        try:
+                                            subprocess.run(['sudo', 'systemctl', 'start', 'mosquitto'], check=True)
+                                            subprocess.run(['sudo', 'systemctl', 'enable', 'mosquitto'], check=False)
+                                            print_success("✓ Mosquitto service started and enabled")
+                                        except subprocess.CalledProcessError:
+                                            print_error("Failed to start Mosquitto service")
+                                            print_info("Try manually: sudo systemctl start mosquitto")
+                            except Exception as e:
+                                logging.debug(f"Could not check Mosquitto status: {e}")
+                        
+                        # Suggest restarting client to apply changes
+                        print_info("\nMQTT configuration saved")
+                        restart = input_styled("Restart nettemp client to apply changes? (y/n)", "y")
+                        if restart.lower() in ['y', 'yes']:
+                            self.save_main_config()
+                            self._restart_client()
+                            return
                     else:
                         print_info("\nMQTT Bridge disabled")
                     
@@ -2872,6 +2900,51 @@ class NettempConfigMenu:
         except Exception as e:
             print_warning(f"Could not check background process: {e}")
             return None
+    
+    def _restart_client(self):
+        """Restart nettemp client to apply configuration changes"""
+        try:
+            pid = self.check_background_process()
+            
+            if pid:
+                print_info(f"\nStopping background client (PID: {pid})...")
+                try:
+                    os.kill(pid, signal.SIGTERM)
+                    time.sleep(2)
+                    print_success("✓ Client stopped")
+                except Exception as e:
+                    print_error(f"Failed to stop client: {e}")
+                    return
+            
+            print_info("Starting client in background...")
+            try:
+                # Start client in background
+                env = os.environ.copy()
+                env['NETTEMP_CLIENT_BG'] = '1'
+                client_script = self.base_path / 'nettemp_client.py'
+                
+                with open(os.devnull, 'wb') as devnull:
+                    subprocess.Popen(
+                        [sys.executable, str(client_script)],
+                        stdout=devnull,
+                        stderr=devnull,
+                        start_new_session=True,
+                        env=env,
+                        cwd=str(self.base_path)
+                    )
+                
+                time.sleep(2)
+                new_pid = self.check_background_process()
+                if new_pid:
+                    print_success(f"✓ Client started (PID: {new_pid})")
+                else:
+                    print_warning("Client may still be starting...")
+            except Exception as e:
+                print_error(f"Failed to start client: {e}")
+        except Exception as e:
+            print_error(f"Failed to restart client: {e}")
+        
+        time.sleep(2)
     
     def run_setup_script(self):
         """Run setup.sh script"""
