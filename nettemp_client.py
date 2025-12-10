@@ -25,7 +25,10 @@ try:
 except Exception:
     BackgroundScheduler = None
 
-sys.path.insert(0, str(Path(__file__).parent))
+# Change to script directory to ensure relative paths work correctly
+script_dir = Path(__file__).parent.resolve()
+os.chdir(script_dir)
+sys.path.insert(0, str(script_dir))
 
 from nettemp import CloudClient, insert2
 from driver_loader import DriverLoader
