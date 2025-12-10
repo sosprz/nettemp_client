@@ -1,4 +1,5 @@
 import time
+import sys
 
 # BLE libraries are optional - only required if driver is enabled
 try:
@@ -13,11 +14,48 @@ except ImportError as e:
 # Track BLE connection state
 _ble = None
 _connections = {}  # Store connections by MAC address
+_connection_attempts = {}  # Track connection attempts per MAC
 _last_error_time = 0
 _error_interval = 300  # Only log errors every 5 minutes
 _last_read_time = 0
 _min_read_interval = 5  # Minimum 5 seconds between reads
 _scan_timeout = 20  # BLE scan timeout
+_max_connection_attempts = 3  # Max retries before giving up
+_connection_retry_interval = 60  # Wait 60s before retrying failed device
+
+def _should_retry_device(mac_address):
+    """Check if we should retry connecting to a device that previously failed."""
+    global _connection_attempts
+    
+    if mac_address not in _connection_attempts:
+        return True
+    
+    attempts, last_attempt_time = _connection_attempts[mac_address]
+    
+    # If max attempts reached, check if enough time has passed to retry
+    if attempts >= _max_connection_attempts:
+        if time.time() - last_attempt_time >= _connection_retry_interval:
+            # Reset attempts after cooldown period
+            _connection_attempts[mac_address] = (0, time.time())
+            return True
+        return False
+    
+    return True
+
+
+def _record_connection_attempt(mac_address, success):
+    """Record a connection attempt for rate limiting."""
+    global _connection_attempts
+    
+    if success:
+        # Reset on success
+        if mac_address in _connection_attempts:
+            del _connection_attempts[mac_address]
+    else:
+        # Increment failure count
+        attempts, _ = _connection_attempts.get(mac_address, (0, 0))
+        _connection_attempts[mac_address] = (attempts + 1, time.time())
+
 
 def lywsd03mmc(config_dict):
     global _ble, _connections, _last_read_time, _last_error_time
@@ -55,6 +93,10 @@ def lywsd03mmc(config_dict):
         
         # Iterate through each MAC address
         for mac_address in mac_addresses:
+            # Skip devices that have failed too many times recently
+            if not _should_retry_device(mac_address):
+                continue
+            
             try:
                 # Check if we have an existing connection for this MAC
                 connection = _connections.get(mac_address)
@@ -63,24 +105,34 @@ def lywsd03mmc(config_dict):
                 if connection is None or not connection.connected:
                     found = False
                     
+                    # Scan with reduced timeout for faster failures
+                    scan_start = time.time()
                     for adv in _ble.start_scan(Advertisement, timeout=_scan_timeout):
+                        # Check for early timeout (more responsive)
+                        if time.time() - scan_start > _scan_timeout:
+                            break
+                        
                         if adv.complete_name == device_name and adv.address.string == mac_address:
                             try:
                                 connection = _ble.connect(adv)
                                 _connections[mac_address] = connection
+                                _record_connection_attempt(mac_address, True)
                                 found = True
+                                print(f"LYWSD03MMC: Connected to {mac_address}", file=sys.stderr)
                                 break
                             except Exception as e:
-                                print(f"LYWSD03MMC: Failed to connect to {mac_address}: {e}")
+                                print(f"LYWSD03MMC: Failed to connect to {mac_address}: {e}", file=sys.stderr)
+                                _record_connection_attempt(mac_address, False)
                                 connection = None
                                 break
                     
                     _ble.stop_scan()
                     
                     if not found or not connection:
+                        _record_connection_attempt(mac_address, False)
                         error_time = time.time()
                         if error_time - _last_error_time > _error_interval:
-                            print(f"LYWSD03MMC: Device at {mac_address} not found")
+                            print(f"LYWSD03MMC: Device at {mac_address} not found", file=sys.stderr)
                             _last_error_time = error_time
                         continue
                 
@@ -111,11 +163,13 @@ def lywsd03mmc(config_dict):
                         type = 'humid'
                         name = f'lywsd03mmc_humid'
                         all_data.append({"rom": rom, "type": type, "value": value, "name": name, "device_id": device_id})
+                        
+                        print(f"LYWSD03MMC: Read {mac_address} - Temp: {temperature}°C, Humid: {humidity}%", file=sys.stderr)
                 
             except Exception as e:
                 error_time = time.time()
                 if error_time - _last_error_time > _error_interval:
-                    print(f"LYWSD03MMC Error reading {mac_address}: {e}")
+                    print(f"LYWSD03MMC Error reading {mac_address}: {e}", file=sys.stderr)
                     _last_error_time = error_time
                 
                 # Remove failed connection from cache
@@ -132,17 +186,42 @@ def lywsd03mmc(config_dict):
             try:
                 if conn and conn.connected:
                     conn.disconnect()
+                    print(f"LYWSD03MMC: Disconnected {mac}", file=sys.stderr)
             except Exception as e:
-                print(f"LYWSD03MMC: Error disconnecting {mac}: {e}")
+                print(f"LYWSD03MMC: Error disconnecting {mac}: {e}", file=sys.stderr)
             finally:
                 # Remove from cache so next read will create fresh connection
                 if mac in _connections:
                     del _connections[mac]
     
+    except KeyboardInterrupt:
+        # Clean shutdown on Ctrl+C
+        print("LYWSD03MMC: Shutting down...", file=sys.stderr)
+        for mac, conn in list(_connections.items()):
+            try:
+                if conn and conn.connected:
+                    conn.disconnect()
+            except:
+                pass
+        _connections.clear()
+        raise
+    
     except Exception as e:
         error_time = time.time()
         if error_time - _last_error_time > _error_interval:
-            print(f"LYWSD03MMC Error: {e}")
+            print(f"LYWSD03MMC Error: {e}", file=sys.stderr)
+            import traceback
+            traceback.print_exc()
             _last_error_time = error_time
+        
+        # Clean up connections on error
+        for mac in list(_connections.keys()):
+            try:
+                conn = _connections[mac]
+                if conn and conn.connected:
+                    conn.disconnect()
+            except:
+                pass
+            del _connections[mac]
     
     return all_data
