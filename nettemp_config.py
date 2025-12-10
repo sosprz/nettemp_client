@@ -566,6 +566,18 @@ class BLEScanner:
                 
                 print(f"Scan complete. Found {len(found_devices)} unique device(s)")
                 
+                # Reset Bluetooth to avoid connection issues
+                print("Resetting Bluetooth...")
+                try:
+                    import subprocess
+                    subprocess.run(['sudo', 'btmgmt', 'power', 'off'], capture_output=True, timeout=5)
+                    time.sleep(1)
+                    subprocess.run(['sudo', 'btmgmt', 'power', 'on'], capture_output=True, timeout=5)
+                    time.sleep(1)
+                    print("Bluetooth reset complete")
+                except Exception as reset_error:
+                    print(f"Warning: Could not reset Bluetooth: {reset_error}")
+                
                 # Convert to list
                 devices = list(found_devices.values())
                 

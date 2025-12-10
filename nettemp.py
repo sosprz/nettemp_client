@@ -292,6 +292,17 @@ class CloudClient:
                 return {'id': f'{group}-{rom}', 'type': '1wire'}
             return {'id': rom, 'type': '1wire'}
 
+        # LYWSD03MMC BLE: lywsd03mmc_A4C138DE459E_temp or lywsd03mmc_A4C138DE459E_humid
+        if 'lywsd03mmc' in rom.lower():
+            # Extract MAC-based ID: lywsd03mmc_A4C138DE459E_temp -> lywsd03mmc_A4C138DE459E
+            parts = rom.split('_')
+            if len(parts) >= 2:
+                mac_id = parts[1]  # A4C138DE459E
+                sensor_id = f'lywsd03mmc_{mac_id}'
+                if group:
+                    return {'id': f'{group}-{sensor_id}', 'type': 'ble'}
+                return {'id': sensor_id, 'type': 'ble'}
+        
         # DHT: _dht22_temp_gpio_D4
         if 'dht' in rom.lower():
             if 'D' in rom:

@@ -89,14 +89,14 @@ def lywsd03mmc(config_dict):
                         rom = f'lywsd03mmc_{device_id}_temp'
                         type = 'temp'
                         name = f'lywsd03mmc_temp'
-                        all_data.append({"rom": rom, "type": type, "value": value, "name": name})
+                        all_data.append({"rom": rom, "type": type, "value": value, "name": name, "device_id": device_id})
                         
                         # Humidity reading
                         value = '{0:0.1f}'.format(humidity)
                         rom = f'lywsd03mmc_{device_id}_humid'
                         type = 'humid'
                         name = f'lywsd03mmc_humid'
-                        all_data.append({"rom": rom, "type": type, "value": value, "name": name})
+                        all_data.append({"rom": rom, "type": type, "value": value, "name": name, "device_id": device_id})
                 
             except Exception as e:
                 error_time = time.time()
