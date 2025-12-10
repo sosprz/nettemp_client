@@ -124,9 +124,14 @@ The client supports **22+ sensor drivers** with automatic hardware detection and
 
 **BLE Sensors:**
 - `lywsd03mmc` - Xiaomi Mi Temperature Humidity Sensor 2 (Bluetooth Low Energy)
-  - Auto-connects to LYWSD03MMC sensors
-  - Reports temperature and humidity
-  - Supports multiple sensors via MAC address filtering
+  - **Active connection mode** - Connects to sensors via Bluetooth LE
+  - Reports temperature (±0.1°C) and humidity (±1% RH)
+  - Supports **multiple sensors** via comma-separated MAC addresses
+  - **Smart retry logic** - Automatic reconnection on failures
+  - **Battery efficient** - Disconnects after each read cycle
+  - **Connection stabilization** - 3-5 second delays for reliable reads
+  - **Read retries** - Up to 3 attempts per characteristic read
+  - Works with **stock Xiaomi firmware** (no custom firmware required)
 
 **I2C Sensors:**
 - `tmp102` - High-accuracy temperature sensor (±0.5°C)

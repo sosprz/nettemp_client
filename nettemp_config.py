@@ -2433,10 +2433,73 @@ class NettempConfigMenu:
         
         input(f"\n{Colors.GREEN}Press Enter to continue...{Colors.ENDC}")
     
+    def setup_bluetooth_sudoers(self):
+        """Setup sudoers for passwordless Bluetooth management"""
+        try:
+            # Check if btmgmt is available
+            btmgmt_path = subprocess.run(['which', 'btmgmt'], capture_output=True, text=True).stdout.strip()
+            if not btmgmt_path:
+                return False
+            
+            # Check if already configured
+            sudoers_file = "/etc/sudoers.d/nettemp-bluetooth"
+            check_cmd = f"sudo test -f {sudoers_file}"
+            result = subprocess.run(check_cmd, shell=True, capture_output=True)
+            
+            if result.returncode == 0:
+                return True  # Already configured
+            
+            # Get current user
+            current_user = os.getenv('USER')
+            
+            # Create sudoers content
+            sudoers_content = f"""# Allow Nettemp client to manage Bluetooth without password
+# Created by nettemp_config.py
+{current_user} ALL=(ALL) NOPASSWD: {btmgmt_path}
+"""
+            
+            # Check for hciconfig as fallback
+            hciconfig_path = subprocess.run(['which', 'hciconfig'], capture_output=True, text=True).stdout.strip()
+            if hciconfig_path:
+                sudoers_content += f"{current_user} ALL=(ALL) NOPASSWD: {hciconfig_path}\n"
+            
+            # Create temp file
+            import tempfile
+            with tempfile.NamedTemporaryFile(mode='w', delete=False, suffix='.sudoers') as f:
+                f.write(sudoers_content)
+                temp_file = f.name
+            
+            # Validate syntax
+            validate_cmd = f"sudo visudo -c -f {temp_file}"
+            result = subprocess.run(validate_cmd, shell=True, capture_output=True)
+            
+            if result.returncode != 0:
+                os.unlink(temp_file)
+                return False
+            
+            # Install sudoers file
+            install_cmd = f"sudo cp {temp_file} {sudoers_file} && sudo chmod 0440 {sudoers_file} && sudo chown root:root {sudoers_file}"
+            result = subprocess.run(install_cmd, shell=True, capture_output=True)
+            os.unlink(temp_file)
+            
+            return result.returncode == 0
+            
+        except Exception as e:
+            print_error(f"Failed to setup Bluetooth sudoers: {e}")
+            return False
+    
     def setup_cron_job(self):
         """Setup cron job for auto-start on boot"""
         clear_screen()
         print_header("Setup Auto-Start (Cron Job)")
+        
+        # Check and setup Bluetooth sudoers for LYWSD03MMC driver
+        print_info("Checking Bluetooth permissions for BLE sensors...")
+        if self.setup_bluetooth_sudoers():
+            print_success("✓ Bluetooth sudoers configured (passwordless btmgmt)")
+        else:
+            print_warning("⚠ Could not setup Bluetooth sudoers (BLE sensors may need manual reset)")
+        print()
         
         # Check if already configured
         if self.check_cron_status():
