@@ -803,7 +803,7 @@ class NettempConfigMenu:
                 "Configure Device Name",
                 "Configure HTTP Bridge",
                 "Configure Drivers",
-                "Discover Devices (I2C + 1-Wire + USB)",
+                "Discover Devices (I2C + 1-Wire + USB + BT)",
                 "Test & View Readings",
                 "Test Connectivity & Send Data",
                 "System Management (Setup/Update/Cron/Background)",
@@ -1957,7 +1957,7 @@ class NettempConfigMenu:
                 break
     
     def discover_devices(self):
-        """Discover I2C, 1-Wire, and USB devices"""
+        """Discover I2C, 1-Wire, USB, and BLE devices"""
         clear_screen()
         print_header("DEVICE DISCOVERY")
         
@@ -2071,6 +2071,10 @@ class NettempConfigMenu:
                 
                 if added_count > 0:
                     print(f"\n{Colors.GREEN}Added {added_count} new sensor(s) to lywsd03mmc config{Colors.ENDC}")
+                    # Save config automatically
+                    print("Saving configuration...")
+                    self.save_drivers_config()
+                    print(f"{Colors.GREEN}Configuration saved{Colors.ENDC}")
                 print(f"{Colors.CYAN}Use 'Configure Drivers' menu to enable if needed{Colors.ENDC}")
         else:
             print_warning("  No BLE devices found (may require sudo)")
