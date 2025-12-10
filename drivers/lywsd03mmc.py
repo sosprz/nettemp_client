@@ -238,20 +238,22 @@ def lywsd03mmc(config_dict):
                                 
                                 _last_read_time = time.time()
                                 
-                                # Use MAC as device_id (remove colons, uppercase)
-                                device_id = mac_address.replace(':', '').upper()
+                                # Use MAC as base ID (remove colons, uppercase)
+                                mac_id = mac_address.replace(':', '').upper()
                                 
-                                # Temperature reading (use device_id in name for uniqueness)
+                                # Temperature reading (unique device_id per sensor type)
                                 temp_value = '{0:0.1f}'.format(temperature)
-                                temp_rom = f'lywsd03mmc_{device_id}_temp'
-                                temp_reading = {"rom": temp_rom, "type": "temp", "value": temp_value, "name": f"lywsd03mmc_{device_id}_temp", "device_id": device_id}
+                                temp_rom = f'lywsd03mmc_{mac_id}_temp'
+                                temp_device_id = f'lywsd03mmc_{mac_id}_temp'
+                                temp_reading = {"rom": temp_rom, "type": "temp", "value": temp_value, "name": temp_device_id, "device_id": temp_device_id}
                                 all_data.append(temp_reading)
                                 print(f"LYWSD03MMC: Added temp reading: {temp_reading}", file=sys.stderr)
                                 
-                                # Humidity reading (use device_id in name for uniqueness)
+                                # Humidity reading (unique device_id per sensor type)
                                 humid_value = '{0:0.1f}'.format(humidity)
-                                humid_rom = f'lywsd03mmc_{device_id}_humid'
-                                humid_reading = {"rom": humid_rom, "type": "humid", "value": humid_value, "name": f"lywsd03mmc_{device_id}_humid", "device_id": device_id}
+                                humid_rom = f'lywsd03mmc_{mac_id}_humid'
+                                humid_device_id = f'lywsd03mmc_{mac_id}_humid'
+                                humid_reading = {"rom": humid_rom, "type": "humid", "value": humid_value, "name": humid_device_id, "device_id": humid_device_id}
                                 all_data.append(humid_reading)
                                 print(f"LYWSD03MMC: Added humid reading: {humid_reading}", file=sys.stderr)
                                 
