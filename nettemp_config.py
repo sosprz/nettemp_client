@@ -81,10 +81,21 @@ def check_and_setup_environment():
         # Check if packages are already installed before running pip install
         print("📦 Checking Python packages...")
         try:
-            # Get list of installed packages
+            # Get list of installed packages (including git packages)
             result = subprocess.run([str(pip_path), 'list', '--format=freeze'], 
                                   capture_output=True, text=True, check=True)
-            installed_packages = {line.split('==')[0].lower() for line in result.stdout.splitlines() if '==' in line}
+            installed_lines = result.stdout.splitlines()
+            installed_packages = set()
+            
+            for line in installed_lines:
+                if '==' in line:
+                    # Regular package: package==version
+                    pkg = line.split('==')[0].lower()
+                    installed_packages.add(pkg)
+                elif ' @ ' in line:
+                    # Git package: vcgencmd @ git+https://...
+                    pkg = line.split(' @ ')[0].lower()
+                    installed_packages.add(pkg)
             
             # Read requirements and check what's missing
             missing = []
@@ -92,12 +103,15 @@ def check_and_setup_environment():
                 for line in f:
                     line = line.strip()
                     if line and not line.startswith('#'):
-                        # Skip git+ packages for now
+                        # Extract package name (handle git+ packages)
                         if line.startswith('git+'):
-                            continue
-                        # Extract package name
-                        pkg = line.split('>=')[0].split('==')[0].split('<')[0].strip()
-                        if pkg.lower() not in installed_packages:
+                            # Extract package name from git URL (after last /)
+                            pkg = line.split('/')[-1].replace('.git', '').lower()
+                        else:
+                            # Regular package
+                            pkg = line.split('>=')[0].split('==')[0].split('<')[0].strip().lower()
+                        
+                        if pkg not in installed_packages:
                             missing.append(pkg)
             
             if missing:
@@ -108,10 +122,11 @@ def check_and_setup_environment():
             else:
                 print("✓ All required packages already installed")
         except Exception as e:
-            # If check fails, just try to install everything
+            # If check fails, just try to install everything quietly
             print("📦 Installing packages from requirements.txt...")
             try:
-                subprocess.run([str(pip_path), 'install', '-r', str(requirements_file)], check=True)
+                subprocess.run([str(pip_path), 'install', '-r', str(requirements_file)], 
+                             capture_output=True, check=True)
                 print("✓ Packages installed")
             except Exception as install_error:
                 print(f"⚠ Some optional packages may have failed to install")
