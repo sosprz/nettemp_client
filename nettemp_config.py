@@ -2083,8 +2083,19 @@ class NettempConfigMenu:
                         self.config['mqtt'] = {'enabled': False}
                     
                     print("\nSubscriber Settings")
-                    print("Enter topics to subscribe to (supports MQTT wildcards + and #)")
-                    print("Examples: sensors/#, home/+/temperature, devices/sensor1/data")
+                    print("Receive MQTT messages and forward to cloud servers (Subscriber mode)")
+                    print("\nHow it works:")
+                    print("  1. MQTT broker must be running (e.g., mosquitto)")
+                    print("  2. Sensors send data to MQTT broker")
+                    print("  3. MQTT bridge subscribes to topics and receives sensor data")
+                    print("  4. Bridge forwards data to configured cloud servers")
+                    print("\nEnter topics to subscribe to (supports MQTT wildcards + and #)")
+                    print("  + matches single level (e.g., home/+/temperature)")
+                    print("  # matches all remaining levels (e.g., sensors/# subscribes to all)")
+                    print("\nExamples:")
+                    print("  sensors/#              - subscribe to all sensor topics")
+                    print("  home/+/temperature     - subscribe to temperature in any room")
+                    print("  devices/sensor1/data   - subscribe to specific sensor")
                     print(f"\nCurrent topics: {', '.join(current_subscribe_topics) if current_subscribe_topics else 'None'}")
                     
                     topics_str = input_styled("Topics (comma-separated)", ','.join(current_subscribe_topics) if current_subscribe_topics else '')
