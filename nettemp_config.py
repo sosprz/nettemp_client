@@ -46,9 +46,91 @@ def check_and_setup_environment():
             print(f"✗ Failed to install Python 3: {e}")
             sys.exit(1)
     
+    # Check system tools BEFORE entering venv (so 'which' works reliably)
+    missing_tools = []
+    
+    # Check cron
+    try:
+        subprocess.run(['crontab', '-l'], capture_output=True, check=False)
+        print("✓ Cron installed")
+    except FileNotFoundError:
+        print("⚠ Cron not found")
+        missing_tools.append('cron')
+    
+    # Check I2C tools
+    try:
+        result = subprocess.run(['which', 'i2cdetect'], capture_output=True, text=True)
+        if result.returncode == 0 and result.stdout.strip():
+            print("✓ I2C tools installed")
+        else:
+            print("⚠ I2C tools not found")
+            missing_tools.append('i2c-tools')
+    except Exception:
+        print("⚠ I2C tools not found")
+        missing_tools.append('i2c-tools')
+    
+    # Check Mosquitto (MQTT broker)
+    try:
+        result = subprocess.run(['which', 'mosquitto'], capture_output=True, text=True)
+        if result.returncode == 0 and result.stdout.strip():
+            print("✓ Mosquitto MQTT broker installed")
+        else:
+            print("⚠ Mosquitto not found")
+            missing_tools.append('mosquitto')
+            missing_tools.append('mosquitto-clients')
+    except Exception:
+        print("⚠ Mosquitto MQTT broker not found")
+        missing_tools.append('mosquitto')
+        missing_tools.append('mosquitto-clients')
+    
+    # Check lm-sensors
+    try:
+        subprocess.run(['sensors', '-v'], capture_output=True, check=False)
+        print("✓ lm-sensors installed")
+    except FileNotFoundError:
+        print("⚠ lm-sensors not found")
+        missing_tools.append('lm-sensors')
+    
+    # Offer to install missing tools
+    if missing_tools:
+        print(f"\n⚠ Missing system tools: {', '.join(missing_tools)}")
+        install = input("Install missing tools? (y/n) [y]: ").strip().lower()
+        if install in ['', 'y', 'yes']:
+            try:
+                print("Installing system packages...")
+                subprocess.run(['sudo', 'apt-get', 'update'], check=True)
+                subprocess.run(['sudo', 'apt-get', '-y', 'install'] + missing_tools, check=True)
+                print("✓ System tools installed")
+            except Exception as e:
+                print(f"⚠ Warning: Failed to install some tools: {e}")
+                print(f"  Install manually with: sudo apt-get install {' '.join(missing_tools)}")
+    
+    # Check if user is in i2c group (needed for I2C sensor access)
+    try:
+        import pwd
+        import grp
+        username = pwd.getpwuid(os.getuid()).pw_name
+        i2c_group = grp.getgrnam('i2c')
+        if username not in i2c_group.gr_mem:
+            print(f"\n⚠ User '{username}' not in 'i2c' group (needed for I2C sensors)")
+            add_group = input("Add user to i2c group? (y/n) [y]: ").strip().lower()
+            if add_group in ['', 'y', 'yes']:
+                try:
+                    subprocess.run(['sudo', 'usermod', '-aG', 'i2c', username], check=True)
+                    print(f"✓ User '{username}' added to i2c group")
+                    print("⚠ Note: Log out and log back in for group changes to take effect")
+                except Exception as e:
+                    print(f"⚠ Failed to add user to i2c group: {e}")
+                    print(f"  Add manually with: sudo usermod -aG i2c {username}")
+    except KeyError:
+        # i2c group doesn't exist, skip
+        pass
+    except Exception as e:
+        print(f"⚠ Could not check i2c group: {e}")
+    
     # Check/create virtual environment
     if not venv_path.exists():
-        print("📦 Creating virtual environment...")
+        print("\n📦 Creating virtual environment...")
         try:
             subprocess.run(['python3', '-m', 'venv', str(venv_path)], check=True)
             print("✓ Virtual environment created")
@@ -56,7 +138,7 @@ def check_and_setup_environment():
             print(f"✗ Failed to create venv: {e}")
             sys.exit(1)
     else:
-        print("✓ Virtual environment exists")
+        print("\n✓ Virtual environment exists")
     
     # Check if we're in venv, if not restart with venv python
     if not hasattr(sys, 'real_prefix') and not (hasattr(sys, 'base_prefix') and sys.base_prefix != sys.prefix):
@@ -92,27 +174,40 @@ def check_and_setup_environment():
                     # Regular package: package==version
                     pkg = line.split('==')[0].lower()
                     installed_packages.add(pkg)
+                    # Also add hyphen/underscore variants
+                    installed_packages.add(pkg.replace('-', '_'))
+                    installed_packages.add(pkg.replace('_', '-'))
                 elif ' @ ' in line:
                     # Git package: vcgencmd @ git+https://...
                     pkg = line.split(' @ ')[0].lower()
                     installed_packages.add(pkg)
+                    installed_packages.add(pkg.replace('-', '_'))
+                    installed_packages.add(pkg.replace('_', '-'))
             
             # Read requirements and check what's missing
             missing = []
             with open(requirements_file, 'r') as f:
                 for line in f:
                     line = line.strip()
-                    if line and not line.startswith('#'):
-                        # Extract package name (handle git+ packages)
-                        if line.startswith('git+'):
-                            # Extract package name from git URL (after last /)
-                            pkg = line.split('/')[-1].replace('.git', '').lower()
-                        else:
-                            # Regular package
-                            pkg = line.split('>=')[0].split('==')[0].split('<')[0].strip().lower()
-                        
-                        if pkg not in installed_packages:
-                            missing.append(pkg)
+                    # Skip empty lines, comments, and comment-only lines
+                    if not line or line.startswith('#'):
+                        continue
+                    
+                    # Extract package name (handle git+ packages)
+                    if line.startswith('git+'):
+                        # Extract package name from git URL (after last /)
+                        pkg = line.split('/')[-1].replace('.git', '').lower()
+                    else:
+                        # Regular package - normalize name
+                        pkg = line.split('>=')[0].split('==')[0].split('<')[0].split('[')[0].strip().lower()
+                        # Convert hyphens to underscores for comparison (pip normalizes names)
+                        pkg = pkg.replace('-', '_')
+                    
+                    # Also check with hyphens (some packages use hyphens)
+                    pkg_hyphen = pkg.replace('_', '-')
+                    
+                    if pkg not in installed_packages and pkg_hyphen not in installed_packages:
+                        missing.append(line.strip())
             
             if missing:
                 print(f"Installing {len(missing)} missing package(s)...")
@@ -149,84 +244,6 @@ def check_and_setup_environment():
         if missing_sensor_packages:
             print(f"ℹ Optional sensor packages not installed: {', '.join(missing_sensor_packages)}")
             print("  (Install if using capacitive soil moisture sensor with ADS1115 ADC)")
-    
-    # Check system tools
-    missing_tools = []
-    
-    # Check cron
-    try:
-        subprocess.run(['crontab', '-l'], capture_output=True, check=False)
-        print("✓ Cron installed")
-    except FileNotFoundError:
-        print("⚠ Cron not found")
-        missing_tools.append('cron')
-    
-    # Check I2C tools
-    try:
-        subprocess.run(['i2cdetect', '-V'], capture_output=True, check=False)
-        print("✓ I2C tools installed")
-    except FileNotFoundError:
-        print("⚠ I2C tools not found")
-        missing_tools.append('i2c-tools')
-    
-    # Check Mosquitto (MQTT broker)
-    try:
-        result = subprocess.run(['mosquitto', '-h'], capture_output=True, check=False)
-        if result.returncode in [0, 3]:  # 0 = help shown, 3 = invalid args (but installed)
-            print("✓ Mosquitto MQTT broker installed")
-        else:
-            print("⚠ Mosquitto not found")
-            missing_tools.append('mosquitto')
-            missing_tools.append('mosquitto-clients')
-    except FileNotFoundError:
-        print("⚠ Mosquitto MQTT broker not found")
-        missing_tools.append('mosquitto')
-        missing_tools.append('mosquitto-clients')
-    
-    # Check lm-sensors
-    try:
-        subprocess.run(['sensors', '-v'], capture_output=True, check=False)
-        print("✓ lm-sensors installed")
-    except FileNotFoundError:
-        print("⚠ lm-sensors not found")
-        missing_tools.append('lm-sensors')
-    
-    # Offer to install missing tools
-    if missing_tools:
-        print(f"\n⚠ Missing system tools: {', '.join(missing_tools)}")
-        install = input("Install missing tools? (y/n) [y]: ").strip().lower()
-        if install in ['', 'y', 'yes']:
-            try:
-                print("Installing system packages...")
-                subprocess.run(['sudo', 'apt-get', 'update'], check=True)
-                subprocess.run(['sudo', 'apt-get', '-y', 'install'] + missing_tools, check=True)
-                print("✓ System tools installed")
-            except Exception as e:
-                print(f"⚠ Warning: Failed to install some tools: {e}")
-                print(f"  Install manually with: sudo apt-get install {' '.join(missing_tools)}")
-    
-    # Check if user is in i2c group (needed for I2C sensor access)
-    try:
-        import grp
-        import pwd
-        username = pwd.getpwuid(os.getuid()).pw_name
-        i2c_group = grp.getgrnam('i2c')
-        if username not in i2c_group.gr_mem:
-            print(f"\n⚠ User '{username}' not in 'i2c' group (needed for I2C sensors)")
-            add_group = input("Add user to i2c group? (y/n) [y]: ").strip().lower()
-            if add_group in ['', 'y', 'yes']:
-                try:
-                    subprocess.run(['sudo', 'usermod', '-aG', 'i2c', username], check=True)
-                    print(f"✓ User '{username}' added to i2c group")
-                    print("⚠ Note: Log out and log back in for group changes to take effect")
-                except Exception as e:
-                    print(f"⚠ Failed to add user to i2c group: {e}")
-                    print(f"  Add manually with: sudo usermod -aG i2c {username}")
-    except KeyError:
-        # i2c group doesn't exist, skip
-        pass
-    except Exception as e:
-        print(f"⚠ Could not check i2c group: {e}")
     
     # Copy example config files if they don't exist
     config_file = base_path / 'config.conf'
