@@ -68,13 +68,13 @@ def bmp180(config_dict):
         
         data = []
 
-        rom = "_i2c_77_temp"
+        rom = "i2c_77_temp"
         value = '{0:0.2f}'.format(sensor.read_temperature())
         name = 'bmp180_temp'
         type = 'temp'
         data.append({"rom":rom,"type":type, "value":value,"name":name})
 
-        rom = "_i2c_77_press"
+        rom = "i2c_77_press"
         value = '{0:0.2f}'.format(sensor.read_pressure()*0.01)
         name = 'bmp180_press'
         type = 'press'

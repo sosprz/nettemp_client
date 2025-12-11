@@ -55,7 +55,7 @@ def bh1750(config_dict):
 
 		#print(readLight())
 
-		rom = "_i2c_23_lux"
+		rom = "i2c_23_lux"
 		value = '{0:0.2f}'.format(readLight())
 		name = 'bh1750_lux'
 		type = 'lux'

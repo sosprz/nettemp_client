@@ -25,9 +25,13 @@ mqtt:
   
   # Subscriber settings (when mode = subscriber or both)
   subscribe_topics:               # Topics to listen to (supports + and # wildcards)
+    - '#'                         # All topics (use with exclude_topics to avoid loops)
     - sensors/#                   # All topics under sensors/
     - home/+/temperature          # home/bedroom/temperature, home/kitchen/temperature, etc.
     - devices/sensor1/data
+  
+  exclude_topics:                 # Topics to ignore (prevents loops when publishing and subscribing)
+    - nettemp/#                   # Exclude all nettemp topics (avoid receiving our own published data)
   
   auth_token: shared_secret       # Optional - validates incoming MQTT messages
 
@@ -48,7 +52,21 @@ mqtt:
 
 # Example incoming MQTT message formats (Subscriber mode):
 #
-# 1. JSON array (Nettemp format):
+# 1. ESPEasy format (recommended):
+# Topic: ESPEasyMega_1/system/rssi
+# Payload: -55
+# Result: Parsed as device ESPEasyMega_1, sensor ESPEasyMega_1_system_rssi, friendly name "System Rssi"
+#
+# Topic: ESPEasyMega_1/system/ram
+# Payload: 18128
+# Result: Parsed as device ESPEasyMega_1, sensor ESPEasyMega_1_system_ram, friendly name "System Ram"
+#
+# 2. Simple value (parsed from topic):
+# Topic: home/bedroom/temperature
+# Payload: 22.5
+# Result: Parsed as device "home", sensor "home_bedroom_temperature"
+#
+# 3. JSON array (Nettemp format):
 # [
 #   {
 #     "rom": "sensor1",
@@ -58,24 +76,12 @@ mqtt:
 #   }
 # ]
 #
-# 2. JSON object with readings:
+# 4. JSON object with readings:
 # {
 #   "device_id": "my-device",
 #   "readings": [
 #     {"rom": "sensor1", "type": "temperature", "value": 22.5}
 #   ]
-# }
-#
-# 3. Simple value (parsed from topic):
-# Topic: home/bedroom/temperature
-# Payload: 22.5
-#
-# 4. Generic JSON object:
-# {
-#   "sensor_id": "sensor1",
-#   "value": 22.5,
-#   "type": "temperature",
-#   "unit": "°C"
 # }
 
 # Common MQTT Brokers:

@@ -14,7 +14,7 @@ def lm_sensors(config_dict):
                 if name != "Adapter" and sens == "temp1_input":
                     print(item, name, lmdata[item][name][sens])
                     value = '{0:0.1f}'.format(lmdata[item][name][sens])
-                    rom = '_'+item+'_'+name
+                    rom = item+'_'+name
                     type = 'temp'
                     name = item+'_'+name
                     data.append({"rom":rom,"type":type, "value":value,"name":name})

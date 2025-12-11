@@ -138,20 +138,46 @@ class HTTPBridge:
             unit = params.get('unit', [''])[0]
             value = float(value_raw)
 
-            rom_parts = [sysname]
+            # Build sensor_id from parts
+            sensor_parts = [sysname]
             if task:
-                rom_parts.append(task)
-            rom_parts.append(valuename)
-            rom = '_'.join([p for p in rom_parts if p])
+                sensor_parts.append(task)
+            sensor_parts.append(valuename)
+            sensor_id = '_'.join([p for p in sensor_parts if p])
 
-            payload = [{
-                'rom': rom,
+            # Create friendly name from valuename (e.g., rssi -> RSSI, temperature -> Temperature)
+            friendly_name = ' '.join(word.capitalize() for word in valuename.replace('_', ' ').split())
+            if task:
+                friendly_name = f'{task.capitalize()} {friendly_name}'
+
+            # Send to Docker/legacy servers in old format (for compatibility)
+            legacy_payload = [{
+                'rom': sensor_id,
                 'type': valuename,
                 'value': value,
                 'unit': unit,
                 'name': f'{task}/{valuename}' if task else valuename
             }]
-            insert2(payload).request()
+            insert2(legacy_payload).request()
+            
+            # Send to cloud in new format
+            cloud_payload = {
+                'device_id': sysname,
+                'readings': [{
+                    'sensor_id': sensor_id,
+                    'sensor_type': valuename,
+                    'value': value,
+                    'unit': unit,
+                    'timestamp': int(__import__('time').time()),
+                    'metadata': {
+                        'name': friendly_name
+                    }
+                }]
+            }
+            
+            if hasattr(self.cloud_client, 'send_payload'):
+                self.cloud_client.send_payload(cloud_payload)
+            
             return True
         except Exception as e:
             logging.error(f'Bridge generic payload failed: {e}')

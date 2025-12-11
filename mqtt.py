@@ -85,6 +85,9 @@ class MQTTBridge:
             self.subscribe_topics = [self.subscribe_topics]
         self.auth_token = cfg.get('auth_token')
         self.servers = cfg.get('servers', [])  # Server filtering for subscriber mode
+        self.exclude_topics = cfg.get('exclude_topics', [])  # Topics to ignore (e.g., ['nettemp/#'])
+        if isinstance(self.exclude_topics, str):
+            self.exclude_topics = [self.exclude_topics]
         
         # Validation
         if not self.broker:
@@ -197,11 +200,19 @@ class MQTTBridge:
             topic = msg.topic
             payload_str = msg.payload.decode('utf-8')
             
+            # Check if topic should be excluded (e.g., nettemp/* to avoid loops)
+            if self._should_exclude_topic(topic):
+                logging.debug(f'MQTT ignoring excluded topic: {topic}')
+                return
+            
             logging.debug(f'MQTT received on {topic}: {payload_str}')
             
             # Try to parse as JSON
             try:
                 payload = json.loads(payload_str)
+                # If it's just a primitive value (int, float, string), parse from topic
+                if not isinstance(payload, (dict, list)):
+                    payload = self._parse_simple_message(topic, payload_str)
             except json.JSONDecodeError:
                 # Not JSON - try to parse as simple value
                 payload = self._parse_simple_message(topic, payload_str)
@@ -236,47 +247,174 @@ class MQTTBridge:
         except Exception as e:
             logging.error(f'Error processing MQTT message from {msg.topic}: {e}')
 
+    def _should_exclude_topic(self, topic: str) -> bool:
+        """Check if topic matches exclusion patterns"""
+        for pattern in self.exclude_topics:
+            # Convert MQTT wildcard to simple pattern match
+            # # matches everything after, + matches single level
+            if pattern.endswith('/#'):
+                prefix = pattern[:-2]
+                if topic.startswith(prefix + '/'):
+                    return True
+            elif pattern == '#':
+                return True
+            elif '+' in pattern:
+                # Simple + wildcard matching
+                pattern_parts = pattern.split('/')
+                topic_parts = topic.split('/')
+                if len(pattern_parts) == len(topic_parts):
+                    if all(pp == '+' or pp == tp for pp, tp in zip(pattern_parts, topic_parts)):
+                        return True
+            elif pattern == topic:
+                return True
+        return False
+
     def _parse_simple_message(self, topic: str, value_str: str) -> Optional[dict]:
-        """Parse simple MQTT message (non-JSON) into reading format"""
+        """Parse simple MQTT message (non-JSON) into reading format
+        
+        Supports ESPEasy format: device/task/valuename value
+        Example: ESPEasyMega_1/system/rssi -55
+        """
         try:
-            # Try to extract sensor info from topic
-            # Expected: prefix/device/sensor/type or similar
+            # Parse topic - ESPEasy format: device/task/valuename
             parts = topic.split('/')
+            
+            # Skip status/control topics (LWT, status, etc.)
+            if len(parts) >= 2 and parts[1].lower() in ['status', 'lwt', 'control', 'cmd']:
+                logging.debug(f'Skipping status/control topic: {topic}')
+                return None
             
             # Try to parse value
             try:
-                value = float(value_str)
+                value = float(value_str.strip())
             except ValueError:
-                value = value_str
+                # If it's not a number and looks like status text, skip it
+                if value_str.strip().lower() in ['connected', 'disconnected', 'online', 'offline']:
+                    logging.debug(f'Skipping status message: {topic} = {value_str}')
+                    return None
+                value = value_str.strip()
             
-            # Build reading from topic parts
             if len(parts) >= 3:
-                device_id = parts[-3] if len(parts) >= 3 else self.default_device_id
-                sensor_id = parts[-2] if len(parts) >= 2 else 'unknown'
-                reading_type = parts[-1]
+                # ESPEasy format: device/task/valuename
+                device_name = parts[0]
+                task = parts[1]
+                valuename = parts[2]
                 
-                return [{
-                    'rom': f'{device_id}_{sensor_id}',
-                    'type': reading_type,
+                # Build sensor_id
+                sensor_id = f'{device_name}_{task}_{valuename}'
+                
+                # Create friendly name
+                friendly_name = ' '.join(word.capitalize() for word in valuename.replace('_', ' ').split())
+                if task:
+                    friendly_name = f'{task.capitalize()} {friendly_name}'
+                
+                # Return dict with device_id and readings for cloud format
+                return {
+                    'device_id': device_name,
+                    'sensor_id': sensor_id,
+                    'sensor_type': valuename,
+                    'task': task,
                     'value': value,
-                    'name': f'{sensor_id}/{reading_type}'
-                }]
+                    'friendly_name': friendly_name
+                }
+            elif len(parts) == 2:
+                # Simple format: device/sensor
+                device_name = parts[0]
+                sensor_name = parts[1]
+                
+                sensor_id = f'{device_name}_{sensor_name}'
+                friendly_name = sensor_name.replace('_', ' ').capitalize()
+                
+                return {
+                    'device_id': device_name,
+                    'sensor_id': sensor_id,
+                    'sensor_type': sensor_name,
+                    'value': value,
+                    'friendly_name': friendly_name
+                }
             else:
-                # Fallback: use topic as sensor name
-                return [{
-                    'rom': topic.replace('/', '_'),
-                    'type': 'value',
+                # Fallback: use topic as sensor
+                sensor_id = topic.replace('/', '_')
+                return {
+                    'device_id': self.default_device_id,
+                    'sensor_id': sensor_id,
+                    'sensor_type': 'value',
                     'value': value,
-                    'name': topic
-                }]
+                    'friendly_name': topic
+                }
         except Exception as e:
             logging.error(f'Error parsing simple MQTT message: {e}')
             return None
 
     def _forward_to_cloud(self, payload: Any) -> bool:
-        """Forward received MQTT message to cloud servers"""
+        """Forward received MQTT message to cloud servers
+        
+        Sends in two formats:
+        1. Legacy format for Docker: insert2([{rom, type, value, name}])
+        2. Cloud format: send_payload({device_id, readings: [{sensor_id, sensor_type, value, metadata}]})
+        """
         try:
-            # Get target servers based on MQTT subscriber configuration
+            # Handle parsed ESPEasy format from _parse_simple_message
+            if isinstance(payload, dict) and 'device_id' in payload and 'sensor_id' in payload:
+                device_id = payload['device_id']
+                sensor_id = payload['sensor_id']
+                sensor_type = payload.get('sensor_type', 'value')
+                value = payload['value']
+                friendly_name = payload.get('friendly_name', sensor_type)
+                task = payload.get('task', '')
+                
+                # Legacy format for Docker
+                legacy_payload = [{
+                    'rom': sensor_id,
+                    'type': sensor_type,
+                    'value': value,
+                    'name': f'{task}/{sensor_type}' if task else sensor_type
+                }]
+                
+                # Cloud format
+                cloud_payload = {
+                    'device_id': device_id,
+                    'readings': [{
+                        'sensor_id': sensor_id,
+                        'sensor_type': sensor_type,
+                        'value': value,
+                        'timestamp': int(time.time()),
+                        'metadata': {
+                            'name': friendly_name
+                        }
+                    }]
+                }
+                
+                # Get target servers based on MQTT subscriber configuration
+                if self.servers:
+                    # Filter to specific servers
+                    target_servers = [s for s in self.cloud_client.cloud_servers 
+                                    if s.get('enabled', True) and s.get('name') in self.servers]
+                    if not target_servers:
+                        logging.warning(f'MQTT: No matching servers found for {self.servers}')
+                        return False
+                else:
+                    # Send to all enabled servers
+                    target_servers = [s for s in self.cloud_client.cloud_servers 
+                                    if s.get('enabled', True)]
+                
+                # Send to each target server in the correct format
+                any_success = False
+                for server in target_servers:
+                    server_format = server.get('format', 'cloud')
+                    if server_format == 'legacy':
+                        # Send legacy format: insert2([{rom, type, value, name}])
+                        success = self.cloud_client._send_to_server_legacy(legacy_payload, server)
+                    else:
+                        # Send cloud format: {device_id, readings: [...]}
+                        success = self.cloud_client._send_to_server(cloud_payload, server)
+                    
+                    if success:
+                        any_success = True
+                
+                return any_success
+            
+            # Get target servers based on MQTT subscriber configuration (for other payload types)
             if self.servers:
                 # Filter to specific servers
                 target_servers = [s for s in self.cloud_client.cloud_servers 

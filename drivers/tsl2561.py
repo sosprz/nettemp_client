@@ -21,7 +21,7 @@ def tsl2561(config_dict):
 		# Get computed lux value (tsl.lux can return None or a float)
 		lux = tsl.lux
 
-		rom = "_i2c_39_lux"
+		rom = "i2c_39_lux"
 		if lux:
 			value = '{0:0.2f}'.format(lux)
 		else:

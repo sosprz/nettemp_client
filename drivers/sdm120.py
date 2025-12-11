@@ -63,7 +63,7 @@ def sdm120(config_dict):
         
         data = []
         for type, value in {"volt": v_str, "amps": c_str, "watt": pa_str}.items():
-            rom = f"_{model}_{unit}_{type}"
+            rom = f"{model}_{unit}_{type}"
             name = f"{model} {type}"
             data.append({"rom": rom, "type": type, "value": value, "name": name})
         

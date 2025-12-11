@@ -9,13 +9,13 @@ def system(config_dict):
 	cpu = psutil.cpu_percent()
 	mem = psutil.virtual_memory().percent
 
-	rom = '_system_cpu'
+	rom = 'system_cpu'
 	type = 'system'
 	value = cpu
 	name = 'CPU'
 	data.append({"rom":rom,"type":type, "value":value,"name":name})
 
-	rom = '_system_mem'
+	rom = 'system_mem'
 	type = 'system'
 	value = mem
 	name = 'Memory'

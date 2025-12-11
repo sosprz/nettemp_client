@@ -56,13 +56,13 @@ def hih6130(config_dict):
 		#print ("{0}\n{1}".format(rht.rh, rht.t))
 		data = []
 
-		rom = "_i2c_27_temp"
+		rom = "i2c_27_temp"
 		value = '{0:0.2f}'.format(rht.t)
 		name = 'hih6130_temp'
 		type = 'temp'
 		data.append({"rom":rom,"type":type, "value":value,"name":name})
 	
-		rom = "_i2c_27_humid"
+		rom = "i2c_27_humid"
 		value = '{0:0.2f}'.format(rht.rh)
 		name = 'hih6130_humid'
 		type = 'humid'

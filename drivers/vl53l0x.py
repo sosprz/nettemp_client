@@ -9,7 +9,7 @@ def vl53l0x(config_dict):
 		sensor = adafruit_vl53l0x.VL53L0X(i2c)
 
 		#print('Range: {}mm'.format(sensor.range))
-		rom = "_i2c_29_dist"
+		rom = "i2c_29_dist"
 		value = '{0:0.2f}'.format(sensor.range/10) #cm
 		name = 'vl53l0x_dist'
 		type = 'dist'

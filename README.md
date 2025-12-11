@@ -573,9 +573,58 @@ sensor:
     value_template: "{{ value_json.value }}"
 ```
 
-#### ESP8266 → MQTT → Nettemp Cloud
+#### ESPEasy → MQTT → Nettemp Cloud
 
-**ESP8266 (Arduino):**
+**ESPEasy Configuration:**
+
+ESPEasy devices can send data directly to MQTT broker using the built-in **Home Assistant (openHAB) MQTT** protocol.
+
+1. In ESPEasy web interface, go to **Controllers**
+2. Add controller → Select **Home Assistant (openHAB) MQTT**
+3. Configure:
+   - **Controller IP**: Your MQTT broker IP (e.g., `192.168.1.100`)
+   - **Controller Port**: `1883`
+   - **Controller User/Password**: Your MQTT credentials (if required)
+
+ESPEasy will automatically publish sensor data in format:
+```
+Topic: ESPEasyMega_1/system/rssi
+Payload: -57
+
+Topic: ESPEasyMega_1/system/ram
+Payload: 20080
+```
+
+**Nettemp Client (Subscriber):**
+```yaml
+mqtt:
+  enabled: true
+  mode: subscriber
+  broker: 192.168.1.100  # Your MQTT broker
+  port: 1883
+  subscribe_topics:
+    - '#'                 # Subscribe to all topics
+  exclude_topics:
+    - nettemp/#          # Exclude own published data (prevents loops)
+  servers:
+    - ProductionServer   # Forward to specific server(s)
+```
+
+The Nettemp client will automatically:
+- Parse ESPEasy format: `device/task/valuename value`
+- Create sensor ID: `ESPEasyMega_1_system_rssi`
+- Generate friendly name: "System Rssi"
+- Forward to both Docker (legacy) and Cloud (new format)
+
+**Supported ESPEasy Data:**
+- System stats (RSSI, RAM, uptime)
+- Temperature sensors (DS18B20, DHT, BME280)
+- Custom sensors and switches
+- Any task/value combination
+
+#### ESP8266 → MQTT → Nettemp Cloud (Arduino)
+
+**ESP8266 (Arduino/PlatformIO):**
 ```cpp
 #include <PubSubClient.h>
 

@@ -9,7 +9,7 @@ def rpi(config_dict):
 		data = []
 
 		value = cpu.temperature
-		rom = '_raspberrypi'
+		rom = 'raspberrypi'
 		type = 'temp'
 		name = 'raspberrypi'
 

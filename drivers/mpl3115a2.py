@@ -69,19 +69,19 @@ def mpl3115a2(config_dict):
     
     data = []
 
-    rom = "_i2c_60_temp"
+    rom = "i2c_60_temp"
     value = temp
     name = 'mpl3115a2_temp'
     type = 'temp'
     data.append({"rom":rom,"type":type, "value":value,"name":name})
 
-    rom = "_i2c_60_alti"
+    rom = "i2c_60_alti"
     value = alti
     name = 'mpl3115a2_alti'
     type = 'alti'
     data.append({"rom":rom,"type":type, "value":value,"name":name})
 
-    rom = "_i2c_60_press"
+    rom = "i2c_60_press"
     value = press
     name = 'mpl3115a2_press'
     type = 'press'

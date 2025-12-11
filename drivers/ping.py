@@ -44,7 +44,7 @@ def perform_ping(name):
 		type = 'host'
 
 	name4r = name.replace("://", "_")
-	rom = '_' + type + '_' + name4r
+	rom = type + '_' + name4r
 
 	data = {"rom": rom, "type": type, "value": value, "name": name}
 

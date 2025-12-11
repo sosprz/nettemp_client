@@ -44,7 +44,7 @@ def w1_kernel(config_dict):
             except Exception as e:
                 print("w1 read error for sensor", getattr(sensor, 'id', None), e)
                 continue
-            rom = '_28_' + str(sensor.id)
+            rom = '28_' + str(sensor.id)
             type_ = 'temp'
             name = 'DS18B20-' + str(r)
             data.append({"rom": rom, "type": type_, "value": value, "name": name})

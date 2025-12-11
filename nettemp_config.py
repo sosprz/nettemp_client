@@ -1760,6 +1760,8 @@ class NettempConfigMenu:
             current_qos = mqtt.get('qos', 0)
             current_retain = mqtt.get('retain', False)
             current_subscribe_topics = mqtt.get('subscribe_topics', [])
+            if current_subscribe_topics is None:
+                current_subscribe_topics = []
             current_auth_token = mqtt.get('auth_token', '')
             
             # Show current status
@@ -2013,7 +2015,7 @@ class NettempConfigMenu:
                     print("Examples: sensors/#, home/+/temperature, devices/sensor1/data")
                     print(f"\nCurrent topics: {', '.join(current_subscribe_topics) if current_subscribe_topics else 'None'}")
                     
-                    topics_str = input_styled("Topics (comma-separated)", ','.join(current_subscribe_topics))
+                    topics_str = input_styled("Topics (comma-separated)", ','.join(current_subscribe_topics) if current_subscribe_topics else '')
                     
                     if topics_str:
                         topics = [t.strip() for t in topics_str.split(',') if t.strip()]
