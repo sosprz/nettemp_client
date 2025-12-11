@@ -32,18 +32,39 @@ def check_and_setup_environment():
     print("🔍 Checking environment...")
     
     # Check if Python 3 is available
+    python_missing = []
     try:
         result = subprocess.run(['python3', '--version'], capture_output=True, text=True)
         print(f"✓ Python found: {result.stdout.strip()}")
     except FileNotFoundError:
         print("✗ Python 3 not found!")
-        print("Installing Python 3...")
+        python_missing.append('python3')
+    
+    # Check if pip is available
+    try:
+        subprocess.run(['python3', '-m', 'pip', '--version'], capture_output=True, check=True)
+        print("✓ pip installed")
+    except (FileNotFoundError, subprocess.CalledProcessError):
+        print("⚠ pip not found")
+        python_missing.append('python3-pip')
+    
+    # Check if venv module is available
+    try:
+        subprocess.run(['python3', '-m', 'venv', '--help'], capture_output=True, check=True)
+        print("✓ venv module installed")
+    except (FileNotFoundError, subprocess.CalledProcessError):
+        print("⚠ venv module not found")
+        python_missing.append('python3-venv')
+    
+    # Install missing Python components
+    if python_missing:
+        print(f"\nInstalling missing Python components: {', '.join(python_missing)}")
         try:
             subprocess.run(['sudo', 'apt-get', 'update'], check=True)
-            subprocess.run(['sudo', 'apt-get', '-y', 'install', 'python3', 'python3-pip', 'python3-venv'], check=True)
-            print("✓ Python 3 installed")
+            subprocess.run(['sudo', 'apt-get', '-y', 'install'] + python_missing, check=True)
+            print("✓ Python components installed")
         except Exception as e:
-            print(f"✗ Failed to install Python 3: {e}")
+            print(f"✗ Failed to install Python components: {e}")
             sys.exit(1)
     
     # Check system tools BEFORE entering venv (so 'which' works reliably)
@@ -83,6 +104,23 @@ def check_and_setup_environment():
     except FileNotFoundError:
         print("⚠ lm-sensors not found")
         missing_tools.append('lm-sensors')
+    
+    # Check build tools (needed for compiling Python packages like spidev)
+    build_tools_found = os.path.exists('/usr/bin/gcc') or os.path.exists('/usr/bin/cc')
+    if build_tools_found:
+        print("✓ Build tools installed")
+    else:
+        print("⚠ Build tools not found")
+        missing_tools.append('build-essential')
+        missing_tools.append('python3-dev')
+    
+    # Check git (needed for git+ packages like vcgencmd)
+    git_found = os.path.exists('/usr/bin/git')
+    if git_found:
+        print("✓ Git installed")
+    else:
+        print("⚠ Git not found")
+        missing_tools.append('git')
     
     # Offer to install missing tools
     if missing_tools:
@@ -207,11 +245,32 @@ def check_and_setup_environment():
                 if result.returncode == 0:
                     print("✓ All packages installed successfully")
                 else:
-                    print(f"⚠ Some packages failed to install")
-                    if result.stderr:
-                        print(f"\nError output:\n{result.stderr}")
-                    print(f"\nYou can try installing manually:")
-                    print(f"  {pip_path} install -r {requirements_file}")
+                    print(f"\n⚠ Some packages failed to install\n")
+                    
+                    # Check for common build errors
+                    if 'gcc' in result.stderr or 'compiler' in result.stderr.lower():
+                        print("Missing C compiler. Install build tools:")
+                        print("  sudo apt-get install build-essential python3-dev")
+                    
+                    if 'spidev' in result.stderr:
+                        print("\nspidev package needs compilation. This is optional.")
+                        print("Only needed if using SPI sensors.")
+                    
+                    if 'vcgencmd' in result.stderr:
+                        print("\nvcgencmd package needs git. This is optional.")
+                        print("Only needed for Raspberry Pi CPU temperature.")
+                        print("  sudo apt-get install git")
+                    
+                    # Show last part of error
+                    error_lines = result.stderr.strip().split('\n')
+                    relevant_errors = [line for line in error_lines if 'ERROR:' in line or 'error:' in line]
+                    if relevant_errors:
+                        print(f"\nKey errors:")
+                        for err in relevant_errors[-5:]:  # Last 5 error lines
+                            print(f"  {err}")
+                    
+                    print(f"\n⚠ Core packages (paho-mqtt, yaml, requests) should be installed.")
+                    print(f"   Optional sensor packages may have failed (spidev, vcgencmd, etc.)")
                     input("\nPress Enter to continue...")
             else:
                 print("✓ All required packages already installed")
