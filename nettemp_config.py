@@ -78,14 +78,44 @@ def check_and_setup_environment():
         
         pip_path = venv_path / 'bin' / 'pip3'
         
-        # Install ALL packages from requirements.txt in one go
-        print("📦 Installing all packages from requirements.txt...")
+        # Check if packages are already installed before running pip install
+        print("📦 Checking Python packages...")
         try:
-            subprocess.run([str(pip_path), 'install', '-r', str(requirements_file)], check=True)
-            print("✓ All packages installed successfully")
+            # Get list of installed packages
+            result = subprocess.run([str(pip_path), 'list', '--format=freeze'], 
+                                  capture_output=True, text=True, check=True)
+            installed_packages = {line.split('==')[0].lower() for line in result.stdout.splitlines() if '==' in line}
+            
+            # Read requirements and check what's missing
+            missing = []
+            with open(requirements_file, 'r') as f:
+                for line in f:
+                    line = line.strip()
+                    if line and not line.startswith('#'):
+                        # Skip git+ packages for now
+                        if line.startswith('git+'):
+                            continue
+                        # Extract package name
+                        pkg = line.split('>=')[0].split('==')[0].split('<')[0].strip()
+                        if pkg.lower() not in installed_packages:
+                            missing.append(pkg)
+            
+            if missing:
+                print(f"Installing {len(missing)} missing package(s)...")
+                subprocess.run([str(pip_path), 'install', '-r', str(requirements_file)], 
+                             capture_output=True, check=True)
+                print("✓ All packages installed successfully")
+            else:
+                print("✓ All required packages already installed")
         except Exception as e:
-            print(f"⚠ Some packages failed to install: {e}")
-            print(f"  Continuing anyway - optional sensor packages can be installed later")
+            # If check fails, just try to install everything
+            print("📦 Installing packages from requirements.txt...")
+            try:
+                subprocess.run([str(pip_path), 'install', '-r', str(requirements_file)], check=True)
+                print("✓ Packages installed")
+            except Exception as install_error:
+                print(f"⚠ Some optional packages may have failed to install")
+                # Continue anyway - core packages likely installed
             
             # Double-check paho-mqtt specifically since it's critical for MQTT
             try:
