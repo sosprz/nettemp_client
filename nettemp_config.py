@@ -78,70 +78,14 @@ def check_and_setup_environment():
         
         pip_path = venv_path / 'bin' / 'pip3'
         
-        # Read requirements.txt and extract core packages (non-optional, non-commented)
-        core_requirements = []
+        # Install ALL packages from requirements.txt in one go
+        print("📦 Installing all packages from requirements.txt...")
         try:
-            with open(requirements_file, 'r') as f:
-                for line in f:
-                    line = line.strip()
-                    # Skip comments, empty lines, and optional packages
-                    if line and not line.startswith('#') and not line.startswith('git+'):
-                        # Extract package name without version specifier
-                        if '>=' in line:
-                            pkg = line.split('>=')[0].strip()
-                        elif '==' in line:
-                            pkg = line.split('==')[0].strip()
-                        elif '<' in line:
-                            pkg = line.split('<')[0].strip()
-                        else:
-                            pkg = line.strip()
-                        
-                        # Only check core packages (first 5 lines before sensor libraries)
-                        # requests, pyyaml, psutil, apscheduler, paho-mqtt
-                        if pkg.lower() in ['requests', 'pyyaml', 'psutil', 'apscheduler', 'paho-mqtt']:
-                            core_requirements.append(line)  # Keep full line with version
+            subprocess.run([str(pip_path), 'install', '-r', str(requirements_file)], check=True)
+            print("✓ All packages installed successfully")
         except Exception as e:
-            print(f"⚠ Could not read requirements.txt: {e}")
-            # Fallback to minimal core packages
-            core_requirements = ['requests>=2.28.0', 'pyyaml>=6.0', 'psutil>=5.9.0', 'apscheduler>=3.10.0', 'paho-mqtt>=1.6.1']
-        
-        if not core_requirements:
-            # Fallback if nothing found
-            core_requirements = ['requests>=2.28.0', 'pyyaml>=6.0', 'psutil>=5.9.0', 'apscheduler>=3.10.0', 'paho-mqtt>=1.6.1']
-        
-        # Map package names to import names
-        import_map = {
-            'pyyaml': 'yaml',
-            'paho-mqtt': 'paho.mqtt.client',
-        }
-        
-        # Check which packages are missing
-        missing_packages = []
-        for req in core_requirements:
-            # Extract package name from requirement
-            pkg_name = req.split('>=')[0].split('==')[0].split('<')[0].strip()
-            import_name = import_map.get(pkg_name.lower(), pkg_name.lower())
-            
-            try:
-                __import__(import_name)
-            except ImportError:
-                missing_packages.append(req)
-        
-        # Install missing core packages
-        if missing_packages:
-            print(f"Installing missing packages: {', '.join([p.split('>=')[0].split('==')[0] for p in missing_packages])}...")
-            try:
-                subprocess.run([str(pip_path), 'install'] + missing_packages, check=True)
-                print("✓ Required packages installed")
-                print("🔄 Restarting with new packages...")
-                venv_python = venv_path / 'bin' / 'python3'
-                os.execv(str(venv_python), [str(venv_python)] + sys.argv)
-            except Exception as e:
-                print(f"⚠ Failed to install packages: {e}")
-                print(f"  Please run manually: pip install {' '.join(missing_packages)}")
-                sys.exit(1)
-        else:
-            print("✓ All required packages installed")
+            print(f"⚠ Some packages failed to install: {e}")
+            print(f"  Continuing anyway - optional sensor packages can be installed later")
             
             # Double-check paho-mqtt specifically since it's critical for MQTT
             try:
