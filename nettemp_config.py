@@ -202,21 +202,37 @@ def check_and_setup_environment():
             
             if missing:
                 print(f"📦 Installing {len(missing)} missing package(s)...")
-                subprocess.run([str(pip_path), 'install', '-r', str(requirements_file)], 
-                             capture_output=True, check=True)
-                print("✓ All packages installed successfully")
+                result = subprocess.run([str(pip_path), 'install', '-r', str(requirements_file)], 
+                             capture_output=True, text=True)
+                if result.returncode == 0:
+                    print("✓ All packages installed successfully")
+                else:
+                    print(f"⚠ Some packages failed to install")
+                    if result.stderr:
+                        print(f"\nError output:\n{result.stderr}")
+                    print(f"\nYou can try installing manually:")
+                    print(f"  {pip_path} install -r {requirements_file}")
+                    input("\nPress Enter to continue...")
             else:
                 print("✓ All required packages already installed")
         except Exception as e:
-            # If check fails, just try to install everything quietly
+            # If check fails, just try to install everything
             print("📦 Installing packages from requirements.txt...")
             try:
-                subprocess.run([str(pip_path), 'install', '-r', str(requirements_file)], 
-                             capture_output=True, check=True)
-                print("✓ Packages installed")
+                result = subprocess.run([str(pip_path), 'install', '-r', str(requirements_file)], 
+                             capture_output=True, text=True)
+                if result.returncode == 0:
+                    print("✓ Packages installed")
+                else:
+                    print(f"⚠ Some packages failed to install")
+                    if result.stderr:
+                        print(f"\nError output:\n{result.stderr}")
+                    print(f"\nYou can try installing manually:")
+                    print(f"  {pip_path} install -r {requirements_file}")
+                    input("\nPress Enter to continue...")
             except Exception as install_error:
-                print(f"⚠ Some optional packages may have failed to install")
-                # Continue anyway - core packages likely installed
+                print(f"⚠ Package installation error: {install_error}")
+                input("\nPress Enter to continue...")
             
             # Double-check paho-mqtt specifically since it's critical for MQTT
             try:
