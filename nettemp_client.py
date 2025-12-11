@@ -12,13 +12,25 @@ Behavior:
   to set it yourself).
 """
 import sys
+import os
+from pathlib import Path
+
+# Auto-activate venv if not already in it
+script_dir = Path(__file__).parent.resolve()
+venv_path = script_dir / 'venv'
+venv_python = venv_path / 'bin' / 'python3'
+
+# Check if we're NOT in venv and venv exists
+if not hasattr(sys, 'real_prefix') and not (hasattr(sys, 'base_prefix') and sys.base_prefix != sys.prefix):
+    if venv_python.exists():
+        # Restart with venv python
+        os.execv(str(venv_python), [str(venv_python)] + sys.argv)
+
 import time
 import logging
-import os
 import signal
 import argparse
 import subprocess
-from pathlib import Path
 
 try:
     from apscheduler.schedulers.background import BackgroundScheduler
@@ -26,7 +38,6 @@ except Exception:
     BackgroundScheduler = None
 
 # Change to script directory to ensure relative paths work correctly
-script_dir = Path(__file__).parent.resolve()
 os.chdir(script_dir)
 sys.path.insert(0, str(script_dir))
 

@@ -154,7 +154,6 @@ def check_and_setup_environment():
         pip_path = venv_path / 'bin' / 'pip3'
         
         # Check if packages are already installed before running pip install
-        print("📦 Checking Python packages...")
         try:
             # Get list of installed packages (including git packages)
             result = subprocess.run([str(pip_path), 'list', '--format=freeze'], 
@@ -193,17 +192,16 @@ def check_and_setup_environment():
                     else:
                         # Regular package - normalize name
                         pkg = line.split('>=')[0].split('==')[0].split('<')[0].split('[')[0].strip().lower()
-                        # Convert hyphens to underscores for comparison (pip normalizes names)
-                        pkg = pkg.replace('-', '_')
                     
-                    # Also check with hyphens (some packages use hyphens)
+                    # Check both original name and with underscore variant
+                    pkg_underscore = pkg.replace('-', '_')
                     pkg_hyphen = pkg.replace('_', '-')
                     
-                    if pkg not in installed_packages and pkg_hyphen not in installed_packages:
+                    if pkg not in installed_packages and pkg_underscore not in installed_packages and pkg_hyphen not in installed_packages:
                         missing.append(line.strip())
             
             if missing:
-                print(f"Installing {len(missing)} missing package(s)...")
+                print(f"📦 Installing {len(missing)} missing package(s)...")
                 subprocess.run([str(pip_path), 'install', '-r', str(requirements_file)], 
                              capture_output=True, check=True)
                 print("✓ All packages installed successfully")
