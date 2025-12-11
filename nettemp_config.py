@@ -58,28 +58,21 @@ def check_and_setup_environment():
         missing_tools.append('cron')
     
     # Check I2C tools
-    try:
-        result = subprocess.run(['which', 'i2cdetect'], capture_output=True, text=True)
-        if result.returncode == 0 and result.stdout.strip():
-            print("✓ I2C tools installed")
-        else:
-            print("⚠ I2C tools not found")
-            missing_tools.append('i2c-tools')
-    except Exception:
+    i2c_paths = ['/usr/sbin/i2cdetect', '/usr/bin/i2cdetect', '/sbin/i2cdetect']
+    i2c_found = any(os.path.exists(path) for path in i2c_paths)
+    if i2c_found:
+        print("✓ I2C tools installed")
+    else:
         print("⚠ I2C tools not found")
         missing_tools.append('i2c-tools')
     
     # Check Mosquitto (MQTT broker)
-    try:
-        result = subprocess.run(['which', 'mosquitto'], capture_output=True, text=True)
-        if result.returncode == 0 and result.stdout.strip():
-            print("✓ Mosquitto MQTT broker installed")
-        else:
-            print("⚠ Mosquitto not found")
-            missing_tools.append('mosquitto')
-            missing_tools.append('mosquitto-clients')
-    except Exception:
-        print("⚠ Mosquitto MQTT broker not found")
+    mosquitto_paths = ['/usr/sbin/mosquitto', '/usr/bin/mosquitto', '/usr/local/sbin/mosquitto']
+    mosquitto_found = any(os.path.exists(path) for path in mosquitto_paths)
+    if mosquitto_found:
+        print("✓ Mosquitto MQTT broker installed")
+    else:
+        print("⚠ Mosquitto not found")
         missing_tools.append('mosquitto')
         missing_tools.append('mosquitto-clients')
     
