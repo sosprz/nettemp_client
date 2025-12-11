@@ -48,13 +48,22 @@ def check_and_setup_environment():
         print("⚠ pip not found")
         python_missing.append('python3-pip')
     
-    # Check if venv module is available
+    # Check if venv package is installed (Debian/Ubuntu)
     try:
-        subprocess.run(['python3', '-m', 'venv', '--help'], capture_output=True, check=True)
-        print("✓ venv module installed")
-    except (FileNotFoundError, subprocess.CalledProcessError):
-        print("⚠ venv module not found")
-        python_missing.append('python3-venv')
+        result = subprocess.run(['dpkg', '-l', 'python3-venv'], capture_output=True, text=True)
+        if result.returncode == 0 and 'ii' in result.stdout:
+            print("✓ python3-venv package installed")
+        else:
+            print("⚠ python3-venv package not found")
+            python_missing.append('python3-venv')
+    except FileNotFoundError:
+        # dpkg not available, try module check as fallback
+        try:
+            subprocess.run(['python3', '-m', 'venv', '--help'], capture_output=True, check=True)
+            print("✓ venv module installed")
+        except (FileNotFoundError, subprocess.CalledProcessError):
+            print("⚠ venv module not found")
+            python_missing.append('python3-venv')
     
     # Install missing Python components
     if python_missing:
@@ -299,17 +308,6 @@ def check_and_setup_environment():
                 print("✓ paho-mqtt verified (MQTT support available)")
             except ImportError:
                 print("⚠ paho-mqtt import failed despite installation")
-        
-        # Check for optional sensor packages
-        missing_sensor_packages = []
-        try:
-            import adafruit_ads1x15
-        except ImportError:
-            missing_sensor_packages.append('adafruit-circuitpython-ads1x15')
-        
-        if missing_sensor_packages:
-            print(f"ℹ Optional sensor packages not installed: {', '.join(missing_sensor_packages)}")
-            print("  (Install if using capacitive soil moisture sensor with ADS1115 ADC)")
     
     # Copy example config files if they don't exist
     config_file = base_path / 'config.conf'
@@ -386,9 +384,17 @@ def check_and_setup_environment():
         print(f"⚠ Could not setup cron: {e}")
     
     print("\n✅ Environment ready!\n")
+    
+    # Import yaml after venv setup
+    try:
+        import yaml
+        return yaml
+    except ImportError:
+        print("⚠ Warning: yaml module not available yet")
+        return None
 
 # Run environment check before importing other modules
-check_and_setup_environment()
+yaml_module = check_and_setup_environment()
 
 import yaml
 import tty
