@@ -41,6 +41,7 @@ except ImportError:
     mqtt = None
 
 from nettemp import insert2
+from mqtt_parsers import MQTTParser
 
 
 class MQTTBridge:
@@ -104,6 +105,9 @@ class MQTTBridge:
         self.connected = False
         self.reconnect_thread: Optional[threading.Thread] = None
         self.stop_event = threading.Event()
+        
+        # Message parser
+        self.parser = MQTTParser()  # Loads rules from mqtt_rules.yaml
 
     def start(self):
         """Start MQTT connection"""
@@ -198,54 +202,131 @@ class MQTTBridge:
         
         try:
             topic = msg.topic
-            payload_str = msg.payload.decode('utf-8')
             
             # Check if topic should be excluded (e.g., nettemp/* to avoid loops)
             if self._should_exclude_topic(topic):
                 logging.debug(f'MQTT ignoring excluded topic: {topic}')
                 return
             
+            payload_str = msg.payload.decode('utf-8') if isinstance(msg.payload, bytes) else msg.payload
             logging.debug(f'MQTT received on {topic}: {payload_str}')
             
-            # Try to parse as JSON
-            try:
-                payload = json.loads(payload_str)
-                # If it's just a primitive value (int, float, string), parse from topic
-                if not isinstance(payload, (dict, list)):
-                    payload = self._parse_simple_message(topic, payload_str)
-            except json.JSONDecodeError:
-                # Not JSON - try to parse as simple value
-                payload = self._parse_simple_message(topic, payload_str)
+            # Parse message using rule-based parser
+            readings = self.parser.parse(topic, msg.payload)
             
-            if not payload:
+            if not readings:
                 logging.warning(f'Could not parse MQTT message from {topic}')
                 return
             
-            # Validate auth token if configured
-            if self.auth_token:
-                msg_token = None
-                if isinstance(payload, dict):
-                    msg_token = payload.get('auth_token') or payload.get('token')
-                
-                if msg_token != self.auth_token:
-                    logging.warning(f'MQTT message rejected - invalid auth token from {topic}')
-                    return
-                
-                # Remove token from payload before forwarding
-                if isinstance(payload, dict):
-                    payload.pop('auth_token', None)
-                    payload.pop('token', None)
-            
-            # Forward to cloud servers
-            success = self._forward_to_cloud(payload)
+            # Forward parsed readings to cloud servers
+            success = self._forward_parsed_readings(readings)
             
             if success:
-                logging.info(f'MQTT→Cloud: {topic} forwarded successfully')
+                logging.info(f'MQTT→Cloud: {topic} forwarded {len(readings)} reading(s) successfully')
             else:
                 logging.warning(f'MQTT→Cloud: Failed to forward {topic}')
                 
         except Exception as e:
             logging.error(f'Error processing MQTT message from {msg.topic}: {e}')
+
+    def _forward_parsed_readings(self, readings: list) -> bool:
+        """
+        Forward parsed readings to cloud servers
+        
+        Args:
+            readings: List of readings from parser, each containing:
+                - device_id: Device identifier
+                - sensor_id: Unique sensor identifier  
+                - sensor_type: Type of reading (temperature, humidity, etc.)
+                - value: Numeric value
+                - unit: Unit string
+                - friendly_name: Display name
+                
+        Returns:
+            True if successfully sent to at least one server
+        """
+        try:
+            if not readings:
+                return False
+            
+            # Group readings by device_id
+            devices = {}
+            for reading in readings:
+                device_id = reading.get('device_id', self.default_device_id)
+                if device_id not in devices:
+                    devices[device_id] = []
+                devices[device_id].append(reading)
+            
+            # Get target servers based on MQTT subscriber configuration
+            if self.servers:
+                # Filter to specific servers
+                target_servers = [s for s in self.cloud_client.cloud_servers 
+                                if s.get('enabled', True) and s.get('name') in self.servers]
+                if not target_servers:
+                    logging.warning(f'MQTT: No matching servers found for {self.servers}')
+                    return False
+            else:
+                # Send to all enabled servers
+                target_servers = [s for s in self.cloud_client.cloud_servers 
+                                if s.get('enabled', True)]
+            
+            # Send each device's readings to target servers
+            any_success = False
+            for device_id, device_readings in devices.items():
+                # Build cloud format payload
+                cloud_payload = {
+                    'device_id': device_id,
+                    'readings': []
+                }
+                
+                # Build legacy format payload
+                legacy_payload = []
+                
+                for reading in device_readings:
+                    sensor_id = reading.get('sensor_id')
+                    sensor_type = reading.get('sensor_type', 'value')
+                    value = reading.get('value')
+                    unit = reading.get('unit', '')
+                    friendly_name = reading.get('friendly_name', sensor_type)
+                    
+                    # Cloud format
+                    cloud_payload['readings'].append({
+                        'sensor_id': sensor_id,
+                        'sensor_type': sensor_type,
+                        'value': value,
+                        'timestamp': int(time.time()),
+                        'metadata': {
+                            'name': friendly_name,
+                            'unit': unit
+                        }
+                    })
+                    
+                    # Legacy format
+                    legacy_payload.append({
+                        'rom': sensor_id,
+                        'type': sensor_type,
+                        'value': value,
+                        'unit': unit,
+                        'name': friendly_name
+                    })
+                
+                # Send to each target server in the correct format
+                for server in target_servers:
+                    server_format = server.get('format', 'cloud')
+                    if server_format == 'legacy':
+                        success = self.cloud_client._send_to_server_legacy(legacy_payload, server)
+                    else:
+                        success = self.cloud_client._send_to_server(cloud_payload, server)
+                    
+                    if success:
+                        any_success = True
+                        logging.debug(f"MQTT→Cloud: Forwarded {len(device_readings)} reading(s) from {device_id} to {server.get('name', 'server')}")
+            
+            return any_success
+            
+        except Exception as e:
+            logging.error(f'Failed to forward parsed readings to cloud: {e}')
+            return False
 
     def _should_exclude_topic(self, topic: str) -> bool:
         """Check if topic matches exclusion patterns"""
