@@ -43,5 +43,5 @@ RPi.GPIO
 git+https://github.com/nicmcd/vcgencmd.git
 
 # BLE to MQTT
-pip install TheengsGateway
+TheengsGateway
 
