@@ -2219,6 +2219,49 @@ class NettempConfigMenu:
         except Exception:
             return False
     
+    def _enable_bluetooth_experimental(self):
+        """Enable Bluetooth experimental mode by modifying bluetooth.service"""
+        try:
+            import subprocess
+            
+            service_file = '/lib/systemd/system/bluetooth.service'
+            
+            print(f"\n{Colors.BOLD}Modifying {service_file}...{Colors.ENDC}")
+            
+            # Use sed to add --experimental flag
+            cmd = [
+                'sudo', 'sed', '-i',
+                's|ExecStart=/usr/libexec/bluetooth/bluetoothd$|ExecStart=/usr/libexec/bluetooth/bluetoothd --experimental|',
+                service_file
+            ]
+            
+            result = subprocess.run(cmd, capture_output=True, text=True)
+            
+            if result.returncode == 0:
+                print_success("✓ Modified bluetooth.service")
+                
+                # Reload systemd
+                print("\nReloading systemd daemon...")
+                subprocess.run(['sudo', 'systemctl', 'daemon-reload'], check=True)
+                print_success("✓ Reloaded systemd")
+                
+                # Restart bluetooth
+                print("\nRestarting bluetooth service...")
+                subprocess.run(['sudo', 'systemctl', 'restart', 'bluetooth'], check=True)
+                print_success("✓ Restarted bluetooth")
+                
+                print_success("\n✓ Bluetooth experimental mode enabled!")
+            else:
+                print_error(f"✗ Failed to modify bluetooth.service: {result.stderr}")
+                print_warning("You may need to enable it manually (see instructions above)")
+                
+        except subprocess.CalledProcessError as e:
+            print_error(f"✗ Command failed: {e}")
+            print_warning("You may need to enable it manually (see instructions above)")
+        except Exception as e:
+            print_error(f"✗ Error: {e}")
+            print_warning("You may need to enable it manually (see instructions above)")
+    
     def _check_theengs_installed(self):
         """Check if TheengsGateway is installed"""
         try:
@@ -2354,6 +2397,24 @@ class NettempConfigMenu:
                 print_info(f"  Broker: {mqtt_host}:{mqtt_port_str}")
                 print_info(f"  Adapter: {adapter}")
                 print_info(f"  Scan: {scan_time_str}s every {between_scans_str}s")
+                
+                # Prompt to enable Bluetooth experimental mode
+                print(f"\n{Colors.YELLOW}═══════════════════════════════════════════════════════════════════{Colors.ENDC}")
+                print(f"{Colors.YELLOW}⚠  BLUETOOTH EXPERIMENTAL MODE REQUIRED  ⚠{Colors.ENDC}")
+                print(f"{Colors.YELLOW}═══════════════════════════════════════════════════════════════════{Colors.ENDC}")
+                print("\nTheengs Gateway requires Bluetooth experimental mode for BLE scanning.")
+                print("This modifies the bluetooth.service systemd configuration.\n")
+                
+                enable_experimental = input_styled("Enable Bluetooth experimental mode now? (y/n)", "y")
+                if enable_experimental.lower() in ['y', 'yes']:
+                    self._enable_bluetooth_experimental()
+                else:
+                    print_warning("\nYou can enable it manually later:")
+                    print(f"{Colors.LIGHT_BLUE}  sudo nano /lib/systemd/system/bluetooth.service{Colors.ENDC}")
+                    print(f"  Change: {Colors.LIGHT_BLUE}ExecStart=/usr/libexec/bluetooth/bluetoothd{Colors.ENDC}")
+                    print(f"  To:     {Colors.LIGHT_BLUE}ExecStart=/usr/libexec/bluetooth/bluetoothd --experimental{Colors.ENDC}")
+                    print(f"{Colors.LIGHT_BLUE}  sudo systemctl daemon-reload{Colors.ENDC}")
+                    print(f"{Colors.LIGHT_BLUE}  sudo systemctl restart bluetooth{Colors.ENDC}")
                 
             except ValueError:
                 print_error("\nInvalid port or timing values!")

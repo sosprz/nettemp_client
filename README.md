@@ -545,6 +545,94 @@ Messages must include token:
 }
 ```
 
+### MQTT Message Parsing (mqtt_rules.yaml)
+
+The MQTT subscriber uses a rule-based parser configured in `mqtt_rules.yaml`. Rules define how to parse messages from different IoT devices:
+
+**Supported Device Types:**
+- Theengs Gateway (BLE sensors: Xiaomi)
+- ESPEasy
+- Generic JSON
+- Simple values
+
+**Rule Configuration:**
+```yaml
+rules:
+  - name: "Theengs Gateway"
+    topic_pattern: "home/TheengsGateway/BTtoMQTT"
+    format: json
+    device_id_field: "name"          # MAC address or device name
+    sensor_name_field: "type"        # Sensor type (temperature, humidity)
+    readings_map:
+      tem: temperature               # Map JSON field to sensor type
+      hum: humidity
+      batt: battery
+    interval: 600                    # Rate limiting (seconds)
+    allowed_devices:                 # Whitelist (optional)
+      - "A4:C1:38:12:34:56"
+    autodiscover: false              # Enable device discovery logging
+```
+
+**Interactive Device Discovery:**
+Use `nettemp_config.py` → Configure MQTT Bridge → Autodiscover MQTT Devices to scan for devices and select which ones to whitelist.
+
+**Global Exclusions:**
+```yaml
+exclude_topics:
+  - "nettemp/#"                      # Don't loop back own messages
+  - "*/LWT"                          # Ignore Last Will Testament
+  - "homeassistant/*/config"         # Skip HA discovery
+```
+
+Configure via: `mqtt_rules.yaml` in the client directory.
+
+### BLE to MQTT Bridge (Theengs Gateway)
+
+**Automatically integrate Bluetooth Low Energy sensors** via Theengs Gateway, managed as a subprocess by nettemp_client.
+
+**Features:**
+- 🔵 Supports BLE devices (Xiaomi)
+- 🔄 Auto-starts/stops with nettemp_client
+- 📋 Interactive device discovery and whitelist selection
+- ⏱️ Rate limiting per device (configurable intervals)
+- 🎯 Device filtering via mqtt_rules.yaml
+- 🔧 Configuration via interactive menu
+
+**Quick Setup:**
+```bash
+# Configure via menu
+python3 nettemp_config.py
+# → Configure Theengs Gateway (BLE to MQTT)
+# → Enable, set MQTT broker, Bluetooth adapter
+# → Save and restart nettemp_client
+```
+
+**Configuration:**
+```yaml
+theengs_gateway:
+  enabled: true
+  mqtt_host: 127.0.0.1
+  mqtt_port: 1883
+  adapter: hci0                      # Bluetooth adapter
+  ble_scan_time: 10                  # Scan duration (seconds)
+  ble_time_between_scans: 30         # Wait between scans (seconds)
+  scanning_mode: passive             # passive or active
+  publish_topic: home/TheengsGateway/BTtoMQTT
+```
+
+**Device Discovery & Filtering:**
+```bash
+python3 nettemp_config.py
+# → Configure MQTT Bridge → Autodiscover MQTT Devices
+# → Scans for BLE devices publishing to MQTT
+# → Select devices with arrow keys and space bar
+# → Automatically updates whitelist in mqtt_rules.yaml
+```
+
+**Supported Devices:** See [Theengs Decoder compatibility list](https://decoder.theengs.io/devices/devices.html)
+
+**Flow:** BLE Sensors → Theengs Gateway → MQTT Broker → Nettemp Parser (mqtt_rules.yaml) → Nettemp Cloud
+
 ### Example Configurations
 
 #### Home Assistant Integration
