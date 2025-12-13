@@ -29,6 +29,7 @@ Configuration in config.conf:
 
 import json
 import logging
+import re
 import threading
 import time
 from typing import Optional, Any
@@ -41,7 +42,7 @@ except ImportError:
     mqtt = None
 
 from nettemp import insert2
-from mqtt_parsers import MQTTParser
+from mqtt.mqtt_parsers import MQTTParser
 
 
 class MQTTBridge:
@@ -86,9 +87,22 @@ class MQTTBridge:
             self.subscribe_topics = [self.subscribe_topics]
         self.auth_token = cfg.get('auth_token')
         self.servers = cfg.get('servers', [])  # Server filtering for subscriber mode
-        self.exclude_topics = cfg.get('exclude_topics', [])  # Topics to ignore (e.g., ['nettemp/#'])
+        
+        # Message parser (load early to get exclude_topics from rules file)
+        self.parser = MQTTParser()  # Loads rules from mqtt_rules.yaml
+        
+        # Track last forward time per sensor_id for interval limiting
+        self.last_forward_time = {}
+        
+        # Exclude topics - from config or from parser rules file
+        self.exclude_topics = cfg.get('exclude_topics', [])
         if isinstance(self.exclude_topics, str):
             self.exclude_topics = [self.exclude_topics]
+        
+        # If no exclude_topics in config, use ones from mqtt_rules.yaml
+        if not self.exclude_topics and self.parser.exclude_topics:
+            self.exclude_topics = self.parser.exclude_topics
+            logging.info(f'Using {len(self.exclude_topics)} exclude patterns from mqtt_rules.yaml')
         
         # Validation
         if not self.broker:
@@ -105,9 +119,6 @@ class MQTTBridge:
         self.connected = False
         self.reconnect_thread: Optional[threading.Thread] = None
         self.stop_event = threading.Event()
-        
-        # Message parser
-        self.parser = MQTTParser()  # Loads rules from mqtt_rules.yaml
 
     def start(self):
         """Start MQTT connection"""
@@ -215,14 +226,42 @@ class MQTTBridge:
             readings = self.parser.parse(topic, msg.payload)
             
             if not readings:
-                logging.warning(f'Could not parse MQTT message from {topic}')
+                # Use debug level instead of warning to reduce log spam
+                # Parser already logs specific reasons (skip, whitelist, no match)
+                logging.debug(f'No readings extracted from {topic}')
                 return
             
-            # Forward parsed readings to cloud servers
-            success = self._forward_parsed_readings(readings)
+            # Apply interval filtering
+            now = time.time()
+            filtered_readings = []
+            
+            for reading in readings:
+                sensor_id = reading.get('sensor_id')
+                interval = reading.get('interval', 0)
+                
+                if interval == 0:
+                    # No interval limit - forward immediately
+                    filtered_readings.append(reading)
+                else:
+                    # Check if enough time has passed
+                    last_time = self.last_forward_time.get(sensor_id, 0)
+                    time_elapsed = now - last_time
+                    
+                    if time_elapsed >= interval:
+                        filtered_readings.append(reading)
+                        self.last_forward_time[sensor_id] = now
+                    else:
+                        logging.debug(f'Throttling {sensor_id} - last forward was {int(time_elapsed)}s ago (interval: {interval}s)')
+            
+            if not filtered_readings:
+                logging.debug(f'All {len(readings)} reading(s) from {topic} throttled by interval')
+                return
+            
+            # Forward filtered readings to cloud servers
+            success = self._forward_parsed_readings(filtered_readings)
             
             if success:
-                logging.info(f'MQTT→Cloud: {topic} forwarded {len(readings)} reading(s) successfully')
+                logging.info(f'MQTT→Cloud: {topic} forwarded {len(filtered_readings)} reading(s) successfully')
             else:
                 logging.warning(f'MQTT→Cloud: Failed to forward {topic}')
                 
@@ -331,23 +370,28 @@ class MQTTBridge:
     def _should_exclude_topic(self, topic: str) -> bool:
         """Check if topic matches exclusion patterns"""
         for pattern in self.exclude_topics:
-            # Convert MQTT wildcard to simple pattern match
-            # # matches everything after, + matches single level
-            if pattern.endswith('/#'):
-                prefix = pattern[:-2]
-                if topic.startswith(prefix + '/'):
-                    return True
-            elif pattern == '#':
+            # Use same matching logic as parser
+            if pattern == '*' or pattern == '#':
                 return True
-            elif '+' in pattern:
-                # Simple + wildcard matching
-                pattern_parts = pattern.split('/')
-                topic_parts = topic.split('/')
-                if len(pattern_parts) == len(topic_parts):
-                    if all(pp == '+' or pp == tp for pp, tp in zip(pattern_parts, topic_parts)):
-                        return True
-            elif pattern == topic:
+            
+            # Escape special regex characters but preserve wildcards
+            escaped_pattern = pattern.replace('*', '<<<STAR>>>')
+            escaped_pattern = escaped_pattern.replace('+', '<<<PLUS>>>')
+            escaped_pattern = escaped_pattern.replace('#', '<<<HASH>>>')
+            
+            # Escape regex special characters
+            escaped_pattern = re.escape(escaped_pattern)
+            
+            # Convert MQTT wildcards to regex
+            escaped_pattern = escaped_pattern.replace('<<<STAR>>>', '[^/]+')   # * = single level
+            escaped_pattern = escaped_pattern.replace('<<<PLUS>>>', '[^/]+')   # + = single level
+            escaped_pattern = escaped_pattern.replace('<<<HASH>>>', '.*')      # # = multi level
+            
+            regex_pattern = '^' + escaped_pattern + '$'
+            
+            if re.match(regex_pattern, topic):
                 return True
+        
         return False
 
     def _parse_simple_message(self, topic: str, value_str: str) -> Optional[dict]:

@@ -20,6 +20,8 @@ import sys
 import os
 import time
 import subprocess
+import json
+import signal
 from pathlib import Path
 from typing import Dict, List, Optional, Any
 
@@ -882,6 +884,10 @@ class NettempConfigMenu:
         if 'mqtt' in self.config:
             config_data['mqtt'] = self.config['mqtt']
         
+        # Preserve theengs_gateway configuration if it exists
+        if 'theengs_gateway' in self.config:
+            config_data['theengs_gateway'] = self.config['theengs_gateway']
+        
         # Write as YAML
         with open(self.config_file, 'w') as f:
             f.write("# Nettemp Client Configuration\n")
@@ -964,6 +970,21 @@ class NettempConfigMenu:
             else:
                 print(f"MQTT Bridge: {Colors.YELLOW}✗ Disabled{Colors.ENDC}")
             
+            # Check Theengs Gateway status
+            theengs = self.config.get('theengs_gateway', {})
+            if isinstance(theengs, dict) and theengs.get('enabled'):
+                is_running = self._check_theengs_process_running()
+                if is_running:
+                    print(f"Theengs Gateway: {Colors.GREEN}✓ Enabled & Running{Colors.ENDC}")
+                else:
+                    print(f"Theengs Gateway: {Colors.YELLOW}✓ Enabled (not running){Colors.ENDC}")
+            else:
+                is_running = self._check_theengs_process_running()
+                if is_running:
+                    print(f"Theengs Gateway: {Colors.YELLOW}✗ Disabled (process still running){Colors.ENDC}")
+                else:
+                    print(f"Theengs Gateway: {Colors.YELLOW}✗ Disabled{Colors.ENDC}")
+            
             print("\n" + "─" * 70 + "\n")
             
             menu_options = [
@@ -971,6 +992,7 @@ class NettempConfigMenu:
                 "Configure Device Name",
                 "Configure HTTP Bridge",
                 "Configure MQTT Bridge",
+                "Configure Theengs Gateway (BLE to MQTT)",
                 "Configure Drivers",
                 "Discover Devices (I2C + 1-Wire + USB + BT)",
                 "Test & View Readings",
@@ -1005,16 +1027,18 @@ class NettempConfigMenu:
                 elif current_option == 3:
                     self.configure_mqtt_bridge()
                 elif current_option == 4:
-                    self.configure_drivers()
+                    self.configure_theengs_gateway()
                 elif current_option == 5:
-                    self.discover_devices()
+                    self.configure_drivers()
                 elif current_option == 6:
-                    self.test_readings()
+                    self.discover_devices()
                 elif current_option == 7:
-                    self.test_connectivity()
+                    self.test_readings()
                 elif current_option == 8:
-                    self.system_management()
+                    self.test_connectivity()
                 elif current_option == 9:
+                    self.system_management()
+                elif current_option == 10:
                     # Check if background process is running
                     bg_pid = self.check_background_process()
                     
@@ -1888,6 +1912,7 @@ class NettempConfigMenu:
                 "p: Publisher Settings (topic prefix, QoS, retain)",
                 "s: Subscriber Settings (topics, auth token)",
                 "d: Select Destination Servers",
+                "a: Autodiscover MQTT Devices",
                 "c: Test Connection",
                 "Back to Main Menu"
             ]
@@ -2131,7 +2156,10 @@ class NettempConfigMenu:
                 elif current_option == 7:  # Select Servers
                     self._configure_mqtt_servers()
                     
-                elif current_option == 8:  # Test Connection
+                elif current_option == 8:  # Autodiscover MQTT Devices
+                    self._mqtt_autodiscover_devices()
+                    
+                elif current_option == 9:  # Test Connection
                     if 'mqtt' not in self.config or not isinstance(self.config['mqtt'], dict):
                         print_error("\nMQTT not configured yet!")
                         time.sleep(2)
@@ -2169,11 +2197,185 @@ class NettempConfigMenu:
                     
                     input(f"\n{Colors.GREEN}Press Enter to continue...{Colors.ENDC}")
                     
-                elif current_option == 9:  # Back
+                elif current_option == 10:  # Back
                     break
             
             elif key == 'ESC':
                 break
+    
+    def _check_theengs_process_running(self):
+        """Check if TheengsGateway process is running"""
+        try:
+            import subprocess
+            # Check for TheengsGateway process (works for both script and installed command)
+            result = subprocess.run(['ps', 'aux'], 
+                                   capture_output=True, text=True, timeout=2)
+            if result.returncode == 0:
+                # Look for TheengsGateway in process list
+                for line in result.stdout.split('\n'):
+                    if 'TheengsGateway' in line and 'grep' not in line:
+                        return True
+            return False
+        except Exception:
+            return False
+    
+    def _check_theengs_installed(self):
+        """Check if TheengsGateway is installed"""
+        try:
+            import subprocess
+            from pathlib import Path
+            
+            # Check venv first
+            script_dir = Path(__file__).parent.resolve()
+            venv_theengs = script_dir / 'venv' / 'bin' / 'TheengsGateway'
+            
+            if venv_theengs.exists():
+                return True
+            
+            # Check system
+            result = subprocess.run(['which', 'TheengsGateway'], 
+                                   capture_output=True, text=True, timeout=2)
+            return result.returncode == 0
+        except Exception:
+            return False
+    
+    def configure_theengs_gateway(self):
+        """Configure Theengs Gateway (BLE to MQTT bridge)"""
+        clear_screen()
+        print_header("THEENGS GATEWAY CONFIGURATION")
+        
+        print("Theengs Gateway scans for Bluetooth Low Energy devices")
+        print("and forwards their data to MQTT broker.\n")
+        print("Perfect for Xiaomi, Govee, and other BLE temperature sensors.\n")
+        
+        # Get current settings
+        theengs = self.config.get('theengs_gateway', {})
+        if not isinstance(theengs, dict):
+            theengs = {}
+        
+        current_enabled = theengs.get('enabled', False)
+        current_mqtt_host = theengs.get('mqtt_host', '127.0.0.1')
+        current_mqtt_port = theengs.get('mqtt_port', 1883)
+        current_adapter = theengs.get('adapter', 'hci0')
+        current_scan_time = theengs.get('ble_scan_time', 10)
+        current_between_scans = theengs.get('ble_time_between_scans', 30)
+        current_mode = theengs.get('scanning_mode', 'passive')
+        current_publish_topic = theengs.get('publish_topic', 'home/TheengsGateway/BTtoMQTT')
+        
+        # Check if process is running
+        is_running = self._check_theengs_process_running()
+        
+        # Check if TheengsGateway is installed
+        theengs_installed = self._check_theengs_installed()
+        
+        # Show current status
+        if not theengs_installed:
+            print(f"{Colors.YELLOW}⚠ TheengsGateway NOT INSTALLED{Colors.ENDC}")
+            print(f"{Colors.YELLOW}  Install with: pip install TheengsGateway{Colors.ENDC}\n")
+        
+        if current_enabled:
+            print(f"Status: {Colors.GREEN}Enabled{Colors.ENDC}")
+            if is_running:
+                print(f"Process: {Colors.GREEN}● Running{Colors.ENDC}")
+            else:
+                print(f"Process: {Colors.YELLOW}○ Not Running{Colors.ENDC}")
+                if theengs_installed:
+                    print(f"{Colors.YELLOW}  → Restart nettemp_client to start the process{Colors.ENDC}")
+            print(f"  MQTT Broker: {current_mqtt_host}:{current_mqtt_port}")
+            print(f"  Bluetooth Adapter: {current_adapter}")
+            print(f"  Scan Time: {current_scan_time}s every {current_between_scans}s")
+            print(f"  Scanning Mode: {current_mode}")
+            print(f"  Publish Topic: {current_publish_topic}")
+        else:
+            print(f"Status: {Colors.YELLOW}Disabled{Colors.ENDC}")
+            if is_running:
+                print(f"Process: {Colors.YELLOW}● Running (will stop when nettemp_client restarts){Colors.ENDC}")
+        
+        print("\n" + "─" * 70 + "\n")
+        
+        # Enable/Disable
+        enabled_str = input_styled("Enable Theengs Gateway? (y/n)", "y" if current_enabled else "n")
+        enabled = enabled_str.lower() in ['y', 'yes']
+        
+        if 'theengs_gateway' not in self.config:
+            self.config['theengs_gateway'] = {}
+        
+        self.config['theengs_gateway']['enabled'] = enabled
+        
+        if enabled:
+            print("\n" + "─" * 70)
+            print(f"{Colors.BOLD}MQTT Broker Settings{Colors.ENDC}")
+            print("─" * 70 + "\n")
+            
+            mqtt_host = input_styled("MQTT Broker Host", current_mqtt_host)
+            mqtt_port_str = input_styled("MQTT Broker Port", str(current_mqtt_port))
+            mqtt_user = input_styled("MQTT Username (leave empty for none)", theengs.get('mqtt_user', ''))
+            mqtt_pass = input_styled("MQTT Password (leave empty for none)", theengs.get('mqtt_pass', ''))
+            
+            print("\n" + "─" * 70)
+            print(f"{Colors.BOLD}Bluetooth Settings{Colors.ENDC}")
+            print("─" * 70 + "\n")
+            
+            adapter = input_styled("Bluetooth Adapter (hci0, hci1, etc)", current_adapter)
+            scan_time_str = input_styled("Scan Duration (seconds)", str(current_scan_time))
+            between_scans_str = input_styled("Wait Between Scans (seconds)", str(current_between_scans))
+            
+            print("\nScanning Mode:")
+            print("  passive - Lower power, doesn't request data from devices")
+            print("  active  - Requests data, may drain battery faster")
+            mode = input_styled("Scanning Mode", current_mode)
+            
+            print("\n" + "─" * 70)
+            print(f"{Colors.BOLD}MQTT Topics{Colors.ENDC}")
+            print("─" * 70 + "\n")
+            
+            publish_topic = input_styled("Publish Topic", current_publish_topic)
+            
+            # Save all settings
+            try:
+                self.config['theengs_gateway'] = {
+                    'enabled': True,
+                    'mqtt_host': mqtt_host,
+                    'mqtt_port': int(mqtt_port_str),
+                    'mqtt_user': mqtt_user,
+                    'mqtt_pass': mqtt_pass,
+                    'adapter': adapter,
+                    'ble': 1,
+                    'ble_scan_time': int(scan_time_str),
+                    'ble_time_between_scans': int(between_scans_str),
+                    'scanning_mode': mode,
+                    'publish_topic': publish_topic,
+                    'subscribe_topic': 'home/+/BTtoMQTT/undecoded',
+                    'publish_all': 1,
+                    'log_level': 'INFO'
+                }
+                
+                print_success("\nTheengs Gateway configured!")
+                print_info(f"  Broker: {mqtt_host}:{mqtt_port_str}")
+                print_info(f"  Adapter: {adapter}")
+                print_info(f"  Scan: {scan_time_str}s every {between_scans_str}s")
+                
+            except ValueError:
+                print_error("\nInvalid port or timing values!")
+        else:
+            print_info("\nTheengs Gateway disabled")
+        
+        self.save_main_config()
+        
+        if enabled:
+            print(f"\n{Colors.YELLOW}═══════════════════════════════════════════════════════════════════{Colors.ENDC}")
+            print(f"{Colors.YELLOW}⚠  RESTART REQUIRED TO START THEENGS GATEWAY  ⚠{Colors.ENDC}")
+            print(f"{Colors.YELLOW}═══════════════════════════════════════════════════════════════════{Colors.ENDC}")
+            restart = input_styled("\nRestart nettemp_client now? (y/n)", "y")
+            if restart.lower() in ['y', 'yes']:
+                self._restart_client()
+            else:
+                print(f"\n{Colors.YELLOW}Remember to restart nettemp_client manually:{Colors.ENDC}")
+                print(f"{Colors.LIGHT_BLUE}  systemctl restart nettemp_client{Colors.ENDC}")
+                print(f"{Colors.YELLOW}or{Colors.ENDC}")
+                print(f"{Colors.LIGHT_BLUE}  Stop current instance and run: python3 nettemp_client.py{Colors.ENDC}")
+        
+        input(f"\n{Colors.GREEN}Press Enter to continue...{Colors.ENDC}")
     
     def configure_device_name(self):
         """Configure device name (sets both device_id and group)"""
@@ -2891,6 +3093,260 @@ class NettempConfigMenu:
         except Exception as e:
             print_error(f"Failed to check cron: {e}")
             return False
+    
+    def _mqtt_autodiscover_devices(self):
+        """Interactive MQTT device autodiscovery with selection interface"""
+        clear_screen()
+        print_header("MQTT DEVICE AUTODISCOVERY")
+        
+        # Check MQTT configuration
+        mqtt_cfg = self.config.get('mqtt', {})
+        if not mqtt_cfg.get('enabled'):
+            print_warning("\nMQTT Bridge is not enabled!")
+            print_info("Enable MQTT Bridge first, then run autodiscovery.")
+            input(f"\n{Colors.GREEN}Press Enter to continue...{Colors.ENDC}")
+            return
+        
+        broker = mqtt_cfg.get('broker', '')
+        port = mqtt_cfg.get('port', 1883)
+        username = mqtt_cfg.get('username')
+        password = mqtt_cfg.get('password')
+        use_tls = mqtt_cfg.get('tls', False)
+        
+        if not broker:
+            print_error("\nNo MQTT broker configured!")
+            input(f"\n{Colors.GREEN}Press Enter to continue...{Colors.ENDC}")
+            return
+        
+        print(f"\n{Colors.BOLD}This will discover all MQTT devices broadcasting to:{Colors.ENDC}")
+        print(f"  Broker: {Colors.CYAN}{broker}:{port}{Colors.ENDC}")
+        print(f"\n{Colors.YELLOW}Press Ctrl+C to stop discovery and select devices{Colors.ENDC}\n")
+        
+        time.sleep(2)
+        
+        try:
+            import paho.mqtt.client as mqtt_client
+        except ImportError:
+            print_error("\npaho-mqtt not installed!")
+            print_info("Install with: pip install paho-mqtt")
+            input(f"\n{Colors.GREEN}Press Enter to continue...{Colors.ENDC}")
+            return
+        
+        # Dictionary to store discovered devices: {device_key: device_info}
+        discovered_devices = {}
+        message_count = 0
+        
+        def on_connect(client, userdata, flags, rc):
+            if rc == 0:
+                print_success(f"✓ Connected to {broker}:{port}")
+                # Subscribe to all topics
+                client.subscribe("#")
+                print_info("Listening for all MQTT messages... (Press Ctrl+C when done)\n")
+            else:
+                print_error(f"Connection failed with code {rc}")
+        
+        def on_message(client, userdata, msg):
+            nonlocal message_count
+            try:
+                payload = msg.payload.decode('utf-8')
+                data = json.loads(payload)
+                
+                # Extract device info
+                device_mac = data.get('id', 'unknown')
+                device_name = data.get('name', 'unknown')
+                device_type = data.get('type', 'unknown')
+                brand = data.get('brand', 'unknown')
+                model = data.get('model', 'unknown')
+                
+                # Get sensor fields
+                metadata_fields = {'id', 'name', 'rssi', 'brand', 'model', 'model_id', 'type', 'mac', 'mfr', 'manufacturerdata'}
+                sensor_fields = [k for k in data.keys() if k not in metadata_fields]
+                
+                # Create unique key
+                device_key = f"{device_mac}"
+                
+                # Add or update device
+                if device_key not in discovered_devices:
+                    discovered_devices[device_key] = {
+                        'mac': device_mac,
+                        'name': device_name,
+                        'type': device_type,
+                        'brand': brand,
+                        'model': model,
+                        'sensors': sensor_fields,
+                        'topic': msg.topic
+                    }
+                    
+                    # Show discovered device
+                    sensors_str = ','.join(sensor_fields) if sensor_fields else 'none'
+                    print(f"{Colors.GREEN}✓{Colors.ENDC} Found: {Colors.CYAN}{device_name}{Colors.ENDC} ({device_mac}) - {brand} {model} - Sensors: {sensors_str}")
+                
+                message_count += 1
+                
+            except json.JSONDecodeError:
+                pass
+            except Exception as e:
+                logging.debug(f"Error processing message: {e}")
+        
+        # Create MQTT client with API version compatibility
+        try:
+            # Try new API (v2.0+)
+            client = mqtt_client.Client(mqtt_client.CallbackAPIVersion.VERSION1, f"nettemp_discovery_{os.getpid()}")
+        except (AttributeError, TypeError):
+            # Fallback to old API (v1.x)
+            client = mqtt_client.Client(f"nettemp_discovery_{os.getpid()}")
+        
+        if username and password:
+            client.username_pw_set(username, password)
+        
+        if use_tls:
+            import ssl
+            client.tls_set(cert_reqs=ssl.CERT_NONE)
+            client.tls_insecure_set(True)
+        
+        client.on_connect = on_connect
+        client.on_message = on_message
+        
+        try:
+            # Connect and start loop
+            client.connect(broker, port, 60)
+            client.loop_start()
+            
+            # Wait for user to press Ctrl+C
+            while True:
+                time.sleep(0.1)
+                
+        except KeyboardInterrupt:
+            print(f"\n\n{Colors.YELLOW}Discovery stopped{Colors.ENDC}")
+            print(f"Found {len(discovered_devices)} unique device(s), received {message_count} messages\n")
+        except Exception as e:
+            print_error(f"\nConnection error: {e}")
+            input(f"\n{Colors.GREEN}Press Enter to continue...{Colors.ENDC}")
+            return
+        finally:
+            client.loop_stop()
+            client.disconnect()
+        
+        if not discovered_devices:
+            print_warning("\nNo devices discovered!")
+            print_info("Make sure devices are broadcasting and topics match the subscription pattern.")
+            input(f"\n{Colors.GREEN}Press Enter to continue...{Colors.ENDC}")
+            return
+        
+        # Interactive selection
+        time.sleep(1)
+        clear_screen()
+        print_header("SELECT DEVICES TO WHITELIST")
+        
+        devices_list = list(discovered_devices.values())
+        selected = [False] * len(devices_list)
+        current_idx = 0
+        
+        while True:
+            clear_screen()
+            print_header("SELECT DEVICES TO WHITELIST")
+            
+            print(f"\n{Colors.BOLD}Use ↑↓ arrows to navigate, SPACE to select/deselect, Enter to confirm{Colors.ENDC}\n")
+            print(f"Found {len(devices_list)} device(s):\n")
+            
+            for idx, device in enumerate(devices_list):
+                checkbox = "☑" if selected[idx] else "☐"
+                sensors_str = ','.join(device['sensors']) if device['sensors'] else 'none'
+                
+                if idx == current_idx:
+                    print(f"{Colors.LIGHT_BLUE}▶ {checkbox} {device['name']} ({device['mac']}) - {device['brand']} {device['model']}")
+                    print(f"    Sensors: {sensors_str}{Colors.ENDC}")
+                else:
+                    print(f"  {checkbox} {device['name']} ({device['mac']}) - {device['brand']} {device['model']}")
+                    if idx == current_idx - 1 or idx == current_idx + 1:
+                        print(f"    Sensors: {sensors_str}")
+            
+            print(f"\n{Colors.GREEN}Selected: {sum(selected)} device(s){Colors.ENDC}")
+            
+            key = get_key()
+            
+            if key == '':
+                continue
+            elif key == 'UP':
+                current_idx = (current_idx - 1) % len(devices_list)
+            elif key == 'DOWN':
+                current_idx = (current_idx + 1) % len(devices_list)
+            elif key == ' ':  # Space to toggle
+                selected[current_idx] = not selected[current_idx]
+            elif key == '\r' or key == '\n':  # Enter to confirm
+                break
+            elif key == 'ESC':
+                print_info("\nAutodiscovery cancelled")
+                time.sleep(1)
+                return
+        
+        # Get selected devices
+        selected_devices = [devices_list[i] for i, sel in enumerate(selected) if sel]
+        
+        if not selected_devices:
+            print_warning("\nNo devices selected!")
+            time.sleep(1)
+            return
+        
+        # Update mqtt_rules.yaml
+        clear_screen()
+        print_header("UPDATING WHITELIST")
+        
+        print(f"\n{Colors.BOLD}Updating mqtt_rules.yaml with {len(selected_devices)} device(s)...{Colors.ENDC}\n")
+        
+        try:
+            import yaml
+            
+            rules_file = Path(__file__).parent / 'mqtt_rules.yaml'
+            
+            # Load current rules
+            with open(rules_file, 'r') as f:
+                rules_config = yaml.safe_load(f)
+            
+            # Find Theengs Gateway rule
+            theengs_rule = None
+            for rule in rules_config.get('rules', []):
+                if rule.get('name') == 'Theengs Gateway':
+                    theengs_rule = rule
+                    break
+            
+            if theengs_rule:
+                # Update allowed_devices
+                allowed_devices = []
+                for device in selected_devices:
+                    allowed_devices.append(device['mac'])
+                    if device['name'] != 'unknown':
+                        allowed_devices.append(device['name'])
+                
+                theengs_rule['allowed_devices'] = list(set(allowed_devices))  # Remove duplicates
+                theengs_rule['autodiscover'] = False  # Disable autodiscovery
+                
+                # Save updated rules
+                with open(rules_file, 'w') as f:
+                    yaml.dump(rules_config, f, default_flow_style=False, sort_keys=False)
+                
+                print_success("✓ Whitelist updated in mqtt_rules.yaml\n")
+                print(f"{Colors.BOLD}Allowed devices:{Colors.ENDC}")
+                for device in selected_devices:
+                    sensors_str = ','.join(device['sensors']) if device['sensors'] else 'none'
+                    print(f"  • {Colors.CYAN}{device['name']}{Colors.ENDC} ({device['mac']})")
+                    print(f"    {device['brand']} {device['model']} - Sensors: {sensors_str}")
+                
+                print(f"\n{Colors.YELLOW}Restart nettemp client to apply changes{Colors.ENDC}")
+                
+                restart = input_styled("\nRestart nettemp client now? (y/n)", "y")
+                if restart.lower() in ['y', 'yes']:
+                    self._restart_client()
+                
+            else:
+                print_error("\nTheengs Gateway rule not found in mqtt_rules.yaml!")
+            
+        except Exception as e:
+            print_error(f"\nFailed to update mqtt_rules.yaml: {e}")
+            import traceback
+            traceback.print_exc()
+        
+        input(f"\n{Colors.GREEN}Press Enter to continue...{Colors.ENDC}")
     
     def check_mqtt_broker_connection(self, broker: str, port: int, username: str = None, password: str = None, tls: bool = False) -> tuple[bool, str]:
         """Test connection to MQTT broker. Returns (success, message)"""

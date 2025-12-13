@@ -25,15 +25,26 @@ mqtt:
   
   # Subscriber settings (when mode = subscriber or both)
   subscribe_topics:               # Topics to listen to (supports + and # wildcards)
-    - '#'                         # All topics (use with exclude_topics to avoid loops)
+    - '#'                         # All topics
     - sensors/#                   # All topics under sensors/
     - home/+/temperature          # home/bedroom/temperature, home/kitchen/temperature, etc.
     - devices/sensor1/data
   
-  exclude_topics:                 # Topics to ignore (prevents loops when publishing and subscribing)
-    - nettemp/#                   # Exclude all nettemp topics (avoid receiving our own published data)
+  # exclude_topics is OPTIONAL - defaults are loaded from mqtt_rules.yaml
+  # Only specify if you need additional custom exclusions beyond the defaults
+  # exclude_topics:
+  #   - my_custom_topic/#
   
   auth_token: shared_secret       # Optional - validates incoming MQTT messages
+
+# Rate Limiting (Subscriber mode):
+# Intervals are configured per device type in mqtt_rules.yaml
+# Each rule defines how often readings should be forwarded to cloud:
+#   - Theengs Gateway: 600s (10 minutes)
+#   - ESPEasy: 300s (5 minutes)
+#   - Tasmota: 300s (5 minutes)
+#   - Zigbee2MQTT: 300s (5 minutes)
+# Edit mqtt_rules.yaml to adjust intervals for your needs
 
 # Example topic structure for Publisher mode:
 # nettemp/my-device/lywsd03mmc_A4C138165B5D_temp/temperature

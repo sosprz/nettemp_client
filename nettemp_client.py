@@ -44,7 +44,8 @@ sys.path.insert(0, str(script_dir))
 from nettemp import CloudClient, insert2
 from driver_loader import DriverLoader
 from bridge import HTTPBridge
-from mqtt import MQTTBridge
+from mqtt.mqtt import MQTTBridge
+from mqtt.theengs_gateway_manager import TheengsGatewayManager
 
 logging.basicConfig(level=logging.INFO, format='[%(asctime)s] %(levelname)s: %(message)s')
 # Quiet down APScheduler noise (job executed/run messages)
@@ -107,6 +108,9 @@ class NettempClient:
             self.cloud_client,
             self.cloud_client.device_id,
             self.cloud_client.config.get('mqtt')
+        )
+        self.theengs_gateway = TheengsGatewayManager(
+            self.cloud_client.config.get('theengs_gateway')
         )
 
 
@@ -241,6 +245,9 @@ class NettempClient:
         
         if self.mqtt:
             self.mqtt.start()
+        
+        if self.theengs_gateway:
+            self.theengs_gateway.start()
 
         try:
             while True:
@@ -278,6 +285,8 @@ class NettempClient:
                 self.bridge.stop()
             if self.mqtt:
                 self.mqtt.stop()
+            if self.theengs_gateway:
+                self.theengs_gateway.stop()
     
     def stop(self):
         """Stop the schedulers and bridge"""
@@ -290,6 +299,8 @@ class NettempClient:
                 self.bridge.stop()
             if self.mqtt:
                 self.mqtt.stop()
+            if self.theengs_gateway:
+                self.theengs_gateway.stop()
         except Exception as e:
             logging.error(f'Error during shutdown: {e}')
 

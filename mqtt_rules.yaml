@@ -3,50 +3,90 @@
 #
 # Each rule matches incoming MQTT messages by topic pattern and defines how to extract sensor readings
 # Rules are evaluated in order - first matching rule is used
+#
+# AUTODISCOVERY & WHITELIST:
+# 1. Enable autodiscover: true in a rule to log all discovered devices to mqtt_discovered_devices.log
+# 2. Review the log to see device MACs, names, and available sensor fields
+# 3. Add device MACs/names to allowed_devices list to whitelist only approved devices
+# 4. Disable autodiscover after you've identified all devices
+#
+# Example workflow:
+#   Step 1: Set autodiscover: true, restart client, wait a few minutes
+#   Step 2: Check mqtt_discovered_devices.log for device list
+#   Step 3: Copy MAC addresses to allowed_devices: ["A4:C1:38:16:5B:5D", "B8:27:EB:12:34:56"]
+#   Step 4: Set autodiscover: false, restart client
+
+# Topics to always exclude (status/control messages)
+# These patterns are automatically loaded and applied before any parsing
+exclude_topics:
+  - nettemp/#                      # Don't receive our own published data
+  - "*/LWT"                        # Last Will Testament messages
+  - "*/lwt"
+  - "homeassistant/*/config"       # Home Assistant config messages
+  - "homeassistant/*/*/config"
+  - "*/status/LWT"                 # ESPEasy LWT
 
 rules:
   # Theengs Gateway - Bluetooth to MQTT bridge
   # Supports Xiaomi, Govee, and other BLE sensors
   # Topic: home/TheengsGateway/BTtoMQTT/<MAC>
-  # Payload: {"name": "ATC_165B5D", "id": "A4:C1:38:16:5B:5D", "tempc": 20.5, "hum": 57, "batt": 88, ...}
+  # Payload: {"name": "ATC_165B5D", "id": "A4:C1:38:16:5B:5D", "type": "THB", "tempc": 20.5, "hum": 57, "batt": 88, ...}
+  #
+  # Configuration:
+  # - device_id_field: "name" groups by sensor name (e.g., "ATC_165B5D")
+  # - sensor_name_field: "type" uses the 'type' field as sensor display name (e.g., "THB")
+  # - readings_map: type always comes from the 'type' key (temperature, humidity, etc.)
+  # Result: Device group = "ATC_165B5D", Sensor names = "THB" (type field value)
   - name: "Theengs Gateway"
     enabled: true
     topic_pattern: "*/TheengsGateway/BTtoMQTT/*"
     format: json
-    device_id_field: "mac"           # Use 'mac' field as device_id (fallback to 'id')
-    device_id_fallback: "id"
-    friendly_name_field: "name"      # Use 'name' field for friendly names
+    interval: 600                    # Forward readings every 600 seconds (10 minutes)
+    skip_topics:
+      - "*/TheengsGateway/LWT"
+      - "*/TheengsGateway/lwt"
+      - "*/TheengsGateway/version"
+      - "*/TheengsGateway/status"
+    # Whitelist: Only process these device MACs/names (comment out to allow all)
+    allowed_devices:
+      - "A4:C1:38:16:5B:5D"          # ATC_165B5D - Xiaomi temperature sensor
+      - "ATC_165B5D"                 # Alternative match by name field
+    # Autodiscovery: Set to true to log all discovered devices to mqtt_discovered_devices.log
+    autodiscover: false
+    device_id_field: "name"          # Group by sensor name (e.g., "ATC_165B5D")
+    device_id_fallback: "id"         # Fallback to 'id' if 'name' not present
+    sensor_name_field: "type"        # Use 'type' field for sensor display name (e.g., "THB")
     readings_map:
       tempc:
         type: "temperature"
         unit: "°C"
-      tempf:
-        type: "temperature"
-        unit: "°F"
+#      tempf:
+#        type: "temperature"
+#        unit: "°F"
       hum:
         type: "humidity"
         unit: "%"
       batt:
         type: "battery"
         unit: "%"
-      volt:
-        type: "voltage"
-        unit: "V"
-      rssi:
-        type: "rssi"
-        unit: "dBm"
-      pres:
-        type: "pressure"
-        unit: "hPa"
-      lux:
-        type: "light"
-        unit: "lx"
-      open:
-        type: "contact"
-        unit: ""
-      motion:
-        type: "motion"
-        unit: ""
+#      volt:
+#        type: "voltage"
+#        unit: "V"
+#      rssi:
+#        type: "rssi"
+#        unit: "dBm"
+#      pres:
+#        type: "pressure"
+#        unit: "hPa"
+#      lux:
+#        type: "light"
+#        unit: "lx"
+#      open:
+#        type: "contact"
+#        unit: ""
+#      motion:
+#        type: "motion"
+#        unit: ""
 
   # ESPEasy - ESP8266/ESP32 firmware
   # Topic: <device>/<task>/<valuename>
@@ -56,10 +96,12 @@ rules:
     enabled: true
     topic_pattern: "*/*/*"
     format: value
+    interval: 300                    # Forward readings every 300 seconds (5 minutes)
     skip_topics:                     # Skip status/control topics
       - "*/status/*"
       - "*/lwt"
       - "*/LWT"
+      - "*/status/LWT"
       - "*/control/*"
       - "*/cmd/*"
     skip_values:                     # Skip non-numeric status messages
@@ -79,6 +121,7 @@ rules:
     enabled: true
     topic_pattern: "tele/*/SENSOR"
     format: json
+    interval: 300                    # Forward readings every 300 seconds (5 minutes)
     device_id_from: topic            # Extract device from topic[1]
     flatten_nested: true             # Flatten nested JSON (DS18B20.Temperature → temperature)
     readings_map:
@@ -105,6 +148,7 @@ rules:
     enabled: true
     topic_pattern: "tele/*/STATE"
     format: json
+    interval: 300                    # Forward readings every 300 seconds (5 minutes)
     device_id_from: topic
     flatten_nested: true
     readings_map:
@@ -125,6 +169,7 @@ rules:
     enabled: true
     topic_pattern: "zigbee2mqtt/*"
     format: json
+    interval: 300                    # Forward readings every 300 seconds (5 minutes)
     skip_topics:
       - "zigbee2mqtt/bridge/*"       # Skip bridge control topics
     device_id_from: topic            # Device name from topic[1]
@@ -167,6 +212,14 @@ rules:
     enabled: true
     topic_pattern: "homeassistant/*/*/*/state"
     format: value
+    interval: 300                    # Forward readings every 300 seconds (5 minutes)
+    skip_topics:
+      - "homeassistant/*/config"
+      - "homeassistant/*/*/config"
+      - "homeassistant/*/*/*/config"
+      - "homeassistant/*/*/*/*/config"
+      - "homeassistant/*/availability"
+      - "homeassistant/*/*/availability"
     device_id_from: topic            # topic[2] = device
     sensor_id_format: "{device}_{object_id}"
     value_type_from: component       # topic[1] = component (sensor, binary_sensor, etc.)
@@ -178,6 +231,7 @@ rules:
     enabled: true
     topic_pattern: "shellies/*/sensor/*"
     format: value
+    interval: 300                    # Forward readings every 300 seconds (5 minutes)
     device_id_from: topic            # topic[1] = device
     sensor_id_format: "shelly_{device}_{type}"
     value_type_from: topic           # topic[3] = type
@@ -188,6 +242,7 @@ rules:
     enabled: true
     topic_pattern: "*"
     format: json
+    interval: 60                     # Forward readings every 60 seconds (1 minute) - adjust as needed
     device_id_field: "device_id"
     device_id_fallback: "device"
     sensor_id_field: "sensor_id"
@@ -213,16 +268,22 @@ rules:
     enabled: true
     topic_pattern: "*"
     format: value
+    interval: 60                     # Forward readings every 60 seconds (1 minute) - adjust as needed
     device_id_from: topic            # Use first topic level
     sensor_id_format: topic_full     # Use full topic as sensor_id (with / → _)
     value_type: "value"              # Generic value type
 
 # Field extraction helpers:
-# device_id_field: JSON field name for device ID
+# device_id_field: JSON field name for device ID (used for grouping sensors)
 # device_id_from: "topic" extracts from topic (specify index or "auto" for smart extraction)
+# sensor_name_field: JSON field to use as complete sensor display name (e.g., "type" field = "THB")
+#                    Overrides display_name_field and friendly_name_field
+# display_name_field: JSON field to use as prefix in sensor display name (e.g., "ATC_165B5D temperature")
+# friendly_name_field: Alternative to display_name_field (legacy)
 # sensor_id_format: Template with {device}, {task}, {valuename}, {type}, {object_id}
 # friendly_name_format: Template for display names
 # readings_map: Maps JSON fields to sensor types with units
+#               The 'type' key in each mapping defines the sensor_type (temperature, humidity, etc.)
 # flatten_nested: Convert nested JSON (e.g., {"BME280": {"Temperature": 22}}) to flat structure
 # skip_topics: Topic patterns to ignore
 # skip_values: Payload values to ignore (for non-numeric status messages)

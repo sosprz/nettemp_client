@@ -42,3 +42,6 @@ sdm-modbus==0.5.0
 RPi.GPIO
 git+https://github.com/nicmcd/vcgencmd.git
 
+# BLE to MQTT
+pip install TheengsGateway
+
