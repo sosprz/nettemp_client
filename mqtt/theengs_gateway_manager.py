@@ -76,6 +76,47 @@ class TheengsGatewayManager:
             logging.warning('═' * 70)
             self.enabled = False
     
+    def _kill_existing_processes(self):
+        """Kill any existing TheengsGateway processes before starting"""
+        try:
+            # Find all TheengsGateway processes
+            result = subprocess.run(['pgrep', '-f', 'TheengsGateway'], 
+                                   capture_output=True, text=True, timeout=2)
+            
+            if result.returncode == 0 and result.stdout.strip():
+                pids = result.stdout.strip().split('\n')
+                logging.info(f'Found {len(pids)} existing TheengsGateway process(es)')
+                
+                for pid in pids:
+                    try:
+                        pid = int(pid.strip())
+                        logging.info(f'Killing existing TheengsGateway process (PID: {pid})')
+                        subprocess.run(['kill', str(pid)], timeout=2)
+                        time.sleep(0.5)
+                    except (ValueError, subprocess.TimeoutExpired):
+                        pass
+                
+                # Give processes time to terminate
+                time.sleep(1)
+                
+                # Force kill any remaining processes
+                result = subprocess.run(['pgrep', '-f', 'TheengsGateway'], 
+                                       capture_output=True, text=True, timeout=2)
+                if result.returncode == 0 and result.stdout.strip():
+                    pids = result.stdout.strip().split('\n')
+                    for pid in pids:
+                        try:
+                            pid = int(pid.strip())
+                            logging.warning(f'Force killing TheengsGateway process (PID: {pid})')
+                            subprocess.run(['kill', '-9', str(pid)], timeout=2)
+                        except (ValueError, subprocess.TimeoutExpired):
+                            pass
+                    time.sleep(0.5)
+                
+                logging.info('✓ Existing TheengsGateway processes terminated')
+        except Exception as e:
+            logging.debug(f'Error checking for existing processes: {e}')
+    
     def _create_config_file(self):
         """Create TheengsGateway JSON config file from config.conf settings"""
         try:
@@ -109,6 +150,9 @@ class TheengsGatewayManager:
         """Start TheengsGateway as subprocess"""
         if not self.enabled:
             return
+        
+        # Check if any TheengsGateway process is already running (not just our subprocess)
+        self._kill_existing_processes()
         
         if self.process and self.process.poll() is None:
             logging.info('Theengs Gateway already running')
