@@ -250,9 +250,14 @@ class MQTTParser:
             sensor_id = re.sub(r'[^a-zA-Z0-9_-]', '_', sensor_id)
             
             # Build friendly name
-            # Check for sensor_name_field (overrides everything - just shows the field value)
-            sensor_name_field = rule.get('sensor_name_field')
-            if sensor_name_field:
+            # Check if reading config has a specific name override
+            reading_name = config.get('name')
+            if reading_name:
+                # Use the name from readings_map config (e.g., "temperature" instead of "ATC_165B5D")
+                friendly_name = reading_name
+            # Check for sensor_name_field (overrides everything - just shows the field value from JSON)
+            elif rule.get('sensor_name_field'):
+                sensor_name_field = rule.get('sensor_name_field')
                 # Use specific field as the complete sensor name (e.g., "type" field = "THB")
                 friendly_name = data.get(sensor_name_field, sensor_type)
             elif rule.get('display_name_field'):
@@ -431,9 +436,16 @@ class MQTTParser:
             logging.warning(f'Failed to log discovered device: {e}')
     
     def _clean_device_id(self, device_id: str) -> str:
-        """Clean device ID - replace special chars"""
-        # Replace colons and other special chars with underscores
-        return re.sub(r'[^a-zA-Z0-9_-]', '_', str(device_id))
+        """Clean device ID - remove colons/dashes from MAC addresses, replace other special chars"""
+        device_id = str(device_id)
+        
+        # If it looks like a MAC address (has colons or dashes with hex pattern), remove them
+        # Examples: A4:C1:38:DE:45:9E → A4C138DE459E, A4-C1-38-DE-45-9E → A4C138DE459E
+        if re.match(r'^[0-9A-Fa-f]{2}[:\-][0-9A-Fa-f]{2}[:\-][0-9A-Fa-f]{2}[:\-][0-9A-Fa-f]{2}[:\-][0-9A-Fa-f]{2}[:\-][0-9A-Fa-f]{2}$', device_id):
+            return device_id.replace(':', '').replace('-', '').upper()
+        
+        # Otherwise, replace special chars with underscores
+        return re.sub(r'[^a-zA-Z0-9_-]', '_', device_id)
     
     def _flatten_dict(self, data: dict, parent_key: str = '', sep: str = '.') -> dict:
         """Flatten nested dictionary"""

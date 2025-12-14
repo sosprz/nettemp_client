@@ -34,23 +34,30 @@ rules:
   # Supports 70+ BLE devices (Xiaomi, Govee, etc.)
   # Topic: home/TheengsGateway/BTtoMQTT/<MAC>
   # Payload: {"name": "ATC_165B5D", "id": "A4:C1:38:16:5B:5D", "type": "THB", "tempc": 20.5, "hum": 57, "batt": 88}
+  #
+  # SENSOR NAMING OPTIONS:
+  # 1. Use device_id_field: "id" + name in readings_map → "temperature", "humidity", "battery"
+  # 2. Use device_id_field: "name" + display_name_field: "name" → "ATC_165B5D temperature", "ATC_165B5D humidity"
+  # 3. Use device_id_field: "id" + sensor_name_field: "name" → "ATC_165B5D", "ATC_165B5D", "ATC_165B5D"
   - name: "Theengs Gateway"
     enabled: true
     topic_pattern: "*/TheengsGateway/BTtoMQTT/*"
     format: json
     interval: 600                    # Forward readings every 600 seconds (10 minutes)
-    device_id_field: "name"          # Group by sensor name (e.g., "ATC_165B5D")
-    device_id_fallback: "id"         # Fallback to MAC if 'name' not present
-    sensor_name_field: "type"        # Use 'type' field for sensor display name (e.g., "THB")
+    device_id_field: "id"            # Group by MAC address (e.g., "A4C138165B5D")
+    device_id_fallback: "name"       # Fallback to name if 'id' not present
     readings_map:
       tempc:
         type: "temperature"
+        name: "temperature"          # Override sensor name (optional)
         unit: "°C"
       hum:
         type: "humidity"
+        name: "humidity"             # Override sensor name (optional)
         unit: "%"
       batt:
         type: "battery"
+        name: "battery"              # Override sensor name (optional)
         unit: "%"
 
   # ESPEasy - ESP8266/ESP32 firmware
@@ -175,3 +182,116 @@ rules:
     device_id_from: topic
     sensor_id_format: topic_full
     value_type: "value"
+
+# ============================================================
+# RULE CONFIGURATION REFERENCE
+# ============================================================
+# Use these fields when creating rules for new sensors:
+
+# RULE BASICS:
+# - name: "Rule Name"                 # Display name for the rule
+# - enabled: true/false               # Enable or disable this rule
+# - topic_pattern: "sensor/+/data"    # MQTT topic pattern (* = any level, + = single level, # = all remaining)
+# - format: json/value                # Message format (json for objects, value for plain numbers/strings)
+# - interval: 300                     # Forward interval in seconds (rate limiting)
+
+# DEVICE IDENTIFICATION:
+# - device_id_field: "device_id"      # JSON field to use as device ID (e.g., "name", "id", "mac")
+# - device_id_fallback: "id"          # Fallback field if primary is missing
+# - device_id_from: topic             # Extract device ID from topic (instead of JSON)
+
+# SENSOR NAMING (choose one strategy):
+# Strategy 1: Override each reading name
+#   readings_map:
+#     temp: {type: "temperature", name: "temperature", unit: "°C"}
+#   Result: Sensor name = "temperature"
+#
+# Strategy 2: Use JSON field as complete name
+#   sensor_name_field: "name"         # Use this JSON field as sensor name
+#   Result: Sensor name = value of "name" field (e.g., "ATC_165B5D")
+#
+# Strategy 3: Prefix with device name
+#   display_name_field: "name"        # Prefix sensor names with this JSON field
+#   Result: Sensor name = "ATC_165B5D temperature"
+#
+# Strategy 4: Just sensor type (default)
+#   (no naming fields)
+#   Result: Sensor name = "temperature"
+
+# SENSOR ID FORMATTING:
+# - sensor_id_format: "{device}_{task}_{valuename}"  # Template for sensor IDs
+# - sensor_id_format: topic_full      # Use full topic as sensor ID (replace / with _)
+# - sensor_id_field: "sensor_id"      # Use specific JSON field as sensor ID
+
+# FRIENDLY NAMES:
+# - friendly_name_format: "{task} {valuename}"  # Template for display names
+#   Available placeholders: {device}, {task}, {valuename}, {type}, {object_id}
+
+# READINGS MAP (for JSON format):
+# readings_map:
+#   field_name:                       # JSON field name (e.g., "tempc", "Temperature")
+#     type: "temperature"             # Sensor type (temperature, humidity, pressure, etc.)
+#     name: "temperature"             # Override sensor name (optional)
+#     unit: "°C"                      # Unit for this reading
+#     type_from_field: "type"         # Get type from another JSON field
+#     unit_from_field: "unit"         # Get unit from another JSON field
+#     unit_map:                       # Map unit field values to display units
+#       C: "°C"
+#       F: "°F"
+#     value_map:                      # Map specific values (e.g., ON/OFF to 1/0)
+#       "ON": 1
+#       "OFF": 0
+#       true: 1
+#       false: 0
+
+# VALUE FORMAT (for simple numeric payloads):
+# - value_type: "temperature"         # Sensor type for simple values
+# - value_type_from: valuename        # Extract type from topic part
+#   Options: valuename (topic[2]), component (topic[1]), topic (last part)
+
+# TOPIC FILTERING:
+# - skip_topics:                      # Skip these topic patterns
+#     - "*/status/*"
+#     - "*/LWT"
+# - skip_values:                      # Skip these payload values
+#     - "connected"
+#     - "offline"
+
+# JSON PROCESSING:
+# - flatten_nested: true              # Flatten nested JSON ({"BME280":{"Temperature":22}} → Temperature: 22)
+
+# COMMON SENSOR TYPES:
+# - temperature, humidity, pressure, battery, voltage, current, power
+# - light, lux, motion, contact, occupancy, distance
+# - rssi, linkquality, cpu, memory, disk
+# - dewpoint, heatindex, gas, co2, tvoc, pm25, pm10
+# - soil_moisture, water_level, rainfall
+# - energy, frequency, power_factor
+
+# EXAMPLE: Custom JSON Device
+# - name: "My Custom Device"
+#   enabled: true
+#   topic_pattern: "mydevice/+/sensor"
+#   format: json
+#   interval: 300
+#   device_id_from: topic              # Get device from topic[1]
+#   readings_map:
+#     temperature:
+#       type: "temperature"
+#       name: "Temperature"
+#       unit: "°C"
+#     humidity:
+#       type: "humidity"
+#       name: "Humidity"
+#       unit: "%"
+
+# EXAMPLE: Simple Value Device
+# - name: "My Simple Sensor"
+#   enabled: true
+#   topic_pattern: "sensor/+/+"        # sensor/device/type
+#   format: value
+#   interval: 60
+#   device_id_from: topic              # sensor[1] = device
+#   sensor_id_format: "{device}_{valuename}"
+#   value_type_from: topic             # sensor[2] = type (temperature, humidity, etc.)
+#   friendly_name_format: "{device} {valuename}"
