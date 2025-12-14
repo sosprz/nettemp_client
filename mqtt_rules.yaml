@@ -4,17 +4,21 @@
 # Each rule matches incoming MQTT messages by topic pattern and defines how to extract sensor readings
 # Rules are evaluated in order - first matching rule is used
 #
-# AUTODISCOVERY & WHITELIST:
-# 1. Enable autodiscover: true in a rule to log all discovered devices to mqtt_discovered_devices.log
-# 2. Review the log to see device MACs, names, and available sensor fields
-# 3. Add device MACs/names to allowed_devices list to whitelist only approved devices
-# 4. Disable autodiscover after you've identified all devices
+# DEVICE FILTERING:
+# Filter devices by subscribing to specific topics in config.conf:
 #
-# Example workflow:
-#   Step 1: Set autodiscover: true, restart client, wait a few minutes
-#   Step 2: Check mqtt_discovered_devices.log for device list
-#   Step 3: Copy MAC addresses to allowed_devices: ["A4:C1:38:16:5B:5D", "B8:27:EB:12:34:56"]
-#   Step 4: Set autodiscover: false, restart client
+#   mqtt:
+#     subscribe_topics:
+#       - 'home/TheengsGateway/BTtoMQTT/A4C138165B5D'  # Specific device
+#       - 'home/TheengsGateway/BTtoMQTT/A4C138161122'  # Another device
+#       - 'sensors/esp8266-01/#'                       # All sensors from ESP
+#
+# AUTODISCOVERY:
+# Use interactive menu to discover and select devices:
+#   python3 nettemp_config.py
+#   → Configure MQTT Bridge → Autodiscover MQTT Devices
+#   → Select devices with arrow keys and space bar
+#   → Automatically updates subscribe_topics in config.conf
 
 # Topics to always exclude (status/control messages)
 # These patterns are automatically loaded and applied before any parsing
@@ -32,27 +36,24 @@ rules:
   # Topic: home/TheengsGateway/BTtoMQTT/<MAC>
   # Payload: {"name": "ATC_165B5D", "id": "A4:C1:38:16:5B:5D", "type": "THB", "tempc": 20.5, "hum": 57, "batt": 88, ...}
   #
+  # DEVICE FILTERING:
+  # Subscribe to specific device topics in config.conf to filter devices:
+  #   mqtt:
+  #     subscribe_topics:
+  #       - 'home/TheengsGateway/BTtoMQTT/A4C138165B5D'  # Specific device
+  #       - 'home/TheengsGateway/BTtoMQTT/A4C138161122'  # Another device
+  # Or use nettemp_config.py → Configure MQTT Bridge → Autodiscover to select devices
+  #
   # Configuration:
   # - device_id_field: "name" groups by sensor name (e.g., "ATC_165B5D")
   # - sensor_name_field: "type" uses the 'type' field as sensor display name (e.g., "THB")
-  # - readings_map: type always comes from the 'type' key (temperature, humidity, etc.)
-  # Result: Device group = "ATC_165B5D", Sensor names = "THB" (type field value)
+  # - readings_map: Maps JSON fields to sensor types (temperature, humidity, etc.)
+  # Result: Device group = "ATC_165B5D", Sensor names = "THB"
   - name: "Theengs Gateway"
     enabled: true
     topic_pattern: "*/TheengsGateway/BTtoMQTT/*"
     format: json
     interval: 600                    # Forward readings every 600 seconds (10 minutes)
-    skip_topics:
-      - "*/TheengsGateway/LWT"
-      - "*/TheengsGateway/lwt"
-      - "*/TheengsGateway/version"
-      - "*/TheengsGateway/status"
-    # Whitelist: Only process these device MACs/names (comment out to allow all)
-    allowed_devices:
-      - "A4:C1:38:16:5B:5D"          # ATC_165B5D - Xiaomi temperature sensor
-      - "ATC_165B5D"                 # Alternative match by name field
-    # Autodiscovery: Set to true to log all discovered devices to mqtt_discovered_devices.log
-    autodiscover: false
     device_id_field: "name"          # Group by sensor name (e.g., "ATC_165B5D")
     device_id_fallback: "id"         # Fallback to 'id' if 'name' not present
     sensor_name_field: "type"        # Use 'type' field for sensor display name (e.g., "THB")

@@ -99,6 +99,12 @@ class MQTTBridge:
         if isinstance(self.exclude_topics, str):
             self.exclude_topics = [self.exclude_topics]
         
+        # Topic logging for autodiscovery assistance
+        from pathlib import Path
+        self.topic_log_file = Path(__file__).parent.parent / 'mqtt_topics.log'
+        self.logged_topics = set()
+        self._load_logged_topics()
+        
         # If no exclude_topics in config, use ones from mqtt_rules.yaml
         if not self.exclude_topics and self.parser.exclude_topics:
             self.exclude_topics = self.parser.exclude_topics
@@ -222,6 +228,9 @@ class MQTTBridge:
             payload_str = msg.payload.decode('utf-8') if isinstance(msg.payload, bytes) else msg.payload
             logging.debug(f'MQTT received on {topic}: {payload_str}')
             
+            # Log topic for autodiscovery assistance
+            self._log_topic(topic)
+            
             # Parse message using rule-based parser
             readings = self.parser.parse(topic, msg.payload)
             
@@ -267,6 +276,25 @@ class MQTTBridge:
                 
         except Exception as e:
             logging.error(f'Error processing MQTT message from {msg.topic}: {e}')
+    
+    def _load_logged_topics(self):
+        """Load previously logged topics from file"""
+        try:
+            if self.topic_log_file.exists():
+                with open(self.topic_log_file, 'r') as f:
+                    self.logged_topics = set(line.strip() for line in f if line.strip())
+        except Exception as e:
+            logging.debug(f'Could not load topic log: {e}')
+    
+    def _log_topic(self, topic: str):
+        """Log a unique topic to file for autodiscovery assistance"""
+        if topic not in self.logged_topics:
+            self.logged_topics.add(topic)
+            try:
+                with open(self.topic_log_file, 'a') as f:
+                    f.write(f"{topic}\n")
+            except Exception as e:
+                logging.debug(f'Could not write to topic log: {e}')
 
     def _forward_parsed_readings(self, readings: list) -> bool:
         """

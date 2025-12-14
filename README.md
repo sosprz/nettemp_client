@@ -1,10 +1,72 @@
 # Nettemp Client
 
-IoT sensor client for Raspberry Pi and other Linux devices. Reads sensors and sends data to **Nettemp Cloud** or **self-hosted Nettemp** instance.
+**Universal IoT sensor data collector** for Raspberry Pi and other Linux devices. Reads from multiple sensor types (I2C, 1-Wire, GPIO, USB, Bluetooth, MQTT) with configurable intervals and sends data to **Nettemp Cloud** or **self-hosted Nettemp** instance.
 
 **☁️ Cloud** - Managed hosting at [nettemp.pl](https://nettemp.pl) *(Available Now!)*  
 **🐳 Docker** - Self-hosted with Docker Compose *(Available Now)*  
 **🏠 Self-Hosted** - Deploy to your own server/VPS *(Available Now)*
+
+## What is Nettemp Client?
+
+Nettemp Client is a **multi-protocol sensor data aggregator** that:
+
+- 📡 **Reads sensors** via I2C, 1-Wire, GPIO, USB (Modbus RTU), Bluetooth LE, and MQTT
+- ⏱️ **Scheduled reading** with per-sensor configurable intervals (60s - 1 hour+)
+- 🔄 **Interval-based forwarding** - Rate limiting for MQTT devices (prevents flooding)
+- 📤 **Sends to cloud** - Nettemp Cloud, self-hosted, or multiple servers simultaneously
+- 🔧 **Auto-discovery** - Detects I2C/1-Wire devices automatically
+- 🎛️ **Interactive config** - Terminal UI with arrow key navigation
+- 🚀 **Auto-start on boot** - Runs as background service via cron
+- 📊 **System monitoring** - CPU, RAM, disk, temperature
+
+### Multi-Protocol Support
+
+**Direct Hardware Sensors:**
+- 🔌 **I2C** - BME280, BMP180, TMP102, HTU21D, BH1750, TSL2561, ADXL345, VL53L0x, ADS1115 ADC
+- 🌡️ **1-Wire** - DS18B20 (GPIO direct or DS2482 I2C bridge, DS9490R USB adapter)
+- ⚡ **GPIO** - DHT11, DHT22, HC-SR04 ultrasonic
+- 🔋 **USB Modbus RTU** - SDM120 power meter (RS485)
+
+**Wireless & Network Sensors:**
+- 📶 **Bluetooth LE (passive)** - Via **Theengs Gateway** subprocess for 70+ BLE devices (Xiaomi, Govee, etc.)
+- 📡 **MQTT Subscriber** - Receive from MQTT broker with rule-based parsing:
+  - **Theengs Gateway** - BLE sensors via MQTT (interval: 600s default)
+  - **ESPEasy** - ESP8266/ESP32 firmware (interval: 300s)
+  - **Tasmota** - Popular ESP firmware (interval: 300s)
+  - **Zigbee2MQTT** - Zigbee devices (interval: 300s)
+  - **Home Assistant** - MQTT discovery devices
+  - **Shelly** - Smart home devices
+  - **Generic JSON/Value** - Custom MQTT messages
+
+**MQTT Bridge Modes:**
+- 📤 **Publisher** - Send nettemp sensor readings to remote MQTT broker
+- 📥 **Subscriber** - Receive MQTT messages and forward to cloud servers
+- 🔄 **Both** - Bidirectional MQTT bridge
+
+### Interval & Rate Limiting
+
+**Hardware Sensors** (drivers_config.yaml):
+- Per-driver interval configuration (default: 300s = 5 minutes)
+- Example: `read_in_sec: 600` for 10-minute reads
+
+**MQTT Sensors** (mqtt_rules.yaml):
+- Per-rule interval-based forwarding (prevents flooding)
+- Example intervals:
+  - Theengs Gateway BLE: 600s (10 min) - battery-powered sensors
+  - ESPEasy/Tasmota: 300s (5 min) - mains-powered ESP devices
+  - Generic: 60s (1 min) - adjustable per use case
+- Last forward time tracking per topic
+- Receives all messages, forwards only after interval expires
+
+**Configuration Interface:**
+```
+python3 nettemp_config.py
+→ Configure Drivers (hardware sensors)
+  → Arrow keys navigate, Space toggle, +/- adjust interval
+→ Configure MQTT Bridge
+  → r: Configure Sensor Rules (MQTT parsing & intervals)
+    → Arrow keys navigate, Space toggle, i: edit interval
+```
 
 ## Deployment Options
 
@@ -766,6 +828,108 @@ Payload: 22.5
 ```
 
 Nettemp client auto-converts to sensor reading.
+
+### MQTT Parsing Rules & Intervals
+
+Nettemp Client uses **rule-based parsing** (`mqtt_rules.yaml`) to handle different MQTT message formats. Each rule defines:
+- 📝 **Topic pattern** - Which topics to match (supports wildcards)
+- 🔧 **Parser format** - JSON, simple value, or custom extraction
+- ⏱️ **Forward interval** - Rate limiting to prevent flooding
+- 🎯 **Field mapping** - Extract device ID, sensor type, readings
+
+**Configuration:**
+```bash
+python3 nettemp_config.py
+# → Configure MQTT Bridge → r: Configure Sensor Rules
+```
+
+**Example Rules (mqtt_rules.yaml):**
+
+```yaml
+rules:
+  # Theengs Gateway - BLE sensors via MQTT
+  - name: "Theengs Gateway"
+    enabled: true
+    topic_pattern: "*/TheengsGateway/BTtoMQTT/*"
+    format: json
+    interval: 600  # 10 minutes (battery-powered BLE sensors)
+    device_id_field: "name"
+    sensor_name_field: "type"
+    readings_map:
+      tempc: {type: "temperature", unit: "°C"}
+      hum: {type: "humidity", unit: "%"}
+      batt: {type: "battery", unit: "%"}
+
+  # ESPEasy - ESP8266/ESP32 firmware
+  - name: "ESPEasy"
+    enabled: true
+    topic_pattern: "*/*/*"  # device/task/valuename
+    format: value
+    interval: 300  # 5 minutes (mains-powered)
+    device_id_from: topic  # Extract from topic[0]
+    sensor_id_format: "{device}_{task}_{valuename}"
+    value_type_from: valuename
+
+  # Tasmota - JSON sensor data
+  - name: "Tasmota Sensor"
+    enabled: true
+    topic_pattern: "tele/*/SENSOR"
+    format: json
+    interval: 300  # 5 minutes
+    device_id_from: topic
+    flatten_nested: true  # Convert nested JSON to flat
+    readings_map:
+      Temperature: {type: "temperature", unit_from_field: "TempUnit"}
+      Humidity: {type: "humidity", unit: "%"}
+
+  # Generic JSON - Custom devices
+  - name: "Generic JSON"
+    enabled: true
+    topic_pattern: "*"
+    format: json
+    interval: 60  # 1 minute (adjustable)
+    device_id_field: "device_id"
+    readings_map:
+      value: {type_from_field: "type", unit_from_field: "unit"}
+```
+
+**How Intervals Work:**
+- 📥 MQTT bridge **receives all messages** immediately
+- ⏱️ Tracks **last forward time** per topic
+- 🚦 Forwards to cloud **only after interval expires**
+- 🔇 Silently drops messages within interval (prevents flooding)
+
+**Example:**
+```
+Theengs Gateway BLE sensor sends every 60s
+→ Rule interval: 600s (10 minutes)
+→ Forwards at: 0:00, 0:10, 0:20, 0:30...
+→ Drops messages at: 0:01, 0:02, ..., 0:09, 0:11, ...
+```
+
+**Use Cases:**
+- ⚡ Fast devices (1s): Set interval to 60s to forward once per minute
+- 🔋 Battery sensors: Set interval to 600s+ to reduce cloud writes
+- 💾 Storage optimization: Higher intervals = less database writes
+- 📊 Real-time critical: Set interval to 60s for frequent updates
+
+**Device Filtering:**
+- Subscribe to specific devices via `config.conf` → `subscribe_topics`
+- Use autodiscovery to select devices interactively
+- MQTT broker filters messages before nettemp client receives them
+- Parsing rules process only subscribed messages
+
+**Interactive Configuration:**
+```
+python3 nettemp_config.py → Configure MQTT Bridge → r: Configure Sensor Rules
+
+▶ ✓ Theengs Gateway           600s (10.0min)
+  ✓ ESPEasy                    300s (5.0min)
+  ✓ Tasmota Sensor             300s (5.0min)
+  ✗ Zigbee2MQTT                300s (5.0min)
+
+↑↓: Navigate | Space: Toggle | +/-: Interval | i: Edit | Esc: Save & Back
+```
 
 ### Testing MQTT Connection
 

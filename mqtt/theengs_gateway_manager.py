@@ -131,10 +131,12 @@ class TheengsGatewayManager:
                 "ble_time_between_scans": int(self.config.get('ble_time_between_scans', 30)),
                 "scanning_mode": self.config.get('scanning_mode', 'passive'),
                 "publish_topic": self.config.get('publish_topic', 'home/TheengsGateway/BTtoMQTT'),
-                "subscribe_topic": self.config.get('subscribe_topic', 'home/+/BTtoMQTT/undecoded'),
                 "publish_all": int(self.config.get('publish_all', 1)),
+                "discovery": int(self.config.get('discovery', 0)),
                 "log_level": self.config.get('log_level', 'INFO')
             }
+            # Note: subscribe_topic removed - not needed for nettemp use case
+            # Note: discovery defaults to 0 (disabled) to avoid Home Assistant autodiscovery messages
             
             with open(self.config_file, 'w') as f:
                 json.dump(gateway_config, f, indent=2)

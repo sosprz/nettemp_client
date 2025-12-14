@@ -22,6 +22,7 @@ import time
 import subprocess
 import json
 import signal
+import logging
 from pathlib import Path
 from typing import Dict, List, Optional, Any
 
@@ -1913,6 +1914,7 @@ class NettempConfigMenu:
                 "s: Subscriber Settings (topics, auth token)",
                 "d: Select Destination Servers",
                 "a: Autodiscover MQTT Devices",
+                "r: Configure Sensor Rules (intervals, enable/disable)",
                 "c: Test Connection",
                 "Back to Main Menu"
             ]
@@ -2159,7 +2161,10 @@ class NettempConfigMenu:
                 elif current_option == 8:  # Autodiscover MQTT Devices
                     self._mqtt_autodiscover_devices()
                     
-                elif current_option == 9:  # Test Connection
+                elif current_option == 9:  # Configure Sensor Rules
+                    self._configure_mqtt_sensor_rules()
+                    
+                elif current_option == 10:  # Test Connection
                     if 'mqtt' not in self.config or not isinstance(self.config['mqtt'], dict):
                         print_error("\nMQTT not configured yet!")
                         time.sleep(2)
@@ -2197,7 +2202,7 @@ class NettempConfigMenu:
                     
                     input(f"\n{Colors.GREEN}Press Enter to continue...{Colors.ENDC}")
                     
-                elif current_option == 10:  # Back
+                elif current_option == 11:  # Back
                     break
             
             elif key == 'ESC':
@@ -2283,20 +2288,143 @@ class NettempConfigMenu:
             return False
     
     def configure_theengs_gateway(self):
-        """Configure Theengs Gateway (BLE to MQTT bridge)"""
+        """Configure Theengs Gateway (BLE to MQTT bridge) - Menu interface"""
+        while True:
+            clear_screen()
+            print_header("THEENGS GATEWAY CONFIGURATION")
+            
+            print("Theengs Gateway scans for Bluetooth Low Energy devices")
+            print("and forwards their data to MQTT broker.\n")
+            print("Perfect for Xiaomi, Govee, and other BLE temperature sensors.\n")
+            
+            # Get current settings
+            theengs = self.config.get('theengs_gateway', {})
+            if not isinstance(theengs, dict):
+                theengs = {}
+            
+            current_enabled = theengs.get('enabled', False)
+            current_mqtt_host = theengs.get('mqtt_host', '127.0.0.1')
+            current_mqtt_port = theengs.get('mqtt_port', 1883)
+            current_adapter = theengs.get('adapter', 'hci0')
+            current_scan_time = theengs.get('ble_scan_time', 10)
+            current_between_scans = theengs.get('ble_time_between_scans', 30)
+            current_mode = theengs.get('scanning_mode', 'passive')
+            current_publish_topic = theengs.get('publish_topic', 'home/TheengsGateway/BTtoMQTT')
+            
+            # Check if process is running
+            is_running = self._check_theengs_process_running()
+            
+            # Check if TheengsGateway is installed
+            theengs_installed = self._check_theengs_installed()
+            
+            # Check if Bluetooth experimental mode is enabled
+            bluetooth_experimental = self._check_bluetooth_experimental()
+            
+            # Show current status
+            print("─" * 70)
+            if not theengs_installed:
+                print(f"{Colors.YELLOW}⚠ TheengsGateway NOT INSTALLED{Colors.ENDC}")
+                print(f"{Colors.YELLOW}  Install with: pip install TheengsGateway{Colors.ENDC}\n")
+            
+            if current_enabled:
+                print(f"Status: {Colors.GREEN}● Enabled{Colors.ENDC}")
+            else:
+                print(f"Status: {Colors.YELLOW}○ Disabled{Colors.ENDC}")
+            
+            if is_running:
+                print(f"Process: {Colors.GREEN}● Running{Colors.ENDC}")
+            else:
+                print(f"Process: {Colors.YELLOW}○ Not Running{Colors.ENDC}")
+            
+            if not bluetooth_experimental and theengs_installed:
+                print(f"Bluetooth Experimental: {Colors.YELLOW}⚠ Not Enabled{Colors.ENDC}")
+            elif bluetooth_experimental:
+                print(f"Bluetooth Experimental: {Colors.GREEN}✓ Enabled{Colors.ENDC}")
+            
+            if current_enabled:
+                print(f"\n{Colors.BOLD}Configuration:{Colors.ENDC}")
+                print(f"  MQTT Broker: {current_mqtt_host}:{current_mqtt_port}")
+                print(f"  Bluetooth Adapter: {current_adapter}")
+                print(f"  Scan Time: {current_scan_time}s every {current_between_scans}s")
+                print(f"  Scanning Mode: {current_mode}")
+                print(f"  Publish Topic: {current_publish_topic}")
+            
+            print("─" * 70 + "\n")
+            
+            # Build menu with arrow key navigation
+            menu_items = []
+            if current_enabled:
+                menu_items.append("Disable Theengs Gateway")
+            else:
+                menu_items.append("Enable Theengs Gateway")
+            menu_items.append("Configure Settings")
+            menu_items.append("Restart Process")
+            if bluetooth_experimental:
+                menu_items.append(f"Enable Bluetooth Experimental Mode {Colors.GREEN}(Already Enabled){Colors.ENDC}")
+            else:
+                menu_items.append("Enable Bluetooth Experimental Mode")
+            menu_items.append("Back to Main Menu")
+            
+            # Display menu with arrow key navigation
+            current_idx = getattr(self, '_theengs_menu_idx', 0)
+            for idx, item in enumerate(menu_items):
+                if idx == current_idx:
+                    print(f"{Colors.LIGHT_BLUE}▶ {item}{Colors.ENDC}")
+                else:
+                    print(f"  {item}")
+            
+            print(f"\n{Colors.LIGHT_BLUE}Use ↑↓ arrows, Enter to select{Colors.ENDC}")
+            
+            key = get_key()
+            
+            if key == '':
+                continue
+            elif key == 'UP':
+                current_idx = (current_idx - 1) % len(menu_items)
+                self._theengs_menu_idx = current_idx
+            elif key == 'DOWN':
+                current_idx = (current_idx + 1) % len(menu_items)
+                self._theengs_menu_idx = current_idx
+            elif key == '\r' or key == '\n':  # Enter
+                if current_idx == 0:
+                    # Toggle enable/disable
+                    self.config['theengs_gateway']['enabled'] = not current_enabled
+                    self.save_main_config()
+                    if not current_enabled:
+                        print_success("\n✓ Theengs Gateway enabled. Restart nettemp_client to start process.")
+                    else:
+                        print_success("\n✓ Theengs Gateway disabled. Process will stop on nettemp_client restart.")
+                    time.sleep(2)
+                elif current_idx == 1:
+                    # Configure settings
+                    self._configure_theengs_settings()
+                elif current_idx == 2:
+                    # Restart process
+                    self._restart_theengs_process()
+                elif current_idx == 3:
+                    # Enable Bluetooth experimental
+                    self._enable_bluetooth_experimental()
+                    time.sleep(2)
+                elif current_idx == 4:
+                    break
+            elif key == 'ESC':
+                break
+    
+    def _check_bluetooth_experimental(self):
+        """Check if Bluetooth experimental mode is enabled"""
+        try:
+            result = subprocess.run(['grep', '--', '--experimental', '/lib/systemd/system/bluetooth.service'],
+                                   capture_output=True, text=True, timeout=2)
+            return result.returncode == 0
+        except Exception:
+            return False
+    
+    def _configure_theengs_settings(self):
+        """Configure Theengs Gateway settings"""
         clear_screen()
-        print_header("THEENGS GATEWAY CONFIGURATION")
+        print_header("CONFIGURE THEENGS GATEWAY SETTINGS")
         
-        print("Theengs Gateway scans for Bluetooth Low Energy devices")
-        print("and forwards their data to MQTT broker.\n")
-        print("Perfect for Xiaomi, Govee, and other BLE temperature sensors.\n")
-        
-        # Get current settings
         theengs = self.config.get('theengs_gateway', {})
-        if not isinstance(theengs, dict):
-            theengs = {}
-        
-        current_enabled = theengs.get('enabled', False)
         current_mqtt_host = theengs.get('mqtt_host', '127.0.0.1')
         current_mqtt_port = theengs.get('mqtt_port', 1883)
         current_adapter = theengs.get('adapter', 'hci0')
@@ -2305,136 +2433,130 @@ class NettempConfigMenu:
         current_mode = theengs.get('scanning_mode', 'passive')
         current_publish_topic = theengs.get('publish_topic', 'home/TheengsGateway/BTtoMQTT')
         
-        # Check if process is running
-        is_running = self._check_theengs_process_running()
-        
-        # Check if TheengsGateway is installed
-        theengs_installed = self._check_theengs_installed()
-        
-        # Show current status
-        if not theengs_installed:
-            print(f"{Colors.YELLOW}⚠ TheengsGateway NOT INSTALLED{Colors.ENDC}")
-            print(f"{Colors.YELLOW}  Install with: pip install TheengsGateway{Colors.ENDC}\n")
-        
-        if current_enabled:
-            print(f"Status: {Colors.GREEN}Enabled{Colors.ENDC}")
-            if is_running:
-                print(f"Process: {Colors.GREEN}● Running{Colors.ENDC}")
-            else:
-                print(f"Process: {Colors.YELLOW}○ Not Running{Colors.ENDC}")
-                if theengs_installed:
-                    print(f"{Colors.YELLOW}  → Restart nettemp_client to start the process{Colors.ENDC}")
-            print(f"  MQTT Broker: {current_mqtt_host}:{current_mqtt_port}")
-            print(f"  Bluetooth Adapter: {current_adapter}")
-            print(f"  Scan Time: {current_scan_time}s every {current_between_scans}s")
-            print(f"  Scanning Mode: {current_mode}")
-            print(f"  Publish Topic: {current_publish_topic}")
-        else:
-            print(f"Status: {Colors.YELLOW}Disabled{Colors.ENDC}")
-            if is_running:
-                print(f"Process: {Colors.YELLOW}● Running (will stop when nettemp_client restarts){Colors.ENDC}")
-        
-        print("\n" + "─" * 70 + "\n")
-        
-        # Enable/Disable
-        enabled_str = input_styled("Enable Theengs Gateway? (y/n)", "y" if current_enabled else "n")
-        enabled = enabled_str.lower() in ['y', 'yes']
-        
         if 'theengs_gateway' not in self.config:
             self.config['theengs_gateway'] = {}
         
-        self.config['theengs_gateway']['enabled'] = enabled
+        print("\n" + "─" * 70)
+        print(f"{Colors.BOLD}MQTT Broker Settings{Colors.ENDC}")
+        print("─" * 70 + "\n")
         
-        if enabled:
-            print("\n" + "─" * 70)
-            print(f"{Colors.BOLD}MQTT Broker Settings{Colors.ENDC}")
-            print("─" * 70 + "\n")
+        mqtt_host = input_styled("MQTT Broker Host", current_mqtt_host)
+        mqtt_port_str = input_styled("MQTT Broker Port", str(current_mqtt_port))
+        mqtt_user = input_styled("MQTT Username (leave empty for none)", theengs.get('mqtt_user', ''))
+        mqtt_pass = input_styled("MQTT Password (leave empty for none)", theengs.get('mqtt_pass', ''))
+        
+        print("\n" + "─" * 70)
+        print(f"{Colors.BOLD}Bluetooth Settings{Colors.ENDC}")
+        print("─" * 70 + "\n")
+        
+        adapter = input_styled("Bluetooth Adapter (hci0, hci1, etc)", current_adapter)
+        scan_time_str = input_styled("Scan Duration (seconds)", str(current_scan_time))
+        between_scans_str = input_styled("Wait Between Scans (seconds)", str(current_between_scans))
+        
+        print("\nScanning Mode:")
+        print("  passive - Lower power, doesn't request data from devices")
+        print("  active  - Requests data, may drain battery faster")
+        mode = input_styled("Scanning Mode", current_mode)
+        
+        print("\n" + "─" * 70)
+        print(f"{Colors.BOLD}MQTT Topics{Colors.ENDC}")
+        print("─" * 70 + "\n")
+        
+        publish_topic = input_styled("Publish Topic", current_publish_topic)
+        
+        # Save all settings
+        try:
+            self.config['theengs_gateway'] = {
+                'enabled': True,
+                'mqtt_host': mqtt_host,
+                'mqtt_port': int(mqtt_port_str),
+                'mqtt_user': mqtt_user,
+                'mqtt_pass': mqtt_pass,
+                'adapter': adapter,
+                'ble': 1,
+                'ble_scan_time': int(scan_time_str),
+                'ble_time_between_scans': int(between_scans_str),
+                'scanning_mode': mode,
+                'publish_topic': publish_topic,
+                'publish_all': 1,
+                'discovery': 0,
+                'log_level': 'INFO'
+            }
+            # Note: subscribe_topic not needed - nettemp client subscribes to specific devices
+            # Note: discovery set to 0 to disable Home Assistant autodiscovery messages
             
-            mqtt_host = input_styled("MQTT Broker Host", current_mqtt_host)
-            mqtt_port_str = input_styled("MQTT Broker Port", str(current_mqtt_port))
-            mqtt_user = input_styled("MQTT Username (leave empty for none)", theengs.get('mqtt_user', ''))
-            mqtt_pass = input_styled("MQTT Password (leave empty for none)", theengs.get('mqtt_pass', ''))
+            self.save_main_config()
             
-            print("\n" + "─" * 70)
-            print(f"{Colors.BOLD}Bluetooth Settings{Colors.ENDC}")
-            print("─" * 70 + "\n")
+            print_success("\n✓ Theengs Gateway settings saved!")
+            print_info(f"  Broker: {mqtt_host}:{mqtt_port_str}")
+            print_info(f"  Adapter: {adapter}")
+            print_info(f"  Scan: {scan_time_str}s every {between_scans_str}s")
             
-            adapter = input_styled("Bluetooth Adapter (hci0, hci1, etc)", current_adapter)
-            scan_time_str = input_styled("Scan Duration (seconds)", str(current_scan_time))
-            between_scans_str = input_styled("Wait Between Scans (seconds)", str(current_between_scans))
-            
-            print("\nScanning Mode:")
-            print("  passive - Lower power, doesn't request data from devices")
-            print("  active  - Requests data, may drain battery faster")
-            mode = input_styled("Scanning Mode", current_mode)
-            
-            print("\n" + "─" * 70)
-            print(f"{Colors.BOLD}MQTT Topics{Colors.ENDC}")
-            print("─" * 70 + "\n")
-            
-            publish_topic = input_styled("Publish Topic", current_publish_topic)
-            
-            # Save all settings
-            try:
-                self.config['theengs_gateway'] = {
-                    'enabled': True,
-                    'mqtt_host': mqtt_host,
-                    'mqtt_port': int(mqtt_port_str),
-                    'mqtt_user': mqtt_user,
-                    'mqtt_pass': mqtt_pass,
-                    'adapter': adapter,
-                    'ble': 1,
-                    'ble_scan_time': int(scan_time_str),
-                    'ble_time_between_scans': int(between_scans_str),
-                    'scanning_mode': mode,
-                    'publish_topic': publish_topic,
-                    'subscribe_topic': 'home/+/BTtoMQTT/undecoded',
-                    'publish_all': 1,
-                    'log_level': 'INFO'
-                }
-                
-                print_success("\nTheengs Gateway configured!")
-                print_info(f"  Broker: {mqtt_host}:{mqtt_port_str}")
-                print_info(f"  Adapter: {adapter}")
-                print_info(f"  Scan: {scan_time_str}s every {between_scans_str}s")
-                
-                # Prompt to enable Bluetooth experimental mode
-                print(f"\n{Colors.YELLOW}═══════════════════════════════════════════════════════════════════{Colors.ENDC}")
-                print(f"{Colors.YELLOW}⚠  BLUETOOTH EXPERIMENTAL MODE REQUIRED  ⚠{Colors.ENDC}")
-                print(f"{Colors.YELLOW}═══════════════════════════════════════════════════════════════════{Colors.ENDC}")
-                print("\nTheengs Gateway requires Bluetooth experimental mode for BLE scanning.")
-                print("This modifies the bluetooth.service systemd configuration.\n")
-                
+            # Check if Bluetooth experimental mode is needed
+            if not self._check_bluetooth_experimental():
+                print(f"\n{Colors.YELLOW}⚠ Bluetooth experimental mode is not enabled{Colors.ENDC}")
                 enable_experimental = input_styled("Enable Bluetooth experimental mode now? (y/n)", "y")
                 if enable_experimental.lower() in ['y', 'yes']:
                     self._enable_bluetooth_experimental()
-                else:
-                    print_warning("\nYou can enable it manually later:")
-                    print(f"{Colors.LIGHT_BLUE}  sudo nano /lib/systemd/system/bluetooth.service{Colors.ENDC}")
-                    print(f"  Change: {Colors.LIGHT_BLUE}ExecStart=/usr/libexec/bluetooth/bluetoothd{Colors.ENDC}")
-                    print(f"  To:     {Colors.LIGHT_BLUE}ExecStart=/usr/libexec/bluetooth/bluetoothd --experimental{Colors.ENDC}")
-                    print(f"{Colors.LIGHT_BLUE}  sudo systemctl daemon-reload{Colors.ENDC}")
-                    print(f"{Colors.LIGHT_BLUE}  sudo systemctl restart bluetooth{Colors.ENDC}")
+            
+        except ValueError:
+            print_error("\nInvalid port or timing values!")
+        
+        input(f"\n{Colors.GREEN}Press Enter to continue...{Colors.ENDC}")
+    
+    def _restart_theengs_process(self):
+        """Restart Theengs Gateway process"""
+        clear_screen()
+        print_header("RESTART THEENGS GATEWAY PROCESS")
+        
+        print("\nThis will kill any running TheengsGateway processes.")
+        print("The process will restart automatically when nettemp_client runs.\n")
+        
+        confirm = input_styled("Kill TheengsGateway processes? (y/n)", "n")
+        if confirm.lower() not in ['y', 'yes']:
+            return
+        
+        try:
+            # Kill existing processes
+            result = subprocess.run(['pgrep', '-f', 'TheengsGateway'],
+                                   capture_output=True, text=True, timeout=5)
+            
+            if result.returncode == 0:
+                pids = result.stdout.strip().split('\n')
+                print_info(f"Found {len(pids)} TheengsGateway process(es)")
                 
-            except ValueError:
-                print_error("\nInvalid port or timing values!")
-        else:
-            print_info("\nTheengs Gateway disabled")
-        
-        self.save_main_config()
-        
-        if enabled:
-            print(f"\n{Colors.YELLOW}═══════════════════════════════════════════════════════════════════{Colors.ENDC}")
-            print(f"{Colors.YELLOW}⚠  RESTART REQUIRED TO START THEENGS GATEWAY  ⚠{Colors.ENDC}")
-            print(f"{Colors.YELLOW}═══════════════════════════════════════════════════════════════════{Colors.ENDC}")
-            restart = input_styled("\nRestart nettemp_client now? (y/n)", "y")
-            if restart.lower() in ['y', 'yes']:
-                self._restart_client()
+                for pid in pids:
+                    if pid:
+                        try:
+                            subprocess.run(['kill', '-SIGTERM', pid], timeout=2)
+                            print_success(f"✓ Killed process {pid}")
+                        except Exception as e:
+                            print_warning(f"Could not kill process {pid}: {e}")
+                
+                time.sleep(2)
+                
+                # Check if any survived
+                result = subprocess.run(['pgrep', '-f', 'TheengsGateway'],
+                                       capture_output=True, text=True, timeout=5)
+                
+                if result.returncode == 0:
+                    print_warning("\nSome processes still running, forcing kill...")
+                    pids = result.stdout.strip().split('\n')
+                    for pid in pids:
+                        if pid:
+                            try:
+                                subprocess.run(['kill', '-9', pid], timeout=2)
+                                print_success(f"✓ Force killed process {pid}")
+                            except Exception:
+                                pass
+                
+                print_success("\n✓ TheengsGateway processes stopped")
+                print_info("Process will restart automatically with nettemp_client")
             else:
-                print(f"\n{Colors.YELLOW}Remember to restart nettemp_client manually:{Colors.ENDC}")
-                print(f"{Colors.LIGHT_BLUE}  systemctl restart nettemp_client{Colors.ENDC}")
-                print(f"{Colors.YELLOW}or{Colors.ENDC}")
-                print(f"{Colors.LIGHT_BLUE}  Stop current instance and run: python3 nettemp_client.py{Colors.ENDC}")
+                print_warning("\nNo TheengsGateway processes found running")
+                
+        except Exception as e:
+            print_error(f"\nError: {e}")
         
         input(f"\n{Colors.GREEN}Press Enter to continue...{Colors.ENDC}")
     
@@ -3155,6 +3277,145 @@ class NettempConfigMenu:
             print_error(f"Failed to check cron: {e}")
             return False
     
+    def _configure_mqtt_sensor_rules(self):
+        """Configure MQTT sensor parsing rules (intervals, enable/disable)"""
+        import yaml
+        from pathlib import Path
+        
+        script_dir = Path(__file__).parent.resolve()
+        rules_file = script_dir / 'mqtt_rules.yaml'
+        example_file = script_dir / 'example_mqtt_rules.yaml'
+        
+        # Copy example if mqtt_rules.yaml doesn't exist
+        if not rules_file.exists():
+            if example_file.exists():
+                import shutil
+                shutil.copy(example_file, rules_file)
+                print_success(f"Created {rules_file} from example")
+                time.sleep(1)
+            else:
+                print_error(f"Neither {rules_file} nor {example_file} found!")
+                input(f"\n{Colors.GREEN}Press Enter to continue...{Colors.ENDC}")
+                return
+        
+        # Load rules
+        try:
+            with open(rules_file, 'r') as f:
+                rules_data = yaml.safe_load(f)
+        except Exception as e:
+            print_error(f"Failed to load {rules_file}: {e}")
+            input(f"\n{Colors.GREEN}Press Enter to continue...{Colors.ENDC}")
+            return
+        
+        if not rules_data or 'rules' not in rules_data:
+            print_error(f"Invalid rules file format!")
+            input(f"\n{Colors.GREEN}Press Enter to continue...{Colors.ENDC}")
+            return
+        
+        rules = rules_data['rules']
+        current_idx = 0
+        
+        while True:
+            clear_screen()
+            print_header("MQTT SENSOR RULES CONFIGURATION")
+            
+            # Display current rule details
+            if rules:
+                current_rule = rules[current_idx]
+                name = current_rule.get('name', f'Rule {current_idx+1}')
+                enabled = current_rule.get('enabled', True)
+                interval = current_rule.get('interval', 60)
+                interval_min = interval / 60
+                topic_pattern = current_rule.get('topic_pattern', '*')
+                format_type = current_rule.get('format', 'json')
+                
+                print(f"\n{Colors.BOLD}Selected: {name}{Colors.ENDC}")
+                status_text = f"{Colors.GREEN}ENABLED{Colors.ENDC}" if enabled else f"{Colors.RED}DISABLED{Colors.ENDC}"
+                print(f"Status: {status_text}")
+                print(f"Interval: {interval}s ({interval_min:.1f} min)")
+                print(f"Topic Pattern: {topic_pattern}")
+                print(f"Format: {format_type}")
+                print()
+            
+            print("─" * 70 + "\n")
+            
+            # Display all rules
+            for idx, rule in enumerate(rules):
+                name = rule.get('name', f'Rule {idx+1}')
+                enabled = rule.get('enabled', True)
+                interval = rule.get('interval', 60)
+                interval_min = interval / 60
+                
+                status = "✓" if enabled else "✗"
+                status_color = Colors.GREEN if enabled else Colors.RED
+                
+                if idx == current_idx:
+                    print(f"{Colors.LIGHT_BLUE}▶ {status_color}{status}{Colors.ENDC} {Colors.BOLD}{name:25}{Colors.ENDC} {interval}s ({interval_min:.1f}min)")
+                else:
+                    print(f"  {status_color}{status}{Colors.ENDC} {name:25} {interval}s ({interval_min:.1f}min)")
+            
+            print(f"\n{Colors.LIGHT_BLUE}↑↓: Navigate | Space: Toggle | +/-: Interval | i: Edit Interval | Esc: Save & Back{Colors.ENDC}")
+            
+            key = get_key()
+            
+            if key == '':  # Ignore unknown/incomplete sequences
+                continue
+            elif key == 'UP':
+                current_idx = (current_idx - 1) % len(rules)
+            elif key == 'DOWN':
+                current_idx = (current_idx + 1) % len(rules)
+            elif key == ' ':  # Space to toggle
+                rule = rules[current_idx]
+                rule['enabled'] = not rule.get('enabled', True)
+            elif key == 'i' or key == 'I':  # Edit interval
+                rule = rules[current_idx]
+                name = rule.get('name', f'Rule {current_idx+1}')
+                current_interval = rule.get('interval', 60)
+                
+                clear_screen()
+                print_header(f"CHANGE INTERVAL: {name}")
+                print(f"\nCurrent interval: {current_interval}s ({current_interval // 60} minutes)")
+                print("\nCommon intervals:")
+                print("  60s = 1 minute")
+                print("  300s = 5 minutes")
+                print("  600s = 10 minutes")
+                print("  1800s = 30 minutes")
+                print("  3600s = 1 hour")
+                
+                interval_str = input_styled("Forward interval (seconds)", str(current_interval))
+                try:
+                    interval = int(interval_str)
+                    if interval > 0:
+                        rule['interval'] = interval
+                        print_success(f"\nInterval set to {interval}s ({interval // 60} minutes)")
+                    else:
+                        print_error("\nInterval must be positive!")
+                except ValueError:
+                    print_error("\nInvalid interval value!")
+                time.sleep(1)
+            elif key == '+' or key == '=':  # Increase interval by 60s
+                rule = rules[current_idx]
+                current_interval = rule.get('interval', 60)
+                rule['interval'] = current_interval + 60
+            elif key == '-':  # Decrease interval by 60s
+                rule = rules[current_idx]
+                current_interval = rule.get('interval', 60)
+                new_interval = current_interval - 60
+                if new_interval >= 60:
+                    rule['interval'] = new_interval
+            elif key == 'ESC':
+                # Save and exit
+                try:
+                    with open(rules_file, 'w') as f:
+                        yaml.dump(rules_data, f, default_flow_style=False, sort_keys=False)
+                    print_success(f"\n✓ Saved to {rules_file}")
+                    print_info("\nRestart nettemp_client to apply changes")
+                    time.sleep(2)
+                except Exception as e:
+                    print_error(f"\nFailed to save: {e}")
+                    time.sleep(2)
+                break
+    
     def _mqtt_autodiscover_devices(self):
         """Interactive MQTT device autodiscovery with selection interface"""
         clear_screen()
@@ -3197,20 +3458,43 @@ class NettempConfigMenu:
         discovered_devices = {}
         message_count = 0
         
-        def on_connect(client, userdata, flags, rc):
+        # Load topics from log file if exists
+        from pathlib import Path
+        topic_log_file = Path(__file__).parent / 'mqtt_topics.log'
+        logged_topics = set()
+        if topic_log_file.exists():
+            try:
+                with open(topic_log_file, 'r') as f:
+                    logged_topics = set(line.strip() for line in f if line.strip())
+                print_info(f"Loaded {len(logged_topics)} topics from previous runs\n")
+            except Exception as e:
+                pass
+        
+        # Get currently subscribed topics
+        current_subscribe_topics = mqtt_cfg.get('subscribe_topics', [])
+        if isinstance(current_subscribe_topics, str):
+            current_subscribe_topics = [current_subscribe_topics]
+        # Keep all topics for subscription checking (including wildcards like ESP32_Easy_1/#)
+        
+        def on_connect(client, userdata, flags, rc, properties=None):
             if rc == 0:
                 print_success(f"✓ Connected to {broker}:{port}")
-                # Subscribe to all topics
-                client.subscribe("#")
-                print_info("Listening for all MQTT messages... (Press Ctrl+C when done)\n")
+                # Subscribe to common device topics
+                client.subscribe("home/+/BTtoMQTT/+")  # Theengs Gateway
+                client.subscribe("+/+/+")  # ESPEasy, Tasmota, etc.
+                print_info("Listening for MQTT devices... (Press Ctrl+C when done)\n")
             else:
                 print_error(f"Connection failed with code {rc}")
         
-        def on_message(client, userdata, msg):
+        def on_message(client, userdata, msg, properties=None):
             nonlocal message_count
             try:
                 payload = msg.payload.decode('utf-8')
                 data = json.loads(payload)
+                
+                # Skip if data is not a dictionary (e.g., numeric values)
+                if not isinstance(data, dict):
+                    return
                 
                 # Extract device info
                 device_mac = data.get('id', 'unknown')
@@ -3223,36 +3507,48 @@ class NettempConfigMenu:
                 metadata_fields = {'id', 'name', 'rssi', 'brand', 'model', 'model_id', 'type', 'mac', 'mfr', 'manufacturerdata'}
                 sensor_fields = [k for k in data.keys() if k not in metadata_fields]
                 
-                # Create unique key
-                device_key = f"{device_mac}"
+                # Create unique key using normalized MAC for BLE devices
+                mac_normalized = device_mac.replace(':', '').upper()
+                device_key = f"ble_{mac_normalized}"
                 
                 # Add or update device
                 if device_key not in discovered_devices:
+                    # Check if this device is already subscribed
+                    device_topic = f"home/TheengsGateway/BTtoMQTT/{mac_normalized}"
+                    is_subscribed = device_topic in current_subscribe_topics
+                    
                     discovered_devices[device_key] = {
                         'mac': device_mac,
                         'name': device_name,
-                        'type': device_type,
+                        'type': 'BLE',
                         'brand': brand,
                         'model': model,
                         'sensors': sensor_fields,
-                        'topic': msg.topic
+                        'topic': device_topic,
+                        'subscribed': is_subscribed
                     }
                     
                     # Show discovered device
                     sensors_str = ','.join(sensor_fields) if sensor_fields else 'none'
-                    print(f"{Colors.GREEN}✓{Colors.ENDC} Found: {Colors.CYAN}{device_name}{Colors.ENDC} ({device_mac}) - {brand} {model} - Sensors: {sensors_str}")
+                    subscribed_mark = f" {Colors.GREEN}[SUBSCRIBED]{Colors.ENDC}" if is_subscribed else ""
+                    print(f"{Colors.GREEN}✓{Colors.ENDC} Found: {Colors.CYAN}{device_name}{Colors.ENDC} ({device_mac}) - {brand} {model} - Sensors: {sensors_str}{subscribed_mark}")
                 
                 message_count += 1
                 
             except json.JSONDecodeError:
+                # Silently skip non-JSON payloads
                 pass
             except Exception as e:
-                logging.debug(f"Error processing message: {e}")
+                # Silently skip any other errors during discovery
+                pass
         
         # Create MQTT client with API version compatibility
         try:
-            # Try new API (v2.0+)
-            client = mqtt_client.Client(mqtt_client.CallbackAPIVersion.VERSION1, f"nettemp_discovery_{os.getpid()}")
+            # Try VERSION2 first (current), fallback to VERSION1, then old API
+            try:
+                client = mqtt_client.Client(mqtt_client.CallbackAPIVersion.VERSION2, f"nettemp_discovery_{os.getpid()}")
+            except (AttributeError, ValueError):
+                client = mqtt_client.Client(mqtt_client.CallbackAPIVersion.VERSION1, f"nettemp_discovery_{os.getpid()}")
         except (AttributeError, TypeError):
             # Fallback to old API (v1.x)
             client = mqtt_client.Client(f"nettemp_discovery_{os.getpid()}")
@@ -3279,7 +3575,7 @@ class NettempConfigMenu:
                 
         except KeyboardInterrupt:
             print(f"\n\n{Colors.YELLOW}Discovery stopped{Colors.ENDC}")
-            print(f"Found {len(discovered_devices)} unique device(s), received {message_count} messages\n")
+            print(f"Found {len(discovered_devices)} device(s) from live discovery\n")
         except Exception as e:
             print_error(f"\nConnection error: {e}")
             input(f"\n{Colors.GREEN}Press Enter to continue...{Colors.ENDC}")
@@ -3288,24 +3584,92 @@ class NettempConfigMenu:
             client.loop_stop()
             client.disconnect()
         
-        if not discovered_devices:
-            print_warning("\nNo devices discovered!")
-            print_info("Make sure devices are broadcasting and topics match the subscription pattern.")
+        # Parse logged topics to extract additional devices
+        print_info("Parsing logged topics from previous runs...")
+        logged_devices = {}
+        for topic in logged_topics:
+            # Skip exclude patterns
+            if any(excluded in topic for excluded in ['LWT', '/status/', 'homeassistant/', 'config']):
+                continue
+                
+            # Parse Theengs Gateway topics: home/TheengsGateway/BTtoMQTT/A4C138165B5D
+            if 'BTtoMQTT' in topic:
+                parts = topic.split('/')
+                if len(parts) >= 4:
+                    mac_normalized = parts[-1]
+                    # Format MAC with colons
+                    if len(mac_normalized) == 12 and mac_normalized.isalnum():
+                        mac_formatted = ':'.join([mac_normalized[i:i+2] for i in range(0, 12, 2)])
+                        device_key = f"ble_{mac_normalized}"
+                        
+                        if device_key not in discovered_devices and device_key not in logged_devices:
+                            # Check if subscribed
+                            device_topic = f"home/TheengsGateway/BTtoMQTT/{mac_normalized}"
+                            is_subscribed = device_topic in current_subscribe_topics
+                            
+                            logged_devices[device_key] = {
+                                'mac': mac_formatted,
+                                'name': f'BLE-{mac_normalized[-6:]}',
+                                'type': 'BLE',
+                                'brand': 'Theengs',
+                                'model': 'From Log',
+                                'sensors': [],
+                                'topic': device_topic,
+                                'subscribed': is_subscribed,
+                                'from_log': True
+                            }
+            
+            # Parse ESPEasy/Tasmota/Other device topics: ESP32_Easy_1/BMP280/temperature
+            elif '/' in topic:
+                parts = topic.split('/')
+                if len(parts) >= 2:
+                    device_name = parts[0]
+                    sensor_path = '/'.join(parts[1:])
+                    device_key = f"mqtt_{device_name}"
+                    
+                    # Get or create device entry (even if in discovered_devices, we want to merge sensors)
+                    if device_key not in logged_devices:
+                        is_subscribed = f"{device_name}/#" in current_subscribe_topics or topic in current_subscribe_topics
+                        logged_devices[device_key] = {
+                            'mac': device_name,
+                            'name': device_name,
+                            'type': 'MQTT',
+                            'brand': 'ESPEasy/Tasmota',
+                            'model': 'From Log',
+                            'sensors': [sensor_path],
+                            'topic': f"{device_name}/#",
+                            'subscribed': is_subscribed,
+                            'from_log': True
+                        }
+                    else:
+                        # Add sensor to existing device
+                        if sensor_path not in logged_devices[device_key]['sensors']:
+                            logged_devices[device_key]['sensors'].append(sensor_path)
+        
+        # Merge logged devices with discovered devices
+        all_devices = {**logged_devices, **discovered_devices}
+        
+        if not all_devices:
+            print_warning("\nNo devices found in discovery or logs!")
+            print_info("Run nettemp_client.py first to populate mqtt_topics.log")
             input(f"\n{Colors.GREEN}Press Enter to continue...{Colors.ENDC}")
             return
+        
+        print_success(f"✓ Total: {len(all_devices)} unique device(s) ({len(discovered_devices)} live, {len(logged_devices)} from log)\n")
         
         # Interactive selection
         time.sleep(1)
         clear_screen()
-        print_header("SELECT DEVICES TO WHITELIST")
+        print_header("SELECT DEVICES TO SUBSCRIBE")
         
-        devices_list = list(discovered_devices.values())
-        selected = [False] * len(devices_list)
+        devices_list = list(all_devices.values())
+        # Pre-select already subscribed devices
+        selected = [device.get('subscribed', False) for device in devices_list]
         current_idx = 0
         
         while True:
             clear_screen()
-            print_header("SELECT DEVICES TO WHITELIST")
+            print_header("SELECT DEVICES TO SUBSCRIBE")
             
             print(f"\n{Colors.BOLD}Use ↑↓ arrows to navigate, SPACE to select/deselect, Enter to confirm{Colors.ENDC}\n")
             print(f"Found {len(devices_list)} device(s):\n")
@@ -3314,11 +3678,19 @@ class NettempConfigMenu:
                 checkbox = "☑" if selected[idx] else "☐"
                 sensors_str = ','.join(device['sensors']) if device['sensors'] else 'none'
                 
+                # Build status indicators
+                status_parts = []
+                if device.get('subscribed', False):
+                    status_parts.append(f"{Colors.GREEN}[SUBSCRIBED]{Colors.ENDC}")
+                if device.get('from_log', False):
+                    status_parts.append(f"{Colors.YELLOW}[FROM LOG]{Colors.ENDC}")
+                status_mark = ' ' + ' '.join(status_parts) if status_parts else ""
+                
                 if idx == current_idx:
-                    print(f"{Colors.LIGHT_BLUE}▶ {checkbox} {device['name']} ({device['mac']}) - {device['brand']} {device['model']}")
+                    print(f"{Colors.LIGHT_BLUE}▶ {checkbox} {device['name']} ({device['mac']}) - {device['brand']} {device['model']}{status_mark}")
                     print(f"    Sensors: {sensors_str}{Colors.ENDC}")
                 else:
-                    print(f"  {checkbox} {device['name']} ({device['mac']}) - {device['brand']} {device['model']}")
+                    print(f"  {checkbox} {device['name']} ({device['mac']}) - {device['brand']} {device['model']}{status_mark}")
                     if idx == current_idx - 1 or idx == current_idx + 1:
                         print(f"    Sensors: {sensors_str}")
             
@@ -3349,61 +3721,74 @@ class NettempConfigMenu:
             time.sleep(1)
             return
         
-        # Update mqtt_rules.yaml
+        # Update config.conf subscribe_topics
         clear_screen()
-        print_header("UPDATING WHITELIST")
+        print_header("UPDATING MQTT SUBSCRIPTION")
         
-        print(f"\n{Colors.BOLD}Updating mqtt_rules.yaml with {len(selected_devices)} device(s)...{Colors.ENDC}\n")
+        print(f"\n{Colors.BOLD}Adding {len(selected_devices)} device(s) to MQTT subscribe_topics...{Colors.ENDC}\n")
         
         try:
-            import yaml
+            # Build list of device-specific topics
+            device_topics = []
+            for device in selected_devices:
+                if device['type'] == 'BLE':
+                    # BLE device: use specific MAC topic
+                    mac_normalized = device['mac'].replace(':', '').upper()
+                    topic = f"home/TheengsGateway/BTtoMQTT/{mac_normalized}"
+                    device_topics.append(topic)
+                else:
+                    # MQTT device (ESPEasy, Tasmota, etc): use device wildcard
+                    topic = device['topic']  # Already formatted as "device_name/#"
+                    device_topics.append(topic)
             
-            rules_file = Path(__file__).parent / 'mqtt_rules.yaml'
+            # Get current subscribe_topics from config
+            if 'mqtt' not in self.config:
+                self.config['mqtt'] = {}
             
-            # Load current rules
-            with open(rules_file, 'r') as f:
-                rules_config = yaml.safe_load(f)
+            current_topics = self.config['mqtt'].get('subscribe_topics', [])
+            if isinstance(current_topics, str):
+                current_topics = [current_topics]
+            elif not isinstance(current_topics, list):
+                current_topics = []
             
-            # Find Theengs Gateway rule
-            theengs_rule = None
-            for rule in rules_config.get('rules', []):
-                if rule.get('name') == 'Theengs Gateway':
-                    theengs_rule = rule
-                    break
+            # Remove old device topics and add new ones
+            filtered_topics = []
+            for t in current_topics:
+                # Keep topics that are not device-specific (and not '#' wildcard)
+                if t != '#' and 'TheengsGateway/BTtoMQTT' not in t and not any(t.startswith(d['name'] + '/') or t == d['name'] + '/#' for d in selected_devices if d['type'] == 'MQTT'):
+                    filtered_topics.append(t)
             
-            if theengs_rule:
-                # Update allowed_devices
-                allowed_devices = []
-                for device in selected_devices:
-                    allowed_devices.append(device['mac'])
-                    if device['name'] != 'unknown':
-                        allowed_devices.append(device['name'])
-                
-                theengs_rule['allowed_devices'] = list(set(allowed_devices))  # Remove duplicates
-                theengs_rule['autodiscover'] = False  # Disable autodiscovery
-                
-                # Save updated rules
-                with open(rules_file, 'w') as f:
-                    yaml.dump(rules_config, f, default_flow_style=False, sort_keys=False)
-                
-                print_success("✓ Whitelist updated in mqtt_rules.yaml\n")
-                print(f"{Colors.BOLD}Allowed devices:{Colors.ENDC}")
-                for device in selected_devices:
-                    sensors_str = ','.join(device['sensors']) if device['sensors'] else 'none'
-                    print(f"  • {Colors.CYAN}{device['name']}{Colors.ENDC} ({device['mac']})")
-                    print(f"    {device['brand']} {device['model']} - Sensors: {sensors_str}")
-                
-                print(f"\n{Colors.YELLOW}Restart nettemp client to apply changes{Colors.ENDC}")
-                
-                restart = input_styled("\nRestart nettemp client now? (y/n)", "y")
-                if restart.lower() in ['y', 'yes']:
-                    self._restart_client()
-                
-            else:
-                print_error("\nTheengs Gateway rule not found in mqtt_rules.yaml!")
+            # Add new topics and deduplicate
+            filtered_topics.extend(device_topics)
+            filtered_topics = list(dict.fromkeys(filtered_topics))  # Remove duplicates while preserving order
+            
+            # Update config
+            self.config['mqtt']['subscribe_topics'] = filtered_topics
+            
+            # Save config
+            self.save_main_config()
+            
+            print_success("✓ Subscribe topics updated in config.conf\n")
+            print(f"{Colors.BOLD}Subscribed to devices:{Colors.ENDC}")
+            for device in selected_devices:
+                sensors_str = ','.join(device['sensors']) if device['sensors'] else 'none'
+                print(f"  • {Colors.CYAN}{device['name']}{Colors.ENDC} ({device['mac']})")
+                print(f"    {device['brand']} {device['model']} - Sensors: {sensors_str}")
+                # Show the topic
+                if device['type'] == 'BLE':
+                    mac_normalized = device['mac'].replace(':', '').upper()
+                    print(f"    {Colors.LIGHT_BLUE}Topic: home/TheengsGateway/BTtoMQTT/{mac_normalized}{Colors.ENDC}")
+                else:
+                    print(f"    {Colors.LIGHT_BLUE}Topic: {device['topic']}{Colors.ENDC}")
+            
+            print(f"\n{Colors.YELLOW}Restart nettemp client to apply changes{Colors.ENDC}")
+            
+            restart = input_styled("\nRestart nettemp client now? (y/n)", "y")
+            if restart.lower() in ['y', 'yes']:
+                self._restart_client()
             
         except Exception as e:
-            print_error(f"\nFailed to update mqtt_rules.yaml: {e}")
+            print_error(f"\nFailed to update config.conf: {e}")
             import traceback
             traceback.print_exc()
         

@@ -99,23 +99,6 @@ class MQTTParser:
                 logging.debug(f'Skipping topic {topic} (matched skip rule)')
                 continue
             
-            # Pre-check whitelist for JSON messages to avoid parsing non-whitelisted devices
-            allowed_devices = rule.get('allowed_devices', [])
-            if allowed_devices and rule.get('format') == 'json':
-                try:
-                    import json as json_module
-                    data = json_module.loads(payload)
-                    if isinstance(data, dict):
-                        device_mac = data.get('id', '')
-                        device_name = data.get(rule.get('device_id_field', 'device_id'), '')
-                        
-                        # Check if device is in whitelist
-                        if device_mac not in allowed_devices and device_name not in allowed_devices:
-                            logging.debug(f'Skipping non-whitelisted device on {topic}: mac={device_mac}, name={device_name}')
-                            continue
-                except:
-                    pass  # If pre-check fails, let normal parsing handle it
-            
             # Try to parse with this rule
             try:
                 readings = self._parse_with_rule(topic, payload, rule)
@@ -194,16 +177,8 @@ class MQTTParser:
         if rule.get('autodiscover', False):
             self._log_discovered_device(topic, device_id, data, rule)
         
-        # Whitelist filtering - only allow specified devices
-        allowed_devices = rule.get('allowed_devices', [])
-        if allowed_devices:
-            # Check device_id against whitelist (match name or id field)
-            device_name = data.get(rule.get('device_id_field', 'device_id'), '')
-            device_mac = data.get('id', '')
-            
-            if device_id not in allowed_devices and device_name not in allowed_devices and device_mac not in allowed_devices:
-                logging.debug(f'Skipping non-whitelisted device: {device_id} (name={device_name}, mac={device_mac})')
-                return None
+        # Device filtering is done by MQTT topic subscription in config.conf
+        # No need for allowed_devices whitelist here
         
         # Get friendly name prefix
         friendly_name_prefix = data.get(rule.get('friendly_name_field', 'name'), '')
