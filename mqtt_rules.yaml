@@ -51,7 +51,7 @@ rules:
   # Result: Device group = "ATC_165B5D", Sensor names = "THB"
   - name: "Theengs Gateway"
     enabled: true
-    topic_pattern: "*/TheengsGateway/BTtoMQTT/*"
+    topic_pattern: "+/+/BTtoMQTT/#"
     format: json
     interval: 600                    # Forward readings every 600 seconds (10 minutes)
     device_id_field: "name"          # Group by sensor name (e.g., "ATC_165B5D")

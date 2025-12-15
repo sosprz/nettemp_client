@@ -33,15 +33,16 @@ rules:
   # Theengs Gateway - Bluetooth to MQTT bridge
   # Supports 70+ BLE devices (Xiaomi, Govee, etc.)
   # Topic: home/TheengsGateway/BTtoMQTT/<MAC>
+  # Topic: home/OMG_ESP32_BLE/BTtoMQTT/<MAC>
   # Payload: {"name": "ATC_165B5D", "id": "A4:C1:38:16:5B:5D", "type": "THB", "tempc": 20.5, "hum": 57, "batt": 88}
   #
   # SENSOR NAMING OPTIONS:
   # 1. Use device_id_field: "id" + name in readings_map → "temperature", "humidity", "battery"
   # 2. Use device_id_field: "name" + display_name_field: "name" → "ATC_165B5D temperature", "ATC_165B5D humidity"
   # 3. Use device_id_field: "id" + sensor_name_field: "name" → "ATC_165B5D", "ATC_165B5D", "ATC_165B5D"
-  - name: "Theengs Gateway"
+  - name: "BTtoMQTT"
     enabled: true
-    topic_pattern: "*/TheengsGateway/BTtoMQTT/*"
+    topic_pattern: "+/+/BTtoMQTT/#"
     format: json
     interval: 600                    # Forward readings every 600 seconds (10 minutes)
     device_id_field: "id"            # Group by MAC address (e.g., "A4C138165B5D")
