@@ -13,13 +13,14 @@ Usage:
     python3 nettemp_config_menu.py
     
     Or with venv auto-activation:
-    ./nettemp_config_menu.py
+    ./nettemp_config.py
 """
 
 import sys
 import os
 import time
 import subprocess
+import shutil
 import json
 import signal
 import logging
@@ -889,6 +890,13 @@ class NettempConfigMenu:
         if 'theengs_gateway' in self.config:
             config_data['theengs_gateway'] = self.config['theengs_gateway']
         
+        # Backup existing config for safety
+        try:
+            if os.path.exists(self.config_file):
+                shutil.copyfile(self.config_file, f"{self.config_file}.bak")
+        except Exception as e:
+            print_warning(f"Could not create backup for {self.config_file}: {e}")
+        
         # Write as YAML
         with open(self.config_file, 'w') as f:
             f.write("# Nettemp Client Configuration\n")
@@ -899,6 +907,13 @@ class NettempConfigMenu:
     
     def save_drivers_config(self):
         """Save drivers configuration to drivers_config.yaml"""
+        # Backup existing drivers config for safety
+        try:
+            if os.path.exists(self.drivers_file):
+                shutil.copyfile(self.drivers_file, f"{self.drivers_file}.bak")
+        except Exception as e:
+            print_warning(f"Could not create backup for {self.drivers_file}: {e}")
+
         with open(self.drivers_file, 'w') as f:
             f.write("# Nettemp Cloud - Driver Configuration\n")
             f.write(f"# Generated: {time.strftime('%Y-%m-%d %H:%M:%S')}\n\n")
@@ -909,6 +924,7 @@ class NettempConfigMenu:
     def main_menu(self):
         """Display main menu"""
         current_option = 0
+        cron_enabled_cached = self.check_cron_status()
         
         while True:
             clear_screen()
@@ -944,8 +960,7 @@ class NettempConfigMenu:
             print(f"\nEnabled drivers: {Colors.BOLD}{enabled_drivers}{Colors.ENDC}")
             
             # Check cron status
-            cron_enabled = self.check_cron_status()
-            if cron_enabled:
+            if cron_enabled_cached:
                 print(f"Auto-start (cron): {Colors.GREEN}✓ Configured{Colors.ENDC}")
             else:
                 print(f"Auto-start (cron): {Colors.YELLOW}✗ Not configured{Colors.ENDC}")
@@ -1871,7 +1886,7 @@ class NettempConfigMenu:
                 current_subscribe_topics = []
             if isinstance(current_subscribe_topics, str):
                 current_subscribe_topics = [current_subscribe_topics]
-            current_subscribe_topics_sorted = sorted(current_subscribe_topics)
+            current_subscribe_topics_sorted = sorted(set(current_subscribe_topics))
             current_auth_token = mqtt.get('auth_token', '')
             
             # Show current status
@@ -1925,6 +1940,7 @@ class NettempConfigMenu:
                 "a: Autodiscover MQTT Devices",
                 "r: Configure Topic Rules (intervals, enable/disable)",
                 "c: Test Connection",
+                "h: Help / Shortcuts",
                 "Back to Main Menu"
             ]
             
@@ -2102,6 +2118,7 @@ class NettempConfigMenu:
                     try:
                         qos = int(qos_str)
                         if qos not in [0, 1, 2]:
+                            print_warning("QoS must be 0, 1, or 2. Using 0.")
                             qos = 0
                         
                         retain = retain_str.lower() in ['y', 'yes']
@@ -2147,10 +2164,28 @@ class NettempConfigMenu:
                     
                     topics_str = input_styled("Topics (comma-separated)", ','.join(current_subscribe_topics_sorted) if current_subscribe_topics_sorted else '')
                     
+                    def validate_topic(t: str) -> list[str]:
+                        issues = []
+                        if ' ' in t or '\t' in t:
+                            issues.append("contains whitespace")
+                        if '//' in t:
+                            issues.append("contains empty path '//'")
+                        if '#' in t and not t.endswith('#'):
+                            issues.append("'#' wildcard must be at end")
+                        if t.endswith('/') and t != '/':
+                            issues.append("trailing '/'")
+                        return issues
+                    
                     if topics_str:
-                        topics = sorted({t.strip() for t in topics_str.split(',') if t.strip()})
+                        topics_set = {t.strip() for t in topics_str.split(',') if t.strip()}
+                        topics = sorted(topics_set)
                         self.config['mqtt']['subscribe_topics'] = topics
                         print_success(f"\nSubscribe topics: {', '.join(topics)}")
+                        # Warn about potential mistakes but keep saving
+                        for t in topics:
+                            problems = validate_topic(t)
+                            if problems:
+                                print_warning(f"Topic '{t}' may be invalid ({'; '.join(problems)})")
                     else:
                         self.config['mqtt']['subscribe_topics'] = []
                         print_info("\nNo subscribe topics configured")
@@ -2215,8 +2250,25 @@ class NettempConfigMenu:
                             print("  5. Verify TLS/SSL certificate is valid")
                     
                     input(f"\n{Colors.GREEN}Press Enter to continue...{Colors.ENDC}")
+
+                elif current_option == 11:  # Help / Shortcuts
+                    clear_screen()
+                    print_header("NETTEMP CLIENT - HELP")
+                    print(f"{Colors.CYAN}What this tool edits:{Colors.ENDC}")
+                    print("  - mqtt_rules.yaml : MQTT incoming topic rules")
+                    print("  - drivers_config.yaml : Local driver rules")
+                    print("  - config.conf : General settings")
+                    print("\nUseful files:")
+                    print("  - mqtt_topics.log : collected topics from previous runs")
+                    print("\nTypical flow:")
+                    print("  1) Configure MQTT broker (Enable, Mode, Broker/Port, TLS/creds)")
+                    print("  2) Autodiscover MQTT Devices to pull topics from live/log data")
+                    print("  3) Select devices to subscribe (topics stored in config.conf)")
+                    print("  4) Adjust Topic Rules (mqtt_rules.yaml) and Drivers if needed")
+                    print("\nNavigation: arrows to move, Enter to select, Esc to go back in menus.")
+                    input(f"\n{Colors.GREEN}Press Enter to return...{Colors.ENDC}")
                     
-                elif current_option == 11:  # Back
+                elif current_option == 12:  # Back
                     break
             
             elif key == 'ESC':
@@ -3505,6 +3557,51 @@ class NettempConfigMenu:
                         return True
             return False
 
+        def add_topic(entry: dict, topic: str):
+            """Ensure topic is tracked in entry (primary topic stored as 'topic')."""
+            if not topic:
+                return
+            topics = entry.setdefault('topics', [])
+            if topic not in topics:
+                topics.append(topic)
+                topics.sort()
+            if not entry.get('topic'):
+                entry['topic'] = topics[0]
+
+        def merge_device(store: dict, device_key: str, base_info: dict, topic: str, sensors: list[str]):
+            """Merge device info into store keyed by device_key, tracking topics and sensors."""
+            if device_key in store:
+                entry = store[device_key]
+                # Update human-friendly fields if we have better info
+                for field in ['name', 'brand', 'model', 'mac', 'type']:
+                    if base_info.get(field) and base_info.get(field) != 'unknown':
+                        entry[field] = base_info[field]
+                # Merge sensors
+                if sensors:
+                    entry.setdefault('sensors', [])
+                    for s in sensors:
+                        if s not in entry['sensors']:
+                            entry['sensors'].append(s)
+                    entry['sensors'].sort()
+                add_topic(entry, topic)
+                entry['subscribed'] = base_info.get('subscribed', entry.get('subscribed', False))
+                entry['from_log'] = entry.get('from_log', base_info.get('from_log', False))
+            else:
+                new_entry = {
+                    'mac': base_info.get('mac', ''),
+                    'name': base_info.get('name', 'unknown'),
+                    'type': base_info.get('type', 'MQTT'),
+                    'brand': base_info.get('brand', 'unknown'),
+                    'model': base_info.get('model', 'unknown'),
+                    'sensors': sensors.copy() if sensors else [],
+                    'topic': topic,
+                    'topics': [],
+                    'subscribed': base_info.get('subscribed', False),
+                    'from_log': base_info.get('from_log', False)
+                }
+                add_topic(new_entry, topic)
+                store[device_key] = new_entry
+
         # Parse logged topics before live discovery so user can see them immediately
         logged_devices = {}
         if logged_topics:
@@ -3522,23 +3619,26 @@ class NettempConfigMenu:
                         # Format MAC with colons
                         if len(mac_normalized) == 12 and mac_normalized.isalnum():
                             mac_formatted = ':'.join([mac_normalized[i:i+2] for i in range(0, 12, 2)])
-                            device_key = f"ble_{mac_normalized}_{topic}"
+                            device_key = f"ble_{mac_normalized}"
 
-                            if device_key not in logged_devices:
-                                device_topic = topic
-                                is_subscribed = is_topic_subscribed(device_topic)
+                            device_topic = topic
+                            is_subscribed = is_topic_subscribed(device_topic)
 
-                                logged_devices[device_key] = {
+                            merge_device(
+                                logged_devices,
+                                device_key,
+                                {
                                     'mac': mac_formatted,
                                     'name': f'BLE-{mac_normalized[-6:]}',
                                     'type': 'BLE',
                                     'brand': 'Theengs',
                                     'model': 'From Log',
-                                    'sensors': [],
-                                    'topic': device_topic,
                                     'subscribed': is_subscribed,
-                                    'from_log': True
-                                }
+                                    'from_log': True,
+                                },
+                                device_topic,
+                                sensors=[]
+                            )
 
                 # Parse ESPEasy/Tasmota/Other device topics: ESP32_Easy_1/BMP280/temperature
                 elif '/' in topic:
@@ -3546,26 +3646,24 @@ class NettempConfigMenu:
                     if len(parts) >= 2:
                         device_name = parts[0]
                         sensor_path = '/'.join(parts[1:])
-                        device_key = f"mqtt_{device_name}_{topic}"
+                        device_key = f"mqtt_{device_name}"
 
-                        # Get or create device entry
-                        if device_key not in logged_devices:
-                            is_subscribed = is_topic_subscribed(topic) or is_topic_subscribed(f"{device_name}/#")
-                            logged_devices[device_key] = {
+                        is_subscribed = is_topic_subscribed(topic) or is_topic_subscribed(f"{device_name}/#")
+                        merge_device(
+                            logged_devices,
+                            device_key,
+                            {
                                 'mac': device_name,
                                 'name': device_name,
                                 'type': 'MQTT',
                                 'brand': 'ESPEasy/Tasmota',
                                 'model': 'From Log',
-                                'sensors': [sensor_path],
-                                'topic': topic,
                                 'subscribed': is_subscribed,
-                                'from_log': True
-                            }
-                        else:
-                            # Add sensor to existing device
-                            if sensor_path not in logged_devices[device_key]['sensors']:
-                                logged_devices[device_key]['sensors'].append(sensor_path)
+                                'from_log': True,
+                            },
+                            topic,
+                            sensors=[sensor_path]
+                        )
 
             if logged_devices:
                 print_success(f"Found {len(logged_devices)} device(s) from log:")
@@ -3609,45 +3707,49 @@ class NettempConfigMenu:
                 
                 # Create unique key using normalized MAC for BLE devices
                 mac_normalized = device_mac.replace(':', '').upper()
-                device_key = f"ble_{mac_normalized}_{device_topic}"
+                device_key = f"ble_{mac_normalized}"
 
                 # If already in logged devices, just enrich and skip duplicate printing
                 if device_key in logged_devices:
-                    entry = logged_devices[device_key]
-                    if sensor_fields:
-                        entry['sensors'] = sorted(set(entry.get('sensors', [])) | set(sensor_fields))
-                    if device_name != 'unknown':
-                        entry['name'] = device_name
-                    if brand != 'unknown':
-                        entry['brand'] = brand
-                    if model != 'unknown':
-                        entry['model'] = model
-                    entry['topic'] = device_topic
-                    entry['subscribed'] = is_topic_subscribed(device_topic)
+                    merge_device(
+                        logged_devices,
+                        device_key,
+                        {
+                            'mac': device_mac,
+                            'name': device_name,
+                            'type': 'BLE',
+                            'brand': brand,
+                            'model': model,
+                            'subscribed': is_topic_subscribed(device_topic),
+                        },
+                        device_topic,
+                        sensor_fields
+                    )
                     return
                 if device_topic in logged_topics:
                     return
-                
+
                 # Add or update device
-                if device_key not in discovered_devices:
-                    # Check if this device is already subscribed
-                    is_subscribed = is_topic_subscribed(device_topic)
-                    
-                    discovered_devices[device_key] = {
+                is_subscribed = is_topic_subscribed(device_topic)
+                merge_device(
+                    discovered_devices,
+                    device_key,
+                    {
                         'mac': device_mac,
                         'name': device_name,
                         'type': 'BLE',
                         'brand': brand,
                         'model': model,
-                        'sensors': sensor_fields,
-                        'topic': device_topic,
-                        'subscribed': is_subscribed
-                    }
-                    
-                    # Show discovered device
-                    sensors_str = ','.join(sensor_fields) if sensor_fields else 'none'
-                    subscribed_mark = f" {Colors.GREEN}[SUBSCRIBED]{Colors.ENDC}" if is_subscribed else ""
-                    print(f"{Colors.GREEN}✓{Colors.ENDC} Found: {Colors.CYAN}{device_name}{Colors.ENDC} ({device_mac}) - {brand} {model} - Sensors: {sensors_str} - Topic: {device_topic}{subscribed_mark}")
+                        'subscribed': is_subscribed,
+                    },
+                    device_topic,
+                    sensor_fields
+                )
+                
+                # Show discovered device
+                sensors_str = ','.join(sensor_fields) if sensor_fields else 'none'
+                subscribed_mark = f" {Colors.GREEN}[SUBSCRIBED]{Colors.ENDC}" if is_subscribed else ""
+                print(f"{Colors.GREEN}✓{Colors.ENDC} Found: {Colors.CYAN}{device_name}{Colors.ENDC} ({device_mac}) - {brand} {model} - Sensors: {sensors_str} - Topic: {device_topic}{subscribed_mark}")
                 
                 message_count += 1
                 
@@ -3694,6 +3796,7 @@ class NettempConfigMenu:
             print(f"Found {len(discovered_devices)} device(s) from live discovery\n")
         except Exception as e:
             print_error(f"\nConnection error: {e}")
+            print_warning("Check broker/port, credentials, and TLS settings. Ensure broker is reachable from this host.")
             input(f"\n{Colors.GREEN}Press Enter to continue...{Colors.ENDC}")
             return
         finally:
@@ -3701,8 +3804,13 @@ class NettempConfigMenu:
             client.disconnect()
         
         # Merge logged devices with discovered devices
+        # Merge logged and discovered, preferring discovered to overwrite fields
         all_devices = {**logged_devices, **discovered_devices}
-        
+        # If same key in both, merge topics/sensors
+        for key, dev in discovered_devices.items():
+            if key in logged_devices:
+                merge_device(all_devices, key, dev, dev.get('topic', ''), dev.get('sensors', []))
+
         if not all_devices:
             print_warning("\nNo devices found in discovery or logs!")
             print_info("Run nettemp_client.py first to populate mqtt_topics.log")
@@ -3750,7 +3858,10 @@ class NettempConfigMenu:
                     if idx == current_idx - 1 or idx == current_idx + 1:
                         print(f"    Sensors: {sensors_str}")
             
-            print(f"\n{Colors.GREEN}Selected: {sum(selected)} device(s){Colors.ENDC}")
+            total_selected = sum(selected)
+            new_selected = sum(1 for i, sel in enumerate(selected) if sel and not devices_list[i].get('subscribed'))
+            already_subscribed = total_selected - new_selected
+            print(f"\n{Colors.GREEN}Selected: {total_selected} device(s){Colors.ENDC} ({new_selected} new, {already_subscribed} already subscribed)")
             
             key = get_key()
             
@@ -3771,7 +3882,7 @@ class NettempConfigMenu:
         
         # Get selected devices
         selected_devices = [devices_list[i] for i, sel in enumerate(selected) if sel]
-        
+
         if not selected_devices:
             print_warning("\nNo devices selected!")
             time.sleep(1)
@@ -3784,9 +3895,16 @@ class NettempConfigMenu:
         print(f"\n{Colors.BOLD}Adding {len(selected_devices)} device(s) to MQTT subscribe_topics...{Colors.ENDC}\n")
         
         try:
-            # Build list of device-specific topics (use the topic from discovery/log)
-            device_topics = [d['topic'] for d in selected_devices if d.get('topic')]
-            
+            # Build list of device-specific topics (use all known topics from discovery/log)
+            device_topics = []
+            for d in selected_devices:
+                topics = d.get('topics') or []
+                if not topics and d.get('topic'):
+                    topics = [d['topic']]
+                for t in topics:
+                    if t:
+                        device_topics.append(t)
+
             # Track identifiers to drop old topics for the same device
             selected_ble_macs = set()
             selected_mqtt_prefixes = set()
@@ -3830,7 +3948,7 @@ class NettempConfigMenu:
             
             # Add new topics and deduplicate
             filtered_topics.extend(device_topics)
-            filtered_topics = list(dict.fromkeys(filtered_topics))  # Remove duplicates while preserving order
+            filtered_topics = sorted(set(filtered_topics))  # Sort and deduplicate
             
             # Update config
             self.config['mqtt']['subscribe_topics'] = filtered_topics
@@ -3840,11 +3958,12 @@ class NettempConfigMenu:
             
             print_success("✓ Subscribe topics updated in config.conf\n")
             print(f"{Colors.BOLD}Subscribed to devices:{Colors.ENDC}")
-            for device in sorted(selected_devices, key=lambda d: d.get('topic', '')):
+            for device in sorted(selected_devices, key=lambda d: (d.get('topic') or '', d.get('name') or '')):
                 sensors_str = ','.join(device['sensors']) if device['sensors'] else 'none'
+                topics_show = device.get('topics') or ([device['topic']] if device.get('topic') else [])
                 print(f"  • {Colors.CYAN}{device['name']}{Colors.ENDC} ({device['mac']})")
                 print(f"    {device['brand']} {device['model']} - Sensors: {sensors_str}")
-                print(f"    {Colors.LIGHT_BLUE}Topic: {device['topic']}{Colors.ENDC}")
+                print(f"    {Colors.LIGHT_BLUE}Topics:{Colors.ENDC} {', '.join(topics_show)}")
             
             print(f"\n{Colors.YELLOW}Restart nettemp client to apply changes{Colors.ENDC}")
             
