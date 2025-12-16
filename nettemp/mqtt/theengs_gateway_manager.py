@@ -41,13 +41,34 @@ class TheengsGatewayManager:
         ]
         candidate_names = [c for c in candidate_names if c]
 
-        python_bin_dir = Path(sys.executable).resolve().parent
+        # NOTE: don't use Path(sys.executable).resolve() here; in venvs it's often a symlink
+        # to the system Python (e.g. /usr/bin/python3.11), which would make us look in /usr/bin.
+        scripts_dirs: list[Path] = []
+        try:
+            scripts_dirs.append(Path(sys.executable).parent)
+        except Exception:
+            pass
+        try:
+            scripts_dirs.append(Path(sys.prefix) / "bin")
+        except Exception:
+            pass
+        venv_root = os.environ.get("VIRTUAL_ENV")
+        if venv_root:
+            scripts_dirs.append(Path(venv_root) / "bin")
+
+        # Also consider the directory of the currently executing console script (e.g. .../bin/nettemp).
+        try:
+            scripts_dirs.append(Path(sys.argv[0]).resolve().parent)
+        except Exception:
+            pass
+
         candidates: list[str] = []
         for name in candidate_names:
-            # Prefer the current interpreter's scripts directory (pipx venv)
-            local = python_bin_dir / name
-            if local.exists():
-                candidates.append(str(local))
+            for d in scripts_dirs:
+                local = d / name
+                if local.exists():
+                    candidates.append(str(local))
+                    break
             found = shutil.which(name)
             if found:
                 candidates.append(found)

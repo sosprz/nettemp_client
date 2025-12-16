@@ -2129,11 +2129,11 @@ class NettempConfigMenu:
             
             menu_options = [
                 "Enable Broker (server) settings",
-                "Publisher Settings (topic prefix, QoS, retain)",
-                "Subscriber Settings (topics, auth token)",
-                "Select Destination Servers",
                 "Autodiscover MQTT Devices",
                 "Configure Topic Rules (intervals, enable/disable)",
+                "Subscriber Settings (topics, auth token)",
+                "Publisher Settings (topic prefix, QoS, retain)",
+                "Select Destination Servers",
                 "Help / Shortcuts",
                 "Back to Main Menu"
             ]
@@ -2157,40 +2157,13 @@ class NettempConfigMenu:
             elif key == '\r' or key == '\n':  # Enter
                 if current_option == 0:  # Broker submenu
                     self._mqtt_broker_menu()
-                elif current_option == 1:  # Publisher Settings
-                    if 'mqtt' not in self.config or not isinstance(self.config['mqtt'], dict):
-                        self.config['mqtt'] = {'enabled': False}
-                    
-                    print("\nPublisher Settings")
-                    print("Topics will be: {prefix}/{device_id}/{sensor_id}/{type}")
-                    
-                    prefix = input_styled("Topic Prefix", str(current_topic_prefix))
-                    qos_str = input_styled("QoS (0=at most once, 1=at least once, 2=exactly once)", str(current_qos))
-                    retain_str = input_styled("Retain messages? (y/n)", "y" if current_retain else "n")
-                    
-                    try:
-                        qos = int(qos_str)
-                        if qos not in [0, 1, 2]:
-                            print_warning("QoS must be 0, 1, or 2. Using 0.")
-                            qos = 0
-                        
-                        retain = retain_str.lower() in ['y', 'yes']
-                        
-                        self.config['mqtt']['topic_prefix'] = prefix
-                        self.config['mqtt']['qos'] = qos
-                        self.config['mqtt']['retain'] = retain
-                        
-                        print_success(f"\nPublisher settings saved")
-                        print_info(f"  Topic prefix: {prefix}")
-                        print_info(f"  QoS: {qos}")
-                        print_info(f"  Retain: {retain}")
-                        
-                        self.save_main_config()
-                    except:
-                        print_error("\nInvalid QoS value")
-                    time.sleep(2)
-                    
-                elif current_option == 2:  # Subscriber Settings
+                elif current_option == 1:  # Autodiscover MQTT Devices
+                    self._mqtt_autodiscover_devices()
+
+                elif current_option == 2:  # Configure Sensor Rules
+                    self._configure_mqtt_sensor_rules()
+
+                elif current_option == 3:  # Subscriber Settings
                     if 'mqtt' not in self.config or not isinstance(self.config['mqtt'], dict):
                         self.config['mqtt'] = {'enabled': False}
                     
@@ -2290,15 +2263,42 @@ class NettempConfigMenu:
                     
                     self.save_main_config()
                     time.sleep(2)
+
+                elif current_option == 4:  # Publisher Settings
+                    if 'mqtt' not in self.config or not isinstance(self.config['mqtt'], dict):
+                        self.config['mqtt'] = {'enabled': False}
                     
-                elif current_option == 3:  # Select Servers
+                    print("\nPublisher Settings")
+                    print("Topics will be: {prefix}/{device_id}/{sensor_id}/{type}")
+                    
+                    prefix = input_styled("Topic Prefix", str(current_topic_prefix))
+                    qos_str = input_styled("QoS (0=at most once, 1=at least once, 2=exactly once)", str(current_qos))
+                    retain_str = input_styled("Retain messages? (y/n)", "y" if current_retain else "n")
+                    
+                    try:
+                        qos = int(qos_str)
+                        if qos not in [0, 1, 2]:
+                            print_warning("QoS must be 0, 1, or 2. Using 0.")
+                            qos = 0
+                        
+                        retain = retain_str.lower() in ['y', 'yes']
+                        
+                        self.config['mqtt']['topic_prefix'] = prefix
+                        self.config['mqtt']['qos'] = qos
+                        self.config['mqtt']['retain'] = retain
+                        
+                        print_success(f"\nPublisher settings saved")
+                        print_info(f"  Topic prefix: {prefix}")
+                        print_info(f"  QoS: {qos}")
+                        print_info(f"  Retain: {retain}")
+                        
+                        self.save_main_config()
+                    except:
+                        print_error("\nInvalid QoS value")
+                    time.sleep(2)
+
+                elif current_option == 5:  # Select Servers
                     self._configure_mqtt_servers()
-                    
-                elif current_option == 4:  # Autodiscover MQTT Devices
-                    self._mqtt_autodiscover_devices()
-                    
-                elif current_option == 5:  # Configure Sensor Rules
-                    self._configure_mqtt_sensor_rules()
 
                 elif current_option == 6:  # Help / Shortcuts
                     clear_screen()
