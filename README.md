@@ -109,7 +109,21 @@ Run your own Nettemp server - available as Docker containers or manual deploymen
 - 🔌 **I2C/GPIO/1-Wire** - Full hardware support
 - 📊 **System monitoring** - CPU, RAM, temperature
 
-## Quick Install
+## Installation Options
+
+### Option A: pipx (recommended)
+Installs the CLI globally with an isolated venv.
+
+```bash
+pipx install "nettemp @ git+https://github.com/sosprz/nettemp_client.git"
+
+# Run configurator / client
+nettemp config
+nettemp client
+nettemp client restart
+```
+
+## Quick Install (one-shot interactive)
 
 **On Raspberry Pi / Linux device:**
 
