@@ -19,7 +19,7 @@ def w1_kernel(config_dict):
     if config_dict.get('ds2482') and not _ds2482_initialized:
         logging.info("DS2482 mode detected - initializing DS2482 bridge...")
         try:
-            from drivers.ds2482 import ds2482_init
+            from .ds2482 import ds2482_init
             if ds2482_init(config_dict):
                 _ds2482_initialized = True
                 logging.info("DS2482 initialized successfully")

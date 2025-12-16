@@ -6,7 +6,10 @@ Manages TheengsGateway BLE to MQTT bridge as a subprocess
 import subprocess
 import logging
 import json
+import os
+import shutil
 import signal
+import sys
 import time
 from pathlib import Path
 from typing import Optional, Dict, Any
@@ -25,17 +28,31 @@ class TheengsGatewayManager:
         self.config = config or {}
         self.enabled = bool(self.config.get('enabled', False))
         self.process: Optional[subprocess.Popen] = None
-        # Config file goes in parent directory (client root)
-        self.config_file = Path(__file__).parent.parent / 'theengs_gateway_config.json'
+        data_dir = Path(os.environ.get("NETTEMP_DATA_DIR", Path.home() / ".nettemp_client"))
+        data_dir.mkdir(parents=True, exist_ok=True)
+        self.config_file = data_dir / 'theengs_gateway_config.json'
         
-        # Determine TheengsGateway command (venv or system) - look in parent directory
-        script_dir = Path(__file__).parent.parent.resolve()
-        venv_theengs = script_dir / 'venv' / 'bin' / 'TheengsGateway'
-        
-        if venv_theengs.exists():
-            self.theengs_cmd = str(venv_theengs)
-        else:
-            self.theengs_cmd = 'TheengsGateway'
+        # Determine TheengsGateway command (pipx/venv or system PATH)
+        candidate_names = [
+            os.environ.get("THEENGS_GATEWAY_CMD", "").strip(),
+            "TheengsGateway",
+            "theengsgateway",
+            "theengs-gateway",
+        ]
+        candidate_names = [c for c in candidate_names if c]
+
+        python_bin_dir = Path(sys.executable).resolve().parent
+        candidates: list[str] = []
+        for name in candidate_names:
+            # Prefer the current interpreter's scripts directory (pipx venv)
+            local = python_bin_dir / name
+            if local.exists():
+                candidates.append(str(local))
+            found = shutil.which(name)
+            if found:
+                candidates.append(found)
+
+        self.theengs_cmd = candidates[0] if candidates else None
         
         if not self.enabled:
             logging.info('Theengs Gateway disabled in config')
@@ -43,6 +60,8 @@ class TheengsGatewayManager:
         
         # Check if TheengsGateway is installed
         try:
+            if not self.theengs_cmd:
+                raise FileNotFoundError("TheengsGateway executable not found")
             # Try --version first
             result = subprocess.run([self.theengs_cmd, '--version'], 
                                     capture_output=True, text=True, timeout=5)
@@ -50,9 +69,9 @@ class TheengsGatewayManager:
                 logging.info(f'Found TheengsGateway: {result.stdout.strip()} ({self.theengs_cmd})')
             else:
                 # --version might not be supported, try --help or just check if file exists and is executable
-                if venv_theengs.exists() and venv_theengs.is_file():
+                if Path(self.theengs_cmd).exists() and Path(self.theengs_cmd).is_file():
                     import stat
-                    file_stat = venv_theengs.stat()
+                    file_stat = Path(self.theengs_cmd).stat()
                     is_executable = bool(file_stat.st_mode & stat.S_IXUSR)
                     if is_executable:
                         logging.info(f'Found TheengsGateway at {self.theengs_cmd} (--version not supported)')

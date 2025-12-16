@@ -65,7 +65,10 @@ class DriverLoader:
             return self.loaded_drivers[driver_name]
 
         try:
-            module = importlib.import_module(f'drivers.{driver_name}')
+            # When installed as a package (pip/pipx), drivers live under nettemp.drivers.
+            # Use a relative import to avoid relying on a top-level "drivers" package.
+            package = __package__ or 'nettemp'
+            module = importlib.import_module(f'.drivers.{driver_name}', package=package)
             driver_func = getattr(module, driver_name)
             self.loaded_drivers[driver_name] = driver_func
             logging.info(f"Loaded driver: {driver_name}")
