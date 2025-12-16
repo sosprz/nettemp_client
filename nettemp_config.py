@@ -192,8 +192,7 @@ def check_and_setup_environment():
                 print(f"✗ Failed to create venv: {e}")
                 sys.exit(1)
         else:
-            print("
-✓ Virtual environment exists")
+            print("\n✓ Virtual environment exists")
         
         # Check if we're in venv, if not restart with venv python
         if not hasattr(sys, 'real_prefix') and not (hasattr(sys, 'base_prefix') and sys.base_prefix != sys.prefix):
