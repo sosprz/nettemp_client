@@ -994,7 +994,7 @@ class NettempConfigMenu:
             if not device_name or device_name.lower() == 'not set':
                 device_suffix = f" [{Colors.YELLOW}NOT SET{Colors.ENDC}]"
             else:
-                device_suffix = f" [{device_name} (device_id: {device_name})]"
+                device_suffix = f" [{device_name}]"
 
             menu_options = [
                 "View Status / Health",

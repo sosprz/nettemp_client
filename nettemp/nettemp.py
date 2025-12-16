@@ -15,7 +15,15 @@ import urllib3
 # Disable SSL warnings for local/docker servers
 urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 
-from .paths import get_config_file, get_drivers_file
+try:
+    from .paths import get_config_file, get_drivers_file
+except Exception:
+    # When executed with a cwd that points at the package directory (or as a script),
+    # relative imports may fail. Fall back to absolute/top-level imports.
+    try:
+        from nettemp.paths import get_config_file, get_drivers_file  # type: ignore
+    except Exception:  # pragma: no cover
+        from paths import get_config_file, get_drivers_file  # type: ignore
 
 
 class CloudClient:

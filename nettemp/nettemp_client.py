@@ -53,8 +53,9 @@ try:
 except Exception:
     BackgroundScheduler = None
 
-# Change to script directory to ensure relative paths work correctly
-os.chdir(script_dir)
+# Do not chdir into the package directory: it can shadow the `nettemp` package
+# with the sibling `nettemp.py` module and break relative imports when running
+# installed (pip/pipx) code. All config paths are resolved explicitly.
 
 # Support both package and script execution contexts
 try:
