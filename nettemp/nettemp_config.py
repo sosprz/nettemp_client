@@ -964,34 +964,42 @@ class NettempConfigMenu:
             print(f"  - mqtt_rules.yaml {Colors.YELLOW}MQTT incoming topic rules{Colors.ENDC}")
             print(f"  - drivers_config.yaml {Colors.YELLOW}Local driver rules{Colors.ENDC}")
             print(f"  - config.conf {Colors.YELLOW}General settings{Colors.ENDC}\n")
-            
-            device_name = self.config.get('group', '')
-            if not device_name or device_name == 'not set':
-                print(f"Current device: {Colors.YELLOW}⚠ NOT SET - Please configure!{Colors.ENDC}\n")
-            else:
-                print(f"Current device: {Colors.BOLD}{device_name}{Colors.ENDC} (device_id: {device_name})\n")
-            
-            # Show all configured servers
-            print(f"{Colors.BOLD}Configured Destination Servers:{Colors.ENDC}")
-            
-            cloud_servers = self.config.get('cloud_servers', [])
-            
-            if cloud_servers:
-                for server in cloud_servers:
-                    key_preview = f"{server.get('api_key', '')[:8]}..." if len(server.get('api_key', '')) > 8 else server.get('api_key', '')
-                    if server.get('enabled', True):
-                        print(f"  {Colors.GREEN}▶{Colors.ENDC} {server.get('name', 'Server')}: {Colors.GREEN}{server.get('url', '')}{Colors.ENDC} (key: {key_preview})")
-                    else:
-                        print(f"  {Colors.CYAN}·{Colors.ENDC} {server.get('name', 'Server')}: {Colors.CYAN}{server.get('url', '')}{Colors.ENDC} (key: {key_preview})")
-            else:
-                print(f"  {Colors.YELLOW}No servers configured{Colors.ENDC}")
 
-            print()  # spacing before menu options
+            cloud_servers = self.config.get('cloud_servers', []) or []
+            enabled_server_names = [
+                s.get('name', '').strip()
+                for s in cloud_servers
+                if isinstance(s, dict) and s.get('enabled', True) and s.get('name')
+            ]
+
+            def _format_bracket_list(items: list[str], max_len: int = 44) -> str:
+                if not items:
+                    return ""
+                text = ",".join(items)
+                if len(text) <= max_len:
+                    return f" [{text}]"
+                kept: list[str] = []
+                used = 0
+                for item in items:
+                    extra = len(item) + (1 if kept else 0)
+                    if used + extra > max_len:
+                        break
+                    kept.append(item)
+                    used += extra
+                if not kept:
+                    return " [..]"
+                return f" [{','.join(kept)},..]"
+
+            device_name = (self.config.get('group') or '').strip()
+            if not device_name or device_name.lower() == 'not set':
+                device_suffix = f" [{Colors.YELLOW}NOT SET{Colors.ENDC}]"
+            else:
+                device_suffix = f" [{device_name} (device_id: {device_name})]"
 
             menu_options = [
                 "View Status / Health",
-                "Configure Destination Servers",
-                "Configure Device Name",
+                f"Configure Destination Servers{_format_bracket_list(enabled_server_names)}",
+                f"Configure Device Name{device_suffix}",
                 "Configure HTTP Bridge",
                 "Configure MQTT Bridge",
                 "Configure Theengs Gateway (BLE to MQTT)",
