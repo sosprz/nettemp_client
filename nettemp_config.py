@@ -1851,26 +1851,16 @@ class NettempConfigMenu:
                 time.sleep(1)
                 break
     
-    def _mqtt_broker_menu(self):
-        """Submenu for MQTT broker/server settings"""
-        current_option = 0
-        while True:
-            clear_screen()
-            print_header("MQTT BROKER (SERVER) SETTINGS")
             
-            mqtt = self.config.get('mqtt', {})
-            if not isinstance(mqtt, dict):
-                mqtt = {}
-            
-            current_enabled = mqtt.get('enabled', False)
-            current_mode = mqtt.get('mode', 'both')
-            current_broker = mqtt.get('broker', '')
-            current_port = mqtt.get('port', 1883)
-            current_username = mqtt.get('username', '')
-            current_password = mqtt.get('password', '')
-            current_tls = mqtt.get('tls', False)
-            
-            print(f"Status: {Colors.GREEN}Enabled{Colors.ENDC}" if current_enabled else f"Status: {Colors.YELLOW}Disabled{Colors.ENDC}")
+            # Ensure defaults for publisher settings
+            if 'topic_prefix' not in self.config['mqtt']:
+                self.config['mqtt']['topic_prefix'] = 'nettemp'
+            if 'qos' not in self.config['mqtt']:
+                self.config['mqtt']['qos'] = 0
+            if 'retain' not in self.config['mqtt']:
+                self.config['mqtt']['retain'] = False
+
+            print(f"Status: {Colors.GREEN}Enabled{Colors.ENDC}")
             print(f"Mode: {Colors.CYAN}{current_mode}{Colors.ENDC}")
             print(f"Broker: {current_broker}:{current_port}")
             if current_username:
@@ -1880,10 +1870,10 @@ class NettempConfigMenu:
             print("\n" + "─" * 70 + "\n")
             
             menu_options = [
-                "Enable/Disable",
                 "Set Mode (publisher/subscriber/both)",
                 "Configure Broker & Port",
                 "Configure Username & Password",
+                "Configure Topic Prefix & QoS",
                 "Toggle TLS/SSL",
                 "Test Connection",
                 "Back"
@@ -1905,66 +1895,9 @@ class NettempConfigMenu:
             elif key == 'DOWN':
                 current_option = (current_option + 1) % len(menu_options)
             elif key == '\r' or key == '\n':
-                if current_option == 0:  # Enable/Disable
-                    enabled_str = input_styled("Enable MQTT Bridge? (y/n)", "y" if current_enabled else "n")
-                    enabled = enabled_str.lower() in ['y', 'yes']
-                    
+                if current_option == 0:  # Set Mode
                     if 'mqtt' not in self.config or not isinstance(self.config['mqtt'], dict):
-                        self.config['mqtt'] = {}
-                    
-                    self.config['mqtt']['enabled'] = enabled
-                    
-                    if enabled:
-                        if 'mode' not in self.config['mqtt']:
-                            self.config['mqtt']['mode'] = 'both'
-                        if 'port' not in self.config['mqtt']:
-                            self.config['mqtt']['port'] = 1883
-                        if 'topic_prefix' not in self.config['mqtt']:
-                            self.config['mqtt']['topic_prefix'] = 'nettemp'
-                        if 'qos' not in self.config['mqtt']:
-                            self.config['mqtt']['qos'] = 0
-                        print_success("\nMQTT Bridge enabled")
-                        
-                        if not self.config['mqtt'].get('broker'):
-                            print_warning("\nBroker not configured!")
-                            broker = input_styled("MQTT Broker hostname/IP", "localhost")
-                            if broker:
-                                self.config['mqtt']['broker'] = broker
-                        
-                        broker = self.config['mqtt'].get('broker', '')
-                        if broker in ['localhost', '127.0.0.1', '::1']:
-                            try:
-                                result = subprocess.run(['systemctl', 'is-active', 'mosquitto'], 
-                                                      capture_output=True, text=True, check=False)
-                                if result.returncode != 0 or result.stdout.strip() != 'active':
-                                    print_warning("\nMosquitto broker is not running!")
-                                    start_mosquitto = input_styled("Start Mosquitto service now? (y/n)", "y")
-                                    if start_mosquitto.lower() in ['y', 'yes']:
-                                        try:
-                                            subprocess.run(['sudo', 'systemctl', 'start', 'mosquitto'], check=True)
-                                            subprocess.run(['sudo', 'systemctl', 'enable', 'mosquitto'], check=False)
-                                            print_success("✓ Mosquitto service started and enabled")
-                                        except subprocess.CalledProcessError:
-                                            print_error("Failed to start Mosquitto service")
-                                            print_info("Try manually: sudo systemctl start mosquitto")
-                            except Exception as e:
-                                logging.debug(f"Could not check Mosquitto status: {e}")
-                        
-                        print_info("\nMQTT configuration saved")
-                        restart = input_styled("Restart nettemp client to apply changes? (y/n)", "y")
-                        if restart.lower() in ['y', 'yes']:
-                            self.save_main_config()
-                            self._restart_client()
-                            return
-                    else:
-                        print_info("\nMQTT Bridge disabled")
-                    
-                    self.save_main_config()
-                    time.sleep(1)
-                
-                elif current_option == 1:  # Set Mode
-                    if 'mqtt' not in self.config or not isinstance(self.config['mqtt'], dict):
-                        self.config['mqtt'] = {'enabled': False}
+                        self.config['mqtt'] = {'enabled': True}
                     
                     print("\nSelect MQTT mode:")
                     print("  1: Publisher (send sensor data to MQTT)")
@@ -1986,9 +1919,9 @@ class NettempConfigMenu:
                     self.save_main_config()
                     time.sleep(1)
                 
-                elif current_option == 2:  # Configure Broker & Port
+                elif current_option == 1:  # Configure Broker & Port
                     if 'mqtt' not in self.config or not isinstance(self.config['mqtt'], dict):
-                        self.config['mqtt'] = {'enabled': False}
+                        self.config['mqtt'] = {'enabled': True}
                     
                     broker = input_styled("MQTT Broker hostname/IP", str(current_broker))
                     port_str = input_styled("MQTT Port", str(current_port))
@@ -2003,9 +1936,9 @@ class NettempConfigMenu:
                         print_error("\nInvalid port number")
                     time.sleep(1)
                 
-                elif current_option == 3:  # Configure Username & Password
+                elif current_option == 2:  # Configure Username & Password
                     if 'mqtt' not in self.config or not isinstance(self.config['mqtt'], dict):
-                        self.config['mqtt'] = {'enabled': False}
+                        self.config['mqtt'] = {'enabled': True}
                     
                     username = input_styled("MQTT Username (leave empty for none)", str(current_username))
                     
@@ -2022,9 +1955,23 @@ class NettempConfigMenu:
                     self.save_main_config()
                     time.sleep(1)
                 
+                elif current_option == 3:  # Configure Topic Prefix & QoS
+                    if 'mqtt' not in self.config or not isinstance(self.config['mqtt'], dict):
+                        self.config['mqtt'] = {'enabled': True}
+                    prefix = input_styled("Topic prefix", self.config['mqtt'].get('topic_prefix', 'nettemp'))
+                    qos = input_int_styled("QoS (0/1/2)", self.config['mqtt'].get('qos', 0))
+                    retain_str = input_styled("Retain published messages? (y/n)", "n" if not self.config['mqtt'].get('retain', False) else "y")
+                    retain = retain_str.lower() in ['y', 'yes']
+                    self.config['mqtt']['topic_prefix'] = prefix or 'nettemp'
+                    self.config['mqtt']['qos'] = qos
+                    self.config['mqtt']['retain'] = retain
+                    print_success("\nTopic prefix/QoS/retain updated")
+                    self.save_main_config()
+                    time.sleep(1)
+                
                 elif current_option == 4:  # Toggle TLS/SSL
                     if 'mqtt' not in self.config or not isinstance(self.config['mqtt'], dict):
-                        self.config['mqtt'] = {'enabled': False}
+                        self.config['mqtt'] = {'enabled': True}
                     
                     tls_str = input_styled("Enable TLS/SSL? (y/n)", "y" if current_tls else "n")
                     tls = tls_str.lower() in ['y', 'yes']
@@ -2451,7 +2398,6 @@ class NettempConfigMenu:
                 print(f"Status: {Colors.GREEN}● Enabled{Colors.ENDC}")
             else:
                 print(f"Status: {Colors.YELLOW}○ Disabled{Colors.ENDC}")
-            print(f"Process: {Colors.YELLOW}○ Not Checked (see Status / Health){Colors.ENDC}")
             
             if current_enabled:
                 print(f"\n{Colors.BOLD}Configuration:{Colors.ENDC}")
@@ -2481,7 +2427,7 @@ class NettempConfigMenu:
                 else:
                     print(f"  {item}")
             
-            print(f"\n{Colors.LIGHT_BLUE}Use ↑↓ arrows, Enter to select{Colors.ENDC}")
+            print(f"\n{Colors.LIGHT_BLUE}Use ↑↓ arrows, Enter to select, Esc to go back{Colors.ENDC}")
             
             key = get_key()
             
@@ -2501,7 +2447,9 @@ class NettempConfigMenu:
                     if not current_enabled:
                         print_success("\n✓ Theengs Gateway enabled. Restart nettemp_client to start process.")
                     else:
-                        print_success("\n✓ Theengs Gateway disabled. Process will stop on nettemp_client restart.")
+                        # Stop any running processes when disabling
+                        self._stop_theengs_processes()
+                        print_success("\n✓ Theengs Gateway disabled. Process stopped.")
                     time.sleep(2)
                 elif current_idx == 1:
                     # Configure settings
@@ -2667,6 +2615,35 @@ class NettempConfigMenu:
             print_error(f"\nError: {e}")
         
         input(f"\n{Colors.GREEN}Press Enter to continue...{Colors.ENDC}")
+
+    def _stop_theengs_processes(self):
+        """Kill TheengsGateway processes without prompts (used when disabling)."""
+        try:
+            result = subprocess.run(['pgrep', '-f', 'TheengsGateway'],
+                                   capture_output=True, text=True, timeout=5)
+            if result.returncode != 0:
+                return
+            pids = result.stdout.strip().split('\n')
+            for pid in pids:
+                if pid:
+                    try:
+                        subprocess.run(['kill', '-SIGTERM', pid], timeout=2)
+                    except Exception:
+                        pass
+            time.sleep(1)
+            # Force kill survivors
+            result = subprocess.run(['pgrep', '-f', 'TheengsGateway'],
+                                   capture_output=True, text=True, timeout=5)
+            if result.returncode == 0:
+                pids = result.stdout.strip().split('\n')
+                for pid in pids:
+                    if pid:
+                        try:
+                            subprocess.run(['kill', '-9', pid], timeout=2)
+                        except Exception:
+                            pass
+        except Exception:
+            pass
     
     def configure_device_name(self):
         """Configure device name (sets both device_id and group)"""
