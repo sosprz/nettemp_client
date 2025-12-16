@@ -48,11 +48,15 @@ def remove_nettemp_entries(crontab_text: str) -> str:
     return "\n".join(lines) + ("\n" if lines else "")
 
 
-def build_nettemp_reboot_entry(python_cmd: str) -> str:
+def build_nettemp_reboot_entry(python_cmd: str, config_dir: str | None = None) -> str:
     py = shlex.quote(python_cmd)
+    env_bits = ["NETTEMP_CLIENT_BG=1"]
+    if config_dir:
+        env_bits.append(f"NETTEMP_CONFIG_DIR={shlex.quote(config_dir)}")
+    env_prefix = " ".join(env_bits)
     return (
         "@reboot /bin/sleep 30 && "
-        f"NETTEMP_CLIENT_BG=1 {py} -m nettemp.nettemp_client > /dev/null 2>&1 &"
+        f"{env_prefix} {py} -m nettemp.nettemp_client > /dev/null 2>&1 &"
     )
 
 
@@ -77,7 +81,7 @@ def get_nettemp_cron_status() -> CronStatus:
     )
 
 
-def install_or_replace_nettemp_cron(python_cmd: str) -> str:
+def install_or_replace_nettemp_cron(python_cmd: str, config_dir: str | None = None) -> str:
     """
     Remove any legacy nettemp cron lines and install the canonical module-based entry.
 
@@ -85,7 +89,7 @@ def install_or_replace_nettemp_cron(python_cmd: str) -> str:
     """
     current = _read_crontab()
     cleaned = remove_nettemp_entries(current)
-    entry = build_nettemp_reboot_entry(python_cmd)
+    entry = build_nettemp_reboot_entry(python_cmd, config_dir=config_dir)
     new_contents = cleaned + entry + "\n"
     _write_crontab(new_contents)
     return entry

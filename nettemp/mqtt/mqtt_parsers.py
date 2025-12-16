@@ -36,8 +36,12 @@ class MQTTParser:
             return
         
         if not rules_file:
-            # Default to mqtt_rules.yaml in parent directory (client root)
-            rules_file = Path(__file__).parent.parent / 'mqtt_rules.yaml'
+            # Default to mqtt_rules.yaml resolved via shared config directory.
+            try:
+                from ..paths import get_mqtt_rules_file
+                rules_file = get_mqtt_rules_file()
+            except Exception:
+                rules_file = Path(__file__).parent.parent / 'mqtt_rules.yaml'
         
         try:
             with open(rules_file, 'r') as f:

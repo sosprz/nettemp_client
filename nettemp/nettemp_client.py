@@ -63,20 +63,23 @@ try:
     from nettemp.bridge import HTTPBridge
     from nettemp.mqtt.mqtt import MQTTBridge
     from nettemp.mqtt.theengs_gateway_manager import TheengsGatewayManager
+    from nettemp.paths import get_data_dir, get_config_file, get_drivers_file, get_pidfile
 except ImportError:
     from .nettemp import CloudClient, insert2
     from .driver_loader import DriverLoader
     from .bridge import HTTPBridge
     from .mqtt.mqtt import MQTTBridge
     from .mqtt.theengs_gateway_manager import TheengsGatewayManager
+    from .paths import get_data_dir, get_config_file, get_drivers_file, get_pidfile
 
 logging.basicConfig(level=logging.INFO, format='[%(asctime)s] %(levelname)s: %(message)s')
 # Quiet down APScheduler noise (job executed/run messages)
 logging.getLogger('apscheduler').setLevel(logging.WARNING)
 
-_DATA_DIR = Path(os.environ.get("NETTEMP_DATA_DIR", Path.home() / ".nettemp_client"))
+_DATA_DIR = get_data_dir()
 _DATA_DIR.mkdir(parents=True, exist_ok=True)
-PIDFILE = _DATA_DIR / '.nettemp_client.pid'
+PIDFILE = get_pidfile()
+PIDFILE.parent.mkdir(parents=True, exist_ok=True)
 
 # BLE drivers that need separate scheduling (to avoid blocking other sensors)
 BLE_DRIVERS = ['lywsd03mmc']
@@ -339,7 +342,10 @@ def main():
     # Determine background mode automatically:
     # - If started without a controlling TTY (e.g. from cron/@reboot or with &), treat as background.
     # - If started interactively (tty present), treat as foreground.
-    bg_mode = not os.isatty(0)
+    # NETTEMP_CLIENT_BG=1 forces background even if stdin is a TTY (used by launchers).
+    bg_env = os.environ.get("NETTEMP_CLIENT_BG", "").strip().lower()
+    force_bg = bg_env in ("1", "true", "yes", "y", "on")
+    bg_mode = force_bg or not os.isatty(0)
 
     # Background mode: run detached loop and restart on crash. This covers cron @reboot
     # entries (they run without a TTY) and manual starts with & where stdin is not a TTY.
@@ -349,8 +355,8 @@ def main():
             while True:
                 try:
                     client = NettempClient(
-                        config_file='config.conf',
-                        drivers_config='drivers_config.yaml',
+                        config_file=str(get_config_file()),
+                        drivers_config=str(get_drivers_file()),
                         bg_mode=True
                     )
                     client.start()
@@ -399,8 +405,8 @@ def main():
     client = None
     try:
         client = NettempClient(
-            config_file='config.conf',
-            drivers_config='drivers_config.yaml',
+            config_file=str(get_config_file()),
+            drivers_config=str(get_drivers_file()),
             bg_mode=False
         )
         client.start()

@@ -14,6 +14,8 @@ import time
 from pathlib import Path
 from typing import Optional, Dict, Any
 
+from ..paths import get_config_dir, get_theengs_gateway_config_file
+
 
 class TheengsGatewayManager:
     """Manage TheengsGateway process"""
@@ -28,9 +30,9 @@ class TheengsGatewayManager:
         self.config = config or {}
         self.enabled = bool(self.config.get('enabled', False))
         self.process: Optional[subprocess.Popen] = None
-        data_dir = Path(os.environ.get("NETTEMP_DATA_DIR", Path.home() / ".nettemp_client"))
-        data_dir.mkdir(parents=True, exist_ok=True)
-        self.config_file = data_dir / 'theengs_gateway_config.json'
+        config_dir = get_config_dir()
+        config_dir.mkdir(parents=True, exist_ok=True)
+        self.config_file = get_theengs_gateway_config_file()
         
         # Determine TheengsGateway command (pipx/venv or system PATH)
         candidate_names = [

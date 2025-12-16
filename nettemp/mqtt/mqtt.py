@@ -44,6 +44,7 @@ except ImportError:
     mqtt = None
 
 from ..nettemp import insert2
+from ..paths import get_data_dir, get_mqtt_topic_log_file
 from .mqtt_parsers import MQTTParser
 
 
@@ -101,10 +102,10 @@ class MQTTBridge:
         if isinstance(self.exclude_topics, str):
             self.exclude_topics = [self.exclude_topics]
         
-        # Topic logging for autodiscovery assistance (shared data dir)
-        data_dir = Path(os.environ.get("NETTEMP_DATA_DIR", Path.home() / ".nettemp_client"))
+        # Topic logging for autodiscovery assistance (runtime/state dir)
+        data_dir = get_data_dir()
         data_dir.mkdir(parents=True, exist_ok=True)
-        self.topic_log_file = data_dir / 'mqtt_topics.log'
+        self.topic_log_file = get_mqtt_topic_log_file()
         self.logged_topics = set()
         self._load_logged_topics()
         

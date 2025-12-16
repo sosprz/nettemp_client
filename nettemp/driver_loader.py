@@ -6,6 +6,8 @@ import logging
 import yaml
 from pathlib import Path
 
+from .paths import get_drivers_file
+
 logging.basicConfig(level=logging.INFO, format='[%(asctime)s] %(levelname)s: %(message)s', datefmt='%Y-%m-%d %H:%M:%S')
 
 
@@ -14,7 +16,8 @@ class DriverLoader:
 
     def __init__(self, drivers_path='drivers', config_file='drivers_config.yaml'):
         self.drivers_path = Path(__file__).parent / drivers_path
-        self.config_file = Path(__file__).parent / config_file
+        cfg = Path(str(config_file))
+        self.config_file = cfg if cfg.is_absolute() else get_drivers_file()
         self.loaded_drivers = {}
         self.config = self.load_config()
 

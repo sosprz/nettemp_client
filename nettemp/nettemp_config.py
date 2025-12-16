@@ -48,6 +48,15 @@ from nettemp.config.cron import (  # noqa: E402
     remove_all_nettemp_cron,
 )
 
+from nettemp.paths import (  # noqa: E402
+    get_config_dir,
+    get_config_file,
+    get_data_dir,
+    get_drivers_file,
+    get_mqtt_rules_file,
+    get_pidfile,
+)
+
 def check_and_setup_environment():
     """Auto-check and install dependencies if needed"""
     base_path = Path(__file__).parent
@@ -289,26 +298,55 @@ def check_and_setup_environment():
             print("Key errors:")
             for err in relevant_errors[-5:]:
                 print(f"  {err}")
-    # Copy example config files if they don't exist
-    data_dir = Path(sysconfig.get_path("data") or "")
-    config_file = base_path / 'config.conf'
+    # Copy example config files if they don't exist (into config dir)
+    config_dir = get_config_dir()
+    data_dir = get_data_dir()
+
+    # Optional migration to a single directory: move editable configs into data dir,
+    # unless the user explicitly pinned a different config dir.
+    if not os.environ.get("NETTEMP_CONFIG_DIR") and config_dir != data_dir:
+        legacy_files = ["config.conf", "drivers_config.yaml", "mqtt_rules.yaml"]
+        if any((config_dir / f).exists() for f in legacy_files):
+            print("\n📁 Single-directory setup option")
+            print(f"Current config directory: {config_dir}")
+            print(f"Recommended config directory: {data_dir}")
+            migrate = input("Move config files into the recommended directory? (y/n) [n]: ").strip().lower()
+            if migrate in ("y", "yes"):
+                data_dir.mkdir(parents=True, exist_ok=True)
+                for fname in legacy_files:
+                    src = config_dir / fname
+                    dst = data_dir / fname
+                    if not src.exists() or dst.exists():
+                        continue
+                    try:
+                        shutil.copy(src, dst)
+                        print(f"✓ Moved {fname} → {dst}")
+                    except Exception as e:
+                        print(f"⚠ Failed to move {fname}: {e}")
+                config_dir = data_dir
+
+    config_dir.mkdir(parents=True, exist_ok=True)
+
+    pkg_data_dir = Path(sysconfig.get_path("data") or "")
+    os.environ.setdefault("NETTEMP_CONFIG_DIR", str(config_dir))
+    config_file = get_config_file()
     example_config = base_path / 'example_config.conf'
     if not example_config.exists():
-        fallback = data_dir / "nettemp" / "example_config.conf"
+        fallback = pkg_data_dir / "nettemp" / "example_config.conf"
         if fallback.exists():
             example_config = fallback
 
-    drivers_config_file = base_path / 'drivers_config.yaml'
+    drivers_config_file = get_drivers_file()
     example_drivers_config = base_path / 'example_drivers_config.yaml'
     if not example_drivers_config.exists():
-        fallback = data_dir / "nettemp" / "example_drivers_config.yaml"
+        fallback = pkg_data_dir / "nettemp" / "example_drivers_config.yaml"
         if fallback.exists():
             example_drivers_config = fallback
 
-    mqtt_rules_file = base_path / 'mqtt_rules.yaml'
+    mqtt_rules_file = get_mqtt_rules_file()
     example_mqtt_rules = base_path / 'example_mqtt_rules.yaml'
     if not example_mqtt_rules.exists():
-        fallback = data_dir / "nettemp" / "example_mqtt_rules.yaml"
+        fallback = pkg_data_dir / "nettemp" / "example_mqtt_rules.yaml"
         if fallback.exists():
             example_mqtt_rules = fallback
     
@@ -354,7 +392,7 @@ def check_and_setup_environment():
             if setup_cron in ['', 'y', 'yes']:
                 python_cmd = str(sys.executable if in_venv else venv_path / 'bin' / 'python3')
                 try:
-                    install_or_replace_nettemp_cron(python_cmd)
+                    install_or_replace_nettemp_cron(python_cmd, config_dir=str(config_dir))
                     print("✓ Auto-start configured")
                 except Exception as e:
                     print(f"⚠ Failed to configure auto-start: {e}")
@@ -364,7 +402,7 @@ def check_and_setup_environment():
                 print("\n⚠ Legacy auto-start cron entry detected — updating to package-based auto-start")
                 python_cmd = str(sys.executable if in_venv else venv_path / 'bin' / 'python3')
                 try:
-                    install_or_replace_nettemp_cron(python_cmd)
+                    install_or_replace_nettemp_cron(python_cmd, config_dir=str(config_dir))
                     print("✓ Auto-start updated")
                 except Exception as e:
                     print(f"⚠ Failed to update auto-start: {e}")
@@ -742,9 +780,12 @@ class NettempConfigMenu:
     """Interactive configuration menu for Nettemp Client"""
     
     def __init__(self):
-        self.base_path = Path(__file__).parent
-        self.config_file = self.base_path / "config.conf"
-        self.drivers_file = self.base_path / "drivers_config.yaml"
+        self.base_path = Path(__file__).parent  # package/scripts location
+        self.config_dir = get_config_dir()
+        self.config_dir.mkdir(parents=True, exist_ok=True)
+        self.config_file = get_config_file()
+        self.drivers_file = get_drivers_file()
+        self.mqtt_rules_file = get_mqtt_rules_file()
         
         self.config = {}
         self.drivers_config = {}
@@ -1020,12 +1061,17 @@ class NettempConfigMenu:
                                     # Start process in background
                                     log_file = self.base_path / 'nettemp_client.log'
                                     with open(log_file, 'a') as f:
+                                        env = os.environ.copy()
+                                        env["NETTEMP_CLIENT_BG"] = "1"
+                                        env["NETTEMP_CONFIG_DIR"] = str(self.config_dir)
                                         subprocess.Popen(
                                             [python_cmd, str(client_script)],
                                             cwd=str(self.base_path),
+                                            stdin=subprocess.DEVNULL,
                                             stdout=f,
                                             stderr=subprocess.STDOUT,
-                                            start_new_session=True
+                                            start_new_session=True,
+                                            env=env,
                                         )
                                     
                                     time.sleep(1)  # Wait for process to start
@@ -1076,12 +1122,17 @@ class NettempConfigMenu:
                                 # Start process in background
                                 log_file = self.base_path / 'nettemp_client.log'
                                 with open(log_file, 'a') as f:
+                                    env = os.environ.copy()
+                                    env["NETTEMP_CLIENT_BG"] = "1"
+                                    env["NETTEMP_CONFIG_DIR"] = str(self.config_dir)
                                     subprocess.Popen(
                                         [python_cmd, str(client_script)],
                                         cwd=str(self.base_path),
+                                        stdin=subprocess.DEVNULL,
                                         stdout=f,
                                         stderr=subprocess.STDOUT,
-                                        start_new_session=True
+                                        start_new_session=True,
+                                        env=env,
                                     )
                                 
                                 time.sleep(1)  # Wait for process to start
@@ -3553,14 +3604,11 @@ class NettempConfigMenu:
     def _configure_mqtt_sensor_rules(self):
         """Configure MQTT sensor parsing rules (intervals, enable/disable)"""
         import yaml
-        from pathlib import Path
         
-        script_dir = Path(__file__).parent.resolve()
-        rules_file = script_dir / 'mqtt_rules.yaml'
-        data_dir = Path(sysconfig.get_path("data") or "") / "nettemp"
+        rules_file = self.mqtt_rules_file
         example_candidates = [
-            script_dir / 'example_mqtt_rules.yaml',
-            data_dir / 'example_mqtt_rules.yaml'
+            self.base_path / 'example_mqtt_rules.yaml',
+            Path(sysconfig.get_path("data") or "") / "nettemp" / 'example_mqtt_rules.yaml',
         ]
         example_file = next((p for p in example_candidates if p.exists()), None)
         
@@ -3568,6 +3616,7 @@ class NettempConfigMenu:
         if not rules_file.exists():
             if example_file and example_file.exists():
                 import shutil
+                rules_file.parent.mkdir(parents=True, exist_ok=True)
                 shutil.copy(example_file, rules_file)
                 print_success(f"Created {rules_file} from example")
                 time.sleep(1)
@@ -3737,8 +3786,7 @@ class NettempConfigMenu:
         message_count = 0
         
         # Load topics from log file if exists
-        from pathlib import Path
-        topic_log_file = Path(os.environ.get("NETTEMP_DATA_DIR", Path.home() / ".nettemp_client"))
+        topic_log_file = get_data_dir()
         topic_log_file.mkdir(parents=True, exist_ok=True)
         topic_log_file = topic_log_file / 'mqtt_topics.log'
         logged_topics = set()
@@ -4260,8 +4308,7 @@ class NettempConfigMenu:
         """Check if nettemp_client.py is running in background. Returns PID if found."""
         try:
             # Check for PID file first
-            pid_dir = Path(os.environ.get("NETTEMP_DATA_DIR", Path.home() / ".nettemp_client"))
-            pidfile = pid_dir / '.nettemp_client.pid'
+            pidfile = get_pidfile()
             if pidfile.exists():
                 with open(pidfile, 'r') as f:
                     pid = int(f.read().strip())
@@ -4314,10 +4361,12 @@ class NettempConfigMenu:
                 # Start client in background
                 env = os.environ.copy()
                 env['NETTEMP_CLIENT_BG'] = '1'
+                env["NETTEMP_CONFIG_DIR"] = str(self.config_dir)
                 
                 with open(os.devnull, 'wb') as devnull:
                     subprocess.Popen(
                         [sys.executable, "-m", "nettemp.nettemp_client"],
+                        stdin=devnull,
                         stdout=devnull,
                         stderr=devnull,
                         start_new_session=True,
@@ -4453,14 +4502,14 @@ class NettempConfigMenu:
             # Step 4: Check configs
             print_info("[4/4] Checking configuration...")
             
-            config_file = self.base_path / 'config.conf'
+            config_file = self.config_file
             example_config = self.base_path / 'example_config.conf'
             
             if config_file.exists() and example_config.exists():
                 print_success("config.conf preserved")
                 print_info("Note: Check example_config.conf for new options")
             
-            drivers_file = self.base_path / 'drivers_config.yaml'
+            drivers_file = self.drivers_file
             example_drivers = self.base_path / 'example_drivers_config.yaml'
             
             if drivers_file.exists() and example_drivers.exists():
@@ -4573,7 +4622,7 @@ class NettempConfigMenu:
             input(f"\n{Colors.GREEN}Press Enter to continue...{Colors.ENDC}")
             return
 
-        cron_entry = build_nettemp_reboot_entry(str(python_cmd))
+        cron_entry = build_nettemp_reboot_entry(str(python_cmd), config_dir=str(self.config_dir))
 
         print_info("Will add the following cron job:")
         print(f"  {cron_entry}\n")
@@ -4584,7 +4633,7 @@ class NettempConfigMenu:
             return
 
         try:
-            install_or_replace_nettemp_cron(str(python_cmd))
+            install_or_replace_nettemp_cron(str(python_cmd), config_dir=str(self.config_dir))
         except Exception as e:
             print_error(f"Failed to setup cron job: {e}")
             input(f"\n{Colors.GREEN}Press Enter to continue...{Colors.ENDC}")
@@ -4631,7 +4680,7 @@ class NettempConfigMenu:
     def start_background_client(self):
         """Start nettemp_client.py in background"""
         # Check if drivers_config.yaml exists, if not copy from example
-        drivers_config_file = self.base_path / 'drivers_config.yaml'
+        drivers_config_file = self.drivers_file
         example_drivers_config = self.base_path / 'example_drivers_config.yaml'
         
         if not drivers_config_file.exists() and example_drivers_config.exists():
@@ -4666,10 +4715,12 @@ class NettempConfigMenu:
         try:
             env = os.environ.copy()
             env['NETTEMP_CLIENT_BG'] = '1'
+            env["NETTEMP_CONFIG_DIR"] = str(self.config_dir)
 
             # Prefer current interpreter (pipx/venv) to ensure installed package is available.
             process = subprocess.Popen(
                 [sys.executable, "-m", "nettemp.nettemp_client"],
+                stdin=subprocess.DEVNULL,
                 stdout=subprocess.DEVNULL,
                 stderr=subprocess.DEVNULL,
                 start_new_session=True,

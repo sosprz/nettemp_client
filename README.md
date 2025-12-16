@@ -165,13 +165,18 @@ That's it! The configuration tool will:
 If you prefer to edit config files directly:
 
 ```bash
+# Optional: keep all configs in one directory (recommended)
+export NETTEMP_CONFIG_DIR="${NETTEMP_CONFIG_DIR:-${NETTEMP_DATA_DIR:-$HOME/.nettemp_client}}"
+mkdir -p "$NETTEMP_CONFIG_DIR"
+
 # Copy example configs
-cp example_config.conf config.conf
-cp example_drivers_config.yaml drivers_config.yaml
+cp example_config.conf "$NETTEMP_CONFIG_DIR/config.conf"
+cp example_drivers_config.yaml "$NETTEMP_CONFIG_DIR/drivers_config.yaml"
+cp example_mqtt_rules.yaml "$NETTEMP_CONFIG_DIR/mqtt_rules.yaml"
 
 # Edit configs
-nano config.conf         # Set your server URL and API key
-nano drivers_config.yaml # Enable sensors you have
+nano "$NETTEMP_CONFIG_DIR/config.conf"         # Set your server URL and API key
+nano "$NETTEMP_CONFIG_DIR/drivers_config.yaml" # Enable sensors you have
 
 # Run the client
 python3 nettemp_client.py
@@ -715,6 +720,8 @@ python3 nettemp_config.py
 **Supported Devices:** See [Theengs Decoder compatibility list](https://decoder.theengs.io/devices/devices.html)
 
 **Flow:** BLE Sensors → Theengs Gateway → MQTT Broker → Nettemp Parser (mqtt_rules.yaml) → Nettemp Cloud
+
+**Generated Config File:** Nettemp writes a TheengsGateway JSON config to `${NETTEMP_CONFIG_DIR:-${NETTEMP_DATA_DIR:-~/.nettemp_client}}/theengs_gateway_config.json` at runtime.
 
 ### Example Configurations
 

@@ -15,6 +15,8 @@ import urllib3
 # Disable SSL warnings for local/docker servers
 urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 
+from .paths import get_config_file, get_drivers_file
+
 
 class CloudClient:
     """Lightweight cloud client for Nettemp - supports multiple cloud servers"""
@@ -118,7 +120,7 @@ class CloudClient:
         # Load driver config to check for server filtering
         try:
             import yaml
-            config_file = Path(__file__).parent / 'drivers_config.yaml'
+            config_file = get_drivers_file()
             if config_file.exists():
                 with open(config_file, 'r') as f:
                     drivers_config = yaml.safe_load(f) or {}
@@ -551,8 +553,7 @@ class insert2:
         import inspect
 
         # Load config
-        dir_path = os.path.dirname(os.path.abspath(__file__))
-        config_file = os.path.join(dir_path, 'config.conf')
+        config_file = str(get_config_file())
 
         try:
             with open(config_file, 'r') as f:
