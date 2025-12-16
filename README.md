@@ -60,7 +60,7 @@ Nettemp Client is a **multi-protocol sensor data aggregator** that:
 
 **Configuration Interface:**
 ```
-python3 nettemp_config.py
+nettemp config
 → Configure Drivers (hardware sensors)
   → Arrow keys navigate, Space toggle, +/- adjust interval
 → Configure MQTT Bridge
@@ -139,12 +139,14 @@ pipx uninstall nettemp
 **On Raspberry Pi / Linux device:**
 
 ```bash
-# 1. Clone repository
-git clone https://github.com/sosprz/nettemp_client.git
-cd nettemp_client
+# 1) Install with pipx (recommended)
+sudo apt install -y python3 python3-pip pipx
+pipx install "nettemp @ git+https://github.com/sosprz/nettemp_client.git"
+pipx ensurepath
+sudo su - ${USER}
 
-# 2. Run interactive configuration (auto-installs everything)
-python3 nettemp_config.py
+# 2) Run configurator
+nettemp config
 ```
 
 <div align="center">
@@ -155,9 +157,7 @@ python3 nettemp_config.py
 </div>
 
 That's it! The configuration tool will:
-- ✅ Auto-install Python, venv, and system packages
-- ✅ Create virtual environment
-- ✅ Install Python dependencies
+- ✅ Guide you through configuring servers and sensors
 - ✅ Interactively configure servers and sensors
 - ✅ Discover connected devices (I2C + 1-Wire)
 - ✅ Test connectivity
@@ -183,7 +183,9 @@ nano "$NETTEMP_CONFIG_DIR/config.conf"         # Set your server URL and API key
 nano "$NETTEMP_CONFIG_DIR/drivers_config.yaml" # Enable sensors you have
 
 # Run the client
-python3 nettemp_client.py
+nettemp client
+# or background:
+nettemp client start
 ```
 
 ## Available Drivers
@@ -267,7 +269,7 @@ The client supports **22+ sensor drivers** with automatic hardware detection and
 
 ### Interactive Configuration & Management
 ```bash
-python3 nettemp_config.py
+nettemp config
 ```
 
 Use the interactive menu to:
@@ -280,12 +282,11 @@ Use the interactive menu to:
 
 ### Manual Start
 ```bash
-source venv/bin/activate
-python3 nettemp_client.py
+nettemp client
 ```
 
 ### Auto-start on boot
-Configured via `nettemp_config.py` → System Management → Setup Auto-Start.
+Configured via `nettemp config` → System Management → Setup Auto-Start.
 Client runs automatically on boot via cron.
 
 ### Test Mode (fake data)
@@ -301,7 +302,7 @@ If you enable the optional `http_bridge` in `config.conf`, your Nettemp client e
 
 **Via Interactive Configuration (Recommended):**
 ```bash
-python3 nettemp_config.py
+nettemp config
 # → Configure HTTP Bridge
 # • Enable/Disable
 # • Configure host and port
@@ -423,7 +424,7 @@ The Nettemp client includes a powerful **MQTT Bridge** that enables bidirectiona
 
 **Configure via Interactive Tool:**
 ```bash
-python3 nettemp_config.py
+nettemp config
 # → Configure MQTT Bridge
 # • Enable/Disable
 # • Set mode (publisher/subscriber/both)
@@ -436,7 +437,7 @@ python3 nettemp_config.py
 
 ### Enable MQTT Bridge
 
-Configure via `nettemp_config.py` → Configure MQTT Bridge, or edit `config.conf`:
+Configure via `nettemp config` → Configure MQTT Bridge, or edit `config.conf`:
 
 ```yaml
 mqtt:
@@ -617,7 +618,7 @@ mqtt:
     # Empty or omitted = forward to all enabled servers
 ```
 
-Configure via: `nettemp_config.py` → Configure MQTT Bridge → Select Destination Servers
+Configure via: `nettemp config` → Configure MQTT Bridge → Select Destination Servers
 
 **Authentication:**
 
@@ -666,7 +667,7 @@ rules:
 ```
 
 **Interactive Device Discovery:**
-Use `nettemp_config.py` → Configure MQTT Bridge → Autodiscover MQTT Devices to scan for devices and select which ones to whitelist.
+Use `nettemp config` → Configure MQTT Bridge → Autodiscover MQTT Devices to scan for devices and select which ones to whitelist.
 
 **Global Exclusions:**
 ```yaml
@@ -676,7 +677,7 @@ exclude_topics:
   - "homeassistant/*/config"         # Skip HA discovery
 ```
 
-Configure via: `mqtt_rules.yaml` in the client directory.
+Configure via: `mqtt_rules.yaml` in `${NETTEMP_CONFIG_DIR:-${NETTEMP_DATA_DIR:-~/.nettemp_client}}`.
 
 ### BLE to MQTT Bridge (Theengs Gateway)
 
@@ -693,7 +694,7 @@ Configure via: `mqtt_rules.yaml` in the client directory.
 **Quick Setup:**
 ```bash
 # Configure via menu
-python3 nettemp_config.py
+nettemp config
 # → Configure Theengs Gateway (BLE to MQTT)
 # → Enable, set MQTT broker, Bluetooth adapter
 # → Save and restart nettemp_client
@@ -714,7 +715,7 @@ theengs_gateway:
 
 **Device Discovery & Filtering:**
 ```bash
-python3 nettemp_config.py
+nettemp config
 # → Configure MQTT Bridge → Autodiscover MQTT Devices
 # → Scans for BLE devices publishing to MQTT
 # → Select devices with arrow keys and space bar
@@ -871,7 +872,7 @@ Nettemp Client uses **rule-based parsing** (`mqtt_rules.yaml`) to handle differe
 
 **Configuration:**
 ```bash
-python3 nettemp_config.py
+nettemp config
 # → Configure MQTT Bridge → r: Configure Sensor Rules
 ```
 
@@ -953,7 +954,7 @@ Theengs Gateway BLE sensor sends every 60s
 
 **Interactive Configuration:**
 ```
-python3 nettemp_config.py → Configure MQTT Bridge → r: Configure Sensor Rules
+nettemp config → Configure MQTT Bridge → r: Configure Sensor Rules
 
 ▶ ✓ Theengs Gateway           600s (10.0min)
   ✓ ESPEasy                    300s (5.0min)
@@ -967,7 +968,7 @@ python3 nettemp_config.py → Configure MQTT Bridge → r: Configure Sensor Rule
 
 **Via Configuration Menu:**
 ```bash
-python3 nettemp_config.py
+nettemp config
 # → Configure MQTT Bridge → Test Connection
 ```
 
@@ -985,7 +986,7 @@ mosquitto_pub -h mqtt.example.com -t "sensors/test/temperature" \
 
 **Automatic Installation (Recommended):**
 ```bash
-python3 nettemp_config.py
+nettemp config
 # → System Management → Environment Setup
 ```
 
@@ -1090,7 +1091,7 @@ For detailed MQTT setup guide, see: `doc/MQTT_SETUP.md`
 
 ```bash
 cd nettemp_client
-python3 nettemp_config.py
+nettemp config
 # Select: System Management → Update from GitHub
 ```
 
@@ -1104,18 +1105,11 @@ The interactive update tool automatically:
 ### Manual Update
 
 ```bash
-# Navigate to installation directory
-cd nettemp_client
+# Upgrade the pipx environment
+pipx upgrade nettemp
 
-# Pull latest changes
-git pull origin main
-
-# Update Python dependencies
-source venv/bin/activate
-pip3 install -r requirements.txt --upgrade
-
-# Restart the client
-python3 nettemp_client.py
+# Restart the client (if you run it in background)
+nettemp client restart
 ```
 
 **Your configurations are safe:**
@@ -1155,7 +1149,7 @@ The `lywsd03mmc` driver supports Xiaomi Mi Temperature Humidity Sensor 2 via Blu
 
 **Automatic Setup (Recommended):**
 ```bash
-python3 nettemp_config.py
+nettemp config
 # → System Management → Environment Setup
 # → Configure Drivers → Enable lywsd03mmc
 ```
@@ -1168,9 +1162,9 @@ The configuration tool automatically:
 
 **Manual Dependencies (if needed):**
 ```bash
-# Install BLE libraries
-pip3 install adafruit-circuitpython-ble
-pip3 install adafruit-circuitpython-ble-lywsd03mmc
+# Install BLE libraries into the pipx environment (if needed)
+pipx runpip nettemp install adafruit-circuitpython-ble
+pipx runpip nettemp install adafruit-circuitpython-ble-lywsd03mmc
 ```
 
 **Configuration:**
@@ -1335,7 +1329,7 @@ To enable DS2482 support in this client, set `ds2482: true` under `w1_kernel` in
 - Check hardware connections
 - Verify I2C enabled: `i2cdetect -y 1`
 - Check GPIO pins match config
--- Install sensor libraries: `pip install -r requirements.txt`
+- If a Python dependency is missing, reinstall/upgrade the pipx env: `pipx upgrade nettemp` (or `pipx reinstall nettemp`)
 
 **Cannot connect to server:**
 - Check `cloud_server` URL (cloud or self-hosted)
@@ -1347,7 +1341,7 @@ To enable DS2482 support in this client, set `ds2482: true` under `w1_kernel` in
 **Data not showing in dashboard:**
 - Check `cloud_enabled: true`
 - Verify device name (`group`) is correct
-- Check logs: `python3 nettemp_client.py`
+- Check logs: `tail -n 200 ~/.nettemp_client/nettemp_client.log`
 
 **Permission denied (I2C):**
 ```bash
