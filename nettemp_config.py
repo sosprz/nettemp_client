@@ -173,16 +173,10 @@ def check_and_setup_environment():
     except Exception as e:
         print(f"⚠ Could not check i2c group: {e}")
     
-    # Skip venv creation when already inside managed venv (pipx/poetry/etc.)
-    already_in_venv = (
-        (hasattr(sys, 'base_prefix') and sys.prefix != sys.base_prefix)
-        or os.environ.get('PIPX_HOME')
-        or os.environ.get('PIPX_BIN_DIR')
-    )
+    in_venv = hasattr(sys, 'base_prefix') and sys.prefix != sys.base_prefix
+    managed_env = os.environ.get('PIPX_HOME') or os.environ.get('PIPX_BIN_DIR')
 
-    if already_in_venv:
-        print("\n✓ Running inside managed virtual environment (skipping venv creation and package install)")
-    else:
+    if not in_venv:
         # Check/create virtual environment
         if not venv_path.exists():
             print("\n📦 Creating virtual environment...")
@@ -201,71 +195,76 @@ def check_and_setup_environment():
             if venv_python.exists():
                 print("🔄 Activating virtual environment...")
                 os.execv(str(venv_python), [str(venv_python)] + sys.argv)
-        
-        # Check/install requirements
-        try:
-            if requirements_file.exists():
-                print("📦 Checking Python packages...")
-                pip_path = venv_path / 'bin' / 'pip3'
-                list_result = subprocess.run([str(pip_path), 'list', '--format=freeze'], capture_output=True, text=True, check=True)
-                installed_lines = list_result.stdout.splitlines()
-                installed_packages = set()
-                for line in installed_lines:
-                    if '==' in line:
-                        pkg = line.split('==')[0].lower()
-                        installed_packages.add(pkg)
-                        installed_packages.add(pkg.replace('-', '_'))
-                        installed_packages.add(pkg.replace('_', '-'))
-                    elif ' @ ' in line:
-                        pkg = line.split(' @ ')[0].lower()
-                        installed_packages.add(pkg)
-                        installed_packages.add(pkg.replace('-', '_'))
-                        installed_packages.add(pkg.replace('_', '-'))
-                missing = []
-                with open(requirements_file, 'r') as f:
-                    for line in f:
-                        line = line.strip()
-                        if not line or line.startswith('#'):
-                            continue
-                        if line.startswith('git+'):
-                            pkg = line.split('/')[-1].replace('.git', '').lower()
-                        else:
-                            pkg = line.split('>=')[0].split('==')[0].split('<')[0].split('[')[0].strip().lower()
-                        pkg_underscore = pkg.replace('-', '_')
-                        pkg_hyphen = pkg.replace('_', '-')
-                        if pkg not in installed_packages and pkg_underscore not in installed_packages and pkg_hyphen not in installed_packages:
-                            missing.append(line.strip())
-                if missing:
-                    print(f"📦 Installing {len(missing)} missing package(s)...")
-                    install_result = subprocess.run([str(pip_path), "install", "-r", str(requirements_file)], capture_output=True, text=True)
-                    if install_result.returncode == 0:
-                        print("✓ All packages installed successfully")
-                    else:
-                        print("⚠ Some packages failed to install")
-                        if "gcc" in install_result.stderr or "compiler" in install_result.stderr.lower():
-                            print("  Missing C compiler. Install build tools: sudo apt-get install build-essential python3-dev")
-                        if "spidev" in install_result.stderr:
-                            print("  spidev package needs compilation (optional, only for SPI sensors).")
-                        if install_result.stderr:
-                            print(install_result.stderr.strip())
-                else:
-                    print("✓ Python packages already installed")
+    else:
+        print("\n✓ Running inside virtual environment")
+    
+    # Check/install requirements (even inside venv; skip only if no file)
+    try:
+        if requirements_file.exists():
+            print("📦 Checking Python packages...")
+            if in_venv or managed_env:
+                pip_cmd = [sys.executable, '-m', 'pip']
             else:
-                print("⚠ requirements.txt not found, skipping package check")
-        except Exception as e:
-            print(f"⚠ Could not verify/install Python packages: {e}")
-            err_text = str(e)
-            if 'install_result' in locals() and hasattr(install_result, 'stderr') and isinstance(install_result.stderr, str):
-                err_text = install_result.stderr
-            if "vcgencmd" in err_text:
-                print("vcgencmd package needs git (optional, for Raspberry Pi CPU temperature).")
-                print("  sudo apt-get install git")
-            error_lines = err_text.strip().splitlines()
-            relevant_errors = [line for line in error_lines if 'ERROR:' in line or 'error:' in line]
-            if relevant_errors:
-                print("Key errors:")
-                for err in relevant_errors[-5:]:
-                    print(f"  {err}")
+                pip_cmd = [str(venv_path / 'bin' / 'pip3')]
+            list_result = subprocess.run(pip_cmd + ['list', '--format=freeze'], capture_output=True, text=True, check=True)
+            installed_lines = list_result.stdout.splitlines()
+            installed_packages = set()
+            for line in installed_lines:
+                if '==' in line:
+                    pkg = line.split('==')[0].lower()
+                    installed_packages.add(pkg)
+                    installed_packages.add(pkg.replace('-', '_'))
+                    installed_packages.add(pkg.replace('_', '-'))
+                elif ' @ ' in line:
+                    pkg = line.split(' @ ')[0].lower()
+                    installed_packages.add(pkg)
+                    installed_packages.add(pkg.replace('-', '_'))
+                    installed_packages.add(pkg.replace('_', '-'))
+            missing = []
+            with open(requirements_file, 'r') as f:
+                for line in f:
+                    line = line.strip()
+                    if not line or line.startswith('#'):
+                        continue
+                    if line.startswith('git+'):
+                        pkg = line.split('/')[-1].replace('.git', '').lower()
+                    else:
+                        pkg = line.split('>=')[0].split('==')[0].split('<')[0].split('[')[0].strip().lower()
+                    pkg_underscore = pkg.replace('-', '_')
+                    pkg_hyphen = pkg.replace('_', '-')
+                    if pkg not in installed_packages and pkg_underscore not in installed_packages and pkg_hyphen not in installed_packages:
+                        missing.append(line.strip())
+            if missing:
+                print(f"📦 Installing {len(missing)} missing package(s)...")
+                install_result = subprocess.run(pip_cmd + ["install", "-r", str(requirements_file)], capture_output=True, text=True)
+                if install_result.returncode == 0:
+                    print("✓ All packages installed successfully")
+                else:
+                    print("⚠ Some packages failed to install")
+                    if "gcc" in install_result.stderr or "compiler" in install_result.stderr.lower():
+                        print("  Missing C compiler. Install build tools: sudo apt-get install build-essential python3-dev")
+                    if "spidev" in install_result.stderr:
+                        print("  spidev package needs compilation (optional, only for SPI sensors).")
+                    if install_result.stderr:
+                        print(install_result.stderr.strip())
+            else:
+                print("✓ Python packages already installed")
+        else:
+            print("⚠ requirements.txt not found, skipping package check")
+    except Exception as e:
+        print(f"⚠ Could not verify/install Python packages: {e}")
+        err_text = str(e)
+        if 'install_result' in locals() and hasattr(install_result, 'stderr') and isinstance(install_result.stderr, str):
+            err_text = install_result.stderr
+        if "vcgencmd" in err_text:
+            print("vcgencmd package needs git (optional, for Raspberry Pi CPU temperature).")
+            print("  sudo apt-get install git")
+        error_lines = err_text.strip().splitlines()
+        relevant_errors = [line for line in error_lines if 'ERROR:' in line or 'error:' in line]
+        if relevant_errors:
+            print("Key errors:")
+            for err in relevant_errors[-5:]:
+                print(f"  {err}")
     # Copy example config files if they don't exist
     data_dir = Path(sysconfig.get_path("data") or "")
     config_file = base_path / 'config.conf'
