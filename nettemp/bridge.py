@@ -5,7 +5,7 @@ import http.server
 import socketserver
 from urllib.parse import urlparse, parse_qs
 
-from nettemp import insert2
+from .nettemp import insert2
 
 
 class HTTPBridge:

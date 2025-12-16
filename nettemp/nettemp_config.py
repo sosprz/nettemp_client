@@ -3432,7 +3432,7 @@ class NettempConfigMenu:
         # Import driver loader
         try:
             sys.path.insert(0, str(self.base_path))
-            from driver_loader import DriverLoader
+            from .driver_loader import DriverLoader
             
             loader = DriverLoader(config_file=str(self.drivers_file))
             
@@ -3690,7 +3690,9 @@ class NettempConfigMenu:
         
         # Load topics from log file if exists
         from pathlib import Path
-        topic_log_file = Path(__file__).parent / 'mqtt_topics.log'
+        topic_log_file = Path(os.environ.get("NETTEMP_DATA_DIR", Path.home() / ".nettemp_client"))
+        topic_log_file.mkdir(parents=True, exist_ok=True)
+        topic_log_file = topic_log_file / 'mqtt_topics.log'
         logged_topics = set()
         logged_topics_count = 0
         if topic_log_file.exists():

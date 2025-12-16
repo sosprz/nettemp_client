@@ -3,28 +3,15 @@ requires = ["setuptools>=67", "wheel"]
 build-backend = "setuptools.build_meta"
 
 [tool.setuptools]
-py-modules = [
-  "nettemp_config",
-  "nettemp_client",
-  "nettemp_cli",
+packages = [
   "nettemp",
-  "driver_loader",
-  "bridge"
+  "nettemp.mqtt",
+  "nettemp.drivers",
 ]
-packages = ["mqtt", "drivers"]
 include-package-data = true
 
 [tool.setuptools.package-data]
-"drivers" = ["*.py"]
-"*" = ["example_drivers_config.yaml", "example_config.conf", "example_mqtt_rules.yaml", "requirements.txt"]
-
-[tool.setuptools.data-files]
-"nettemp" = [
-  "example_config.conf",
-  "example_drivers_config.yaml",
-  "example_mqtt_rules.yaml",
-  "requirements.txt"
-]
+"nettemp" = ["example_drivers_config.yaml", "example_config.conf", "example_mqtt_rules.yaml", "requirements.txt"]
 
 [project]
 name = "nettemp"
@@ -40,10 +27,6 @@ dependencies = [
   "paho-mqtt>=1.6.1",
   "pingparsing",
   "deepdiff",
-]
-
-[project.optional-dependencies]
-adc_sensors = [
   "w1thermsensor",
   "smbus",
   "smbus2",
@@ -54,23 +37,16 @@ adc_sensors = [
   "adafruit-circuitpython-adxl34x",
   "adafruit-circuitpython-dht",
   "adafruit-circuitpython-vl53l0x",
-]
-ble = [
   "adafruit-circuitpython-ble",
   "adafruit-circuitpython-ble-lywsd03mmc",
   "TheengsGateway",
-]
-modbus = [
   "pymodbus==2.5.3",
   "sdm-modbus==0.5.0",
-]
-rpi = [
   "RPi.GPIO",
-  "gpiozero",
   "vcgencmd",
 ]
 
 [project.scripts]
-nettemp-config = "nettemp_config:main"
-nettemp-client = "nettemp_client:main"
-nettemp = "nettemp_cli:main"
+nettemp-config = "nettemp.nettemp_config:main"
+nettemp-client = "nettemp.nettemp_client:main"
+nettemp = "nettemp.nettemp_cli:main"

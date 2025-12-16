@@ -29,6 +29,7 @@ Configuration in config.conf:
 
 import json
 import logging
+import os
 import re
 import threading
 import time
@@ -41,8 +42,8 @@ except ImportError:
     MQTT_AVAILABLE = False
     mqtt = None
 
-from nettemp import insert2
-from mqtt.mqtt_parsers import MQTTParser
+from ..nettemp import insert2
+from .mqtt_parsers import MQTTParser
 
 
 class MQTTBridge:
@@ -99,9 +100,10 @@ class MQTTBridge:
         if isinstance(self.exclude_topics, str):
             self.exclude_topics = [self.exclude_topics]
         
-        # Topic logging for autodiscovery assistance
-        from pathlib import Path
-        self.topic_log_file = Path(__file__).parent.parent / 'mqtt_topics.log'
+        # Topic logging for autodiscovery assistance (shared data dir)
+        data_dir = Path(os.environ.get("NETTEMP_DATA_DIR", Path.home() / ".nettemp_client"))
+        data_dir.mkdir(parents=True, exist_ok=True)
+        self.topic_log_file = data_dir / 'mqtt_topics.log'
         self.logged_topics = set()
         self._load_logged_topics()
         

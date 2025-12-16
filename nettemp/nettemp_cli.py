@@ -17,13 +17,13 @@ import subprocess
 import sys
 import time
 
-from nettemp_client import (
+from .nettemp_client import (
     main as client_main,
     read_pidfile,
     is_process_running,
     PIDFILE,
 )
-from nettemp_config import main as config_main
+from .nettemp_config import main as config_main
 
 
 def _start_background() -> int:
