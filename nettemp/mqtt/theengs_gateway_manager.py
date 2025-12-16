@@ -14,7 +14,7 @@ import time
 from pathlib import Path
 from typing import Optional, Dict, Any
 
-from ..paths import get_config_dir, get_theengs_gateway_config_file
+from ..paths import get_config_dir, get_data_dir, get_theengs_gateway_config_file
 
 
 class TheengsGatewayManager:
@@ -33,6 +33,9 @@ class TheengsGatewayManager:
         config_dir = get_config_dir()
         config_dir.mkdir(parents=True, exist_ok=True)
         self.config_file = get_theengs_gateway_config_file()
+        data_dir = get_data_dir()
+        data_dir.mkdir(parents=True, exist_ok=True)
+        self.log_file = data_dir / "theengs_gateway.log"
         
         # Determine TheengsGateway command (pipx/venv or system PATH)
         candidate_names = [
@@ -210,10 +213,15 @@ class TheengsGatewayManager:
         try:
             # Start TheengsGateway
             logging.info(f'Starting Theengs Gateway with {self.theengs_cmd}...')
+            stdout_target = subprocess.DEVNULL
+            try:
+                stdout_target = open(self.log_file, "a", encoding="utf-8", errors="replace")
+            except Exception:
+                stdout_target = subprocess.DEVNULL
             self.process = subprocess.Popen(
                 [self.theengs_cmd, '-c', str(self.config_file)],
-                stdout=subprocess.PIPE,
-                stderr=subprocess.PIPE,
+                stdout=stdout_target,
+                stderr=subprocess.STDOUT,
                 text=True,
                 preexec_fn=os.setsid if hasattr(os, 'setsid') else None  # Create process group
             )
@@ -225,17 +233,14 @@ class TheengsGatewayManager:
             if self.process.poll() is None:
                 logging.info(f'✓ Theengs Gateway started (PID: {self.process.pid})')
                 logging.info(f'  Config: {self.config_file}')
+                logging.info(f'  Log: {self.log_file}')
                 logging.info(f'  Command: {self.theengs_cmd} -c {self.config_file}')
             else:
-                stdout, stderr = self.process.communicate(timeout=1)
                 logging.error('═' * 70)
                 logging.error('Theengs Gateway FAILED TO START')
                 logging.error('═' * 70)
                 logging.error(f'Command: {self.theengs_cmd} -c {self.config_file}')
-                if stdout and stdout.strip():
-                    logging.error(f'STDOUT:\n{stdout}')
-                if stderr and stderr.strip():
-                    logging.error(f'STDERR:\n{stderr}')
+                logging.error(f'Log: {self.log_file}')
                 logging.error('Check if TheengsGateway is properly installed:')
                 logging.error(f'  pip list | grep -i theengs')
                 logging.error('═' * 70)

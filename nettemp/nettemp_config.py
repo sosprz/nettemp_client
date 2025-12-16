@@ -840,9 +840,10 @@ class NettempConfigMenu:
     
     def save_main_config(self):
         """Save main configuration in YAML format with cloud_servers array"""
+        default_device_id = 'living-room-1'
         config_data = {
-            'group': self.config.get('group', 'my-device'),
-            'device_id': self.config.get('group', 'my-device')  # device_id = group
+            'group': self.config.get('group', default_device_id),
+            'device_id': self.config.get('group', default_device_id)  # device_id = group
         }
         
         # Use cloud_servers list if available, otherwise migrate from old format
@@ -2638,10 +2639,17 @@ class NettempConfigMenu:
         clear_screen()
         print_header("RESTART THEENGS GATEWAY PROCESS")
         
-        print("\nThis will kill any running TheengsGateway processes.")
-        print("The process will restart automatically when nettemp_client runs.\n")
+        print("\nThis will stop any running TheengsGateway processes and start a new one now.")
+        print("Nettemp client will also manage/restart it on next run.\n")
         
-        confirm = input_styled("Kill TheengsGateway processes? (y/n)", "n")
+        theengs_cfg = self.config.get('theengs_gateway') or {}
+        if not isinstance(theengs_cfg, dict) or not theengs_cfg.get('enabled'):
+            print_warning("Theengs Gateway is disabled in config.")
+            print_info("Enable it first in: Configure Theengs Gateway (BLE to MQTT)")
+            input(f"\n{Colors.GREEN}Press Enter to continue...{Colors.ENDC}")
+            return
+
+        confirm = input_styled("Restart TheengsGateway now? (y/n)", "n")
         if confirm.lower() not in ['y', 'yes']:
             return
         
@@ -2680,9 +2688,30 @@ class NettempConfigMenu:
                                 pass
                 
                 print_success("\n✓ TheengsGateway processes stopped")
-                print_info("Process will restart automatically with nettemp_client")
             else:
-                print_warning("\nNo TheengsGateway processes found running")
+                print_info("\nNo TheengsGateway processes found running")
+
+            # Start a new process now
+            print_info("\nStarting TheengsGateway...")
+            try:
+                from nettemp.mqtt.theengs_gateway_manager import TheengsGatewayManager
+            except Exception:
+                from .mqtt.theengs_gateway_manager import TheengsGatewayManager  # type: ignore
+
+            mgr = TheengsGatewayManager(theengs_cfg)
+            if not getattr(mgr, "enabled", False):
+                print_error("TheengsGateway could not be started (missing binary or disabled).")
+                input(f"\n{Colors.GREEN}Press Enter to continue...{Colors.ENDC}")
+                return
+
+            mgr.start()
+            if getattr(mgr, "process", None) and mgr.process.poll() is None:
+                print_success(f"✓ TheengsGateway started (PID: {mgr.process.pid})")
+            else:
+                log_file = getattr(mgr, "log_file", None)
+                print_warning("TheengsGateway failed to start.")
+                if log_file:
+                    print_info(f"Logs: {log_file}")
                 
         except Exception as e:
             print_error(f"\nError: {e}")
@@ -2735,10 +2764,10 @@ class NettempConfigMenu:
         
         print("\n" + "─" * 70 + "\n")
         
-        default_device = self.config.get('group', 'raspberry-pi')
+        default_device = self.config.get('group', 'living-room-1')
         if not default_device or default_device == 'not set':
             print_warning("Device name is required!")
-            default_device = 'my-device'
+            default_device = 'living-room-1'
         
         device_name = input_styled("Enter device name (device_id)", default_device)
         if device_name and device_name.strip():
