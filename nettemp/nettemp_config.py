@@ -280,6 +280,13 @@ def check_and_setup_environment():
         fallback = data_dir / "nettemp" / "example_drivers_config.yaml"
         if fallback.exists():
             example_drivers_config = fallback
+
+    mqtt_rules_file = base_path / 'mqtt_rules.yaml'
+    example_mqtt_rules = base_path / 'example_mqtt_rules.yaml'
+    if not example_mqtt_rules.exists():
+        fallback = data_dir / "nettemp" / "example_mqtt_rules.yaml"
+        if fallback.exists():
+            example_mqtt_rules = fallback
     
     if not config_file.exists() and example_config.exists():
         print("\n📝 Creating config.conf from example...")
@@ -301,6 +308,18 @@ def check_and_setup_environment():
                 print(f"⚠ Failed to copy drivers_config.yaml: {e}")
         else:
             print("⚠ drivers_config.yaml missing and no example found (example_drivers_config.yaml)")
+
+    if not mqtt_rules_file.exists():
+        if example_mqtt_rules.exists():
+            print("📝 Creating mqtt_rules.yaml from example...")
+            try:
+                import shutil
+                shutil.copy(example_mqtt_rules, mqtt_rules_file)
+                print("✓ mqtt_rules.yaml created")
+            except Exception as e:
+                print(f"⚠ Failed to copy mqtt_rules.yaml: {e}")
+        else:
+            print("⚠ mqtt_rules.yaml missing and no example found (example_mqtt_rules.yaml)")
     
     # Check and setup cron job for auto-start
     try:
@@ -312,7 +331,7 @@ def check_and_setup_environment():
             setup_cron = input("Setup auto-start on boot? (y/n) [y]: ").strip().lower()
             if setup_cron in ['', 'y', 'yes']:
                 # Use current interpreter when running in managed venv (pipx/poetry), otherwise venv python
-                python_cmd = sys.executable if already_in_venv else venv_path / 'bin' / 'python3'
+                python_cmd = sys.executable if in_venv else venv_path / 'bin' / 'python3'
                 client_script = base_path / 'nettemp_client.py'
                 if not client_script.exists():
                     try:
