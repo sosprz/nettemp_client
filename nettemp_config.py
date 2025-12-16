@@ -280,14 +280,17 @@ def check_and_setup_environment():
         except Exception as e:
             print(f"⚠ Failed to copy config.conf: {e}")
     
-    if not drivers_config_file.exists() and example_drivers_config.exists():
-        print("📝 Creating drivers_config.yaml from example...")
-        try:
-            import shutil
-            shutil.copy(example_drivers_config, drivers_config_file)
-            print("✓ drivers_config.yaml created")
-        except Exception as e:
-            print(f"⚠ Failed to copy drivers_config.yaml: {e}")
+    if not drivers_config_file.exists():
+        if example_drivers_config.exists():
+            print("📝 Creating drivers_config.yaml from example...")
+            try:
+                import shutil
+                shutil.copy(example_drivers_config, drivers_config_file)
+                print("✓ drivers_config.yaml created")
+            except Exception as e:
+                print(f"⚠ Failed to copy drivers_config.yaml: {e}")
+        else:
+            print("⚠ drivers_config.yaml missing and no example found (example_drivers_config.yaml)")
     
     # Check and setup cron job for auto-start
     try:
@@ -744,26 +747,24 @@ class NettempConfigMenu:
         example_file = self.base_path / "example_drivers_config.yaml"
         if not example_file.exists():
             return
-        
         try:
             with open(example_file, 'r') as f:
                 example_config = yaml.safe_load(f) or {}
-            
-            # Check for new drivers in example that user doesn't have
-            new_drivers_added = []
-            for driver_name, driver_settings in example_config.items():
-                if driver_name not in self.drivers_config:
-                    # Add new driver with default settings from example
-                    self.drivers_config[driver_name] = driver_settings.copy()
-                    new_drivers_added.append(driver_name)
-            
-            # Save updated config if new drivers were added
-            if new_drivers_added:
-                self.save_drivers_config()
-                print_info(f"Added {len(new_drivers_added)} new driver(s): {', '.join(new_drivers_added)}")
-        except Exception as e:
-            # Silently fail if example config can't be read
-            pass
+        except Exception:
+            return
+        
+        # Check for new drivers in example that user doesn't have
+        new_drivers_added = []
+        for driver_name, driver_settings in example_config.items():
+            if driver_name not in self.drivers_config:
+                # Add new driver with default settings from example/fallback
+                self.drivers_config[driver_name] = driver_settings.copy()
+                new_drivers_added.append(driver_name)
+        
+        # Save updated config if new drivers were added
+        if new_drivers_added:
+            self.save_drivers_config()
+            print_info(f"Added {len(new_drivers_added)} new driver(s): {', '.join(new_drivers_added)}")
     
     def save_main_config(self):
         """Save main configuration in YAML format with cloud_servers array"""
