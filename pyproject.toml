@@ -1,0 +1,51 @@
+[build-system]
+requires = ["setuptools>=67", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "nettemp"
+version = "0.1.0"
+description = "Nettemp client and configurator CLI"
+readme = "README.md"
+requires-python = ">=3.9"
+dependencies = [
+  "requests>=2.28.0",
+  "pyyaml>=6.0",
+  "psutil>=5.9.0",
+  "apscheduler>=3.10.0",
+  "paho-mqtt>=1.6.1",
+  "pingparsing",
+  "deepdiff",
+]
+
+[project.optional-dependencies]
+adc_sensors = [
+  "w1thermsensor",
+  "smbus",
+  "smbus2",
+  "gpiozero",
+  "adafruit-circuitpython-htu21d",
+  "adafruit-circuitpython-tsl2561",
+  "Adafruit-BMP",
+  "adafruit-circuitpython-adxl34x",
+  "adafruit-circuitpython-dht",
+  "adafruit-circuitpython-vl53l0x",
+]
+ble = [
+  "adafruit-circuitpython-ble",
+  "adafruit-circuitpython-ble-lywsd03mmc",
+  "TheengsGateway",
+]
+modbus = [
+  "pymodbus==2.5.3",
+  "sdm-modbus==0.5.0",
+]
+rpi = [
+  "RPi.GPIO",
+  "gpiozero",
+]
+
+[project.scripts]
+nettemp-config = "nettemp_config:main"
+nettemp-client = "nettemp_client:main"
+nettemp = "nettemp_cli:main"
