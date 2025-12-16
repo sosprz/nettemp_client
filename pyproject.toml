@@ -67,6 +67,7 @@ modbus = [
 rpi = [
   "RPi.GPIO",
   "gpiozero",
+  "git+https://github.com/nicmcd/vcgencmd.git",
 ]
 
 [project.scripts]

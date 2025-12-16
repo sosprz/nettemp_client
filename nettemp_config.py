@@ -925,7 +925,9 @@ class NettempConfigMenu:
                         print(f"  {Colors.CYAN}·{Colors.ENDC} {server.get('name', 'Server')}: {Colors.CYAN}{server.get('url', '')}{Colors.ENDC} (key: {key_preview})")
             else:
                 print(f"  {Colors.YELLOW}No servers configured{Colors.ENDC}")
-            
+
+            print()  # spacing before menu options
+
             menu_options = [
                 "View Status / Health",
                 "Configure Destination Servers",
@@ -2353,20 +2355,8 @@ class NettempConfigMenu:
                 break
     
     def _check_theengs_process_running(self):
-        """Check if TheengsGateway process is running"""
-        try:
-            import subprocess
-            # Check for TheengsGateway process (works for both script and installed command)
-            result = subprocess.run(['ps', 'aux'], 
-                                   capture_output=True, text=True, timeout=2)
-            if result.returncode == 0:
-                # Look for TheengsGateway in process list
-                for line in result.stdout.split('\n'):
-                    if 'TheengsGateway' in line and 'grep' not in line:
-                        return True
-            return False
-        except Exception:
-            return False
+        """Skip heavy process scan; rely on config flag only to avoid slowing menus."""
+        return False
     
     def _enable_bluetooth_experimental(self):
         """Enable Bluetooth experimental mode by modifying bluetooth.service"""
@@ -2455,35 +2445,13 @@ class NettempConfigMenu:
             current_mode = theengs.get('scanning_mode', 'passive')
             current_publish_topic = theengs.get('publish_topic', 'home/TheengsGateway/BTtoMQTT')
             
-            # Check if process is running
-            is_running = self._check_theengs_process_running()
-            
-            # Check if TheengsGateway is installed
-            theengs_installed = self._check_theengs_installed()
-            
-            # Check if Bluetooth experimental mode is enabled
-            bluetooth_experimental = self._check_bluetooth_experimental()
-            
-            # Show current status
+            # Show current status (lightweight)
             print("─" * 70)
-            if not theengs_installed:
-                print(f"{Colors.YELLOW}⚠ TheengsGateway NOT INSTALLED{Colors.ENDC}")
-                print(f"{Colors.YELLOW}  Install with: pip install TheengsGateway{Colors.ENDC}\n")
-            
             if current_enabled:
                 print(f"Status: {Colors.GREEN}● Enabled{Colors.ENDC}")
             else:
                 print(f"Status: {Colors.YELLOW}○ Disabled{Colors.ENDC}")
-            
-            if is_running:
-                print(f"Process: {Colors.GREEN}● Running{Colors.ENDC}")
-            else:
-                print(f"Process: {Colors.YELLOW}○ Not Running{Colors.ENDC}")
-            
-            if not bluetooth_experimental and theengs_installed:
-                print(f"Bluetooth Experimental: {Colors.YELLOW}⚠ Not Enabled{Colors.ENDC}")
-            elif bluetooth_experimental:
-                print(f"Bluetooth Experimental: {Colors.GREEN}✓ Enabled{Colors.ENDC}")
+            print(f"Process: {Colors.YELLOW}○ Not Checked (see Status / Health){Colors.ENDC}")
             
             if current_enabled:
                 print(f"\n{Colors.BOLD}Configuration:{Colors.ENDC}")
@@ -2503,10 +2471,6 @@ class NettempConfigMenu:
                 menu_items.append("Enable Theengs Gateway")
             menu_items.append("Configure Settings")
             menu_items.append("Restart Process")
-            if bluetooth_experimental:
-                menu_items.append(f"Enable Bluetooth Experimental Mode {Colors.GREEN}(Already Enabled){Colors.ENDC}")
-            else:
-                menu_items.append("Enable Bluetooth Experimental Mode")
             menu_items.append("Back to Main Menu")
             
             # Display menu with arrow key navigation
