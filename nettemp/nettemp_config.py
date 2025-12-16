@@ -33,6 +33,10 @@ def check_and_setup_environment():
     base_path = Path(__file__).parent
     venv_path = base_path / 'venv'
     requirements_file = base_path / 'requirements.txt'
+    if not requirements_file.exists():
+        data_req = Path(sysconfig.get_path("data") or "") / "nettemp" / "requirements.txt"
+        if data_req.exists():
+            requirements_file = data_req
     
     print("🔍 Checking environment...")
     
