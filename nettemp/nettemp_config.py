@@ -855,7 +855,11 @@ class NettempConfigMenu:
             # Add primary cloud server if configured
             cloud_server = self.config.get('cloud_server', '')
             cloud_key = self.config.get('cloud_api_key', '')
-            cloud_enabled = self.config.get('cloud_enabled') == 'true'
+            cloud_enabled_raw = self.config.get('cloud_enabled', False)
+            if isinstance(cloud_enabled_raw, bool):
+                cloud_enabled = cloud_enabled_raw
+            else:
+                cloud_enabled = str(cloud_enabled_raw).strip().lower() in ('true', '1', 'yes', 'y', 'on')
             
             if cloud_server and cloud_key:
                 cloud_servers.append({
@@ -891,11 +895,13 @@ class NettempConfigMenu:
                 
                 # If not found, add it as migrated server
                 if not server_exists:
+                    # Enable automatically if there are no enabled servers yet.
+                    any_enabled = any(s.get('enabled', True) for s in cloud_servers)
                     cloud_servers.append({
                         'name': 'Local/Custom Server (migrated)',
                         'url': local_server,
                         'api_key': local_key,
-                        'enabled': False,  # Default to disabled for safety
+                        'enabled': not any_enabled,
                         'format': 'legacy',
                         'verify_ssl': False
                     })
@@ -4183,22 +4189,25 @@ class NettempConfigMenu:
                 env = os.environ.copy()
                 env['NETTEMP_CLIENT_BG'] = '1'
                 env["NETTEMP_CONFIG_DIR"] = str(self.config_dir)
-                
-                with open(os.devnull, 'wb') as devnull:
+
+                log_dir = get_data_dir()
+                log_dir.mkdir(parents=True, exist_ok=True)
+                log_file = log_dir / "nettemp_client.log"
+                with open(log_file, "ab") as lf:
                     subprocess.Popen(
                         [sys.executable, "-m", "nettemp.nettemp_client"],
-                        stdin=devnull,
-                        stdout=devnull,
-                        stderr=devnull,
+                        stdin=subprocess.DEVNULL,
+                        stdout=lf,
+                        stderr=subprocess.STDOUT,
                         start_new_session=True,
                         env=env,
-                        cwd=str(self.base_path)
                     )
                 
                 time.sleep(2)
                 new_pid = self.check_background_process()
                 if new_pid:
                     print_success(f"✓ Client started (PID: {new_pid})")
+                    print_info(f"Logs: {log_file}")
                 else:
                     print_warning("Client may still be starting...")
             except Exception as e:
@@ -4538,15 +4547,20 @@ class NettempConfigMenu:
             env['NETTEMP_CLIENT_BG'] = '1'
             env["NETTEMP_CONFIG_DIR"] = str(self.config_dir)
 
+            log_dir = get_data_dir()
+            log_dir.mkdir(parents=True, exist_ok=True)
+            log_file = log_dir / "nettemp_client.log"
+
             # Prefer current interpreter (pipx/venv) to ensure installed package is available.
-            process = subprocess.Popen(
-                [sys.executable, "-m", "nettemp.nettemp_client"],
-                stdin=subprocess.DEVNULL,
-                stdout=subprocess.DEVNULL,
-                stderr=subprocess.DEVNULL,
-                start_new_session=True,
-                env=env,
-            )
+            with open(log_file, "ab") as lf:
+                process = subprocess.Popen(
+                    [sys.executable, "-m", "nettemp.nettemp_client"],
+                    stdin=subprocess.DEVNULL,
+                    stdout=lf,
+                    stderr=subprocess.STDOUT,
+                    start_new_session=True,
+                    env=env,
+                )
             
             # Give it a moment to start
             time.sleep(2)
@@ -4554,8 +4568,18 @@ class NettempConfigMenu:
             # Check if it's still running
             if process.poll() is None:
                 print_success(f"Client started in background (PID: {process.pid})")
+                print_info(f"Logs: {log_file}")
             else:
-                print_error("Client failed to start. Check logs.")
+                print_error("Client failed to start.")
+                print_info(f"Logs: {log_file}")
+                try:
+                    tail = log_file.read_text(errors="replace").splitlines()[-30:]
+                    if tail:
+                        print("\nLast log lines:")
+                        for line in tail:
+                            print(f"  {line}")
+                except Exception:
+                    pass
         except Exception as e:
             print_error(f"Failed to start client: {e}")
         
