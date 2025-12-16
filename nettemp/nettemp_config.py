@@ -1915,189 +1915,6 @@ class NettempConfigMenu:
                 time.sleep(1)
                 break
     
-            
-            # Ensure defaults for publisher settings
-            if 'topic_prefix' not in self.config['mqtt']:
-                self.config['mqtt']['topic_prefix'] = 'nettemp'
-            if 'qos' not in self.config['mqtt']:
-                self.config['mqtt']['qos'] = 0
-            if 'retain' not in self.config['mqtt']:
-                self.config['mqtt']['retain'] = False
-
-            print(f"Status: {Colors.GREEN}Enabled{Colors.ENDC}")
-            print(f"Mode: {Colors.CYAN}{current_mode}{Colors.ENDC}")
-            print(f"Broker: {current_broker}:{current_port}")
-            if current_username:
-                print(f"Username: {current_username}")
-            if current_tls:
-                print(f"TLS/SSL: {Colors.GREEN}Enabled{Colors.ENDC}")
-            print("\n" + "─" * 70 + "\n")
-            
-            menu_options = [
-                "Set Mode (publisher/subscriber/both)",
-                "Configure Broker & Port",
-                "Configure Username & Password",
-                "Configure Topic Prefix & QoS",
-                "Toggle TLS/SSL",
-                "Test Connection",
-                "Back"
-            ]
-            
-            for idx, option in enumerate(menu_options):
-                if idx == current_option:
-                    print(f"{Colors.LIGHT_BLUE}▶ {option}{Colors.ENDC}")
-                else:
-                    print(f"  {option}")
-            
-            print(f"\n{Colors.LIGHT_BLUE}Use ↑↓ arrows, Enter to select, Esc to go back{Colors.ENDC}")
-            
-            key = get_key()
-            if key == '':
-                continue
-            elif key == 'UP':
-                current_option = (current_option - 1) % len(menu_options)
-            elif key == 'DOWN':
-                current_option = (current_option + 1) % len(menu_options)
-            elif key == '\r' or key == '\n':
-                if current_option == 0:  # Set Mode
-                    if 'mqtt' not in self.config or not isinstance(self.config['mqtt'], dict):
-                        self.config['mqtt'] = {'enabled': True}
-                    
-                    print("\nSelect MQTT mode:")
-                    print("  1: Publisher (send sensor data to MQTT)")
-                    print("  2: Subscriber (receive MQTT and forward to cloud)")
-                    print("  3: Both (publisher + subscriber)")
-                    
-                    mode_choice = input_styled("Mode", "2")
-                    
-                    if mode_choice == '1':
-                        self.config['mqtt']['mode'] = 'publisher'
-                        print_success("\nMode set to: Publisher")
-                    elif mode_choice == '2':
-                        self.config['mqtt']['mode'] = 'subscriber'
-                        print_success("\nMode set to: Subscriber")
-                    else:
-                        self.config['mqtt']['mode'] = 'both'
-                        print_success("\nMode set to: Both")
-                    
-                    self.save_main_config()
-                    time.sleep(1)
-                
-                elif current_option == 1:  # Configure Broker & Port
-                    if 'mqtt' not in self.config or not isinstance(self.config['mqtt'], dict):
-                        self.config['mqtt'] = {'enabled': True}
-                    
-                    broker = input_styled("MQTT Broker hostname/IP", str(current_broker))
-                    port_str = input_styled("MQTT Port", str(current_port))
-                    
-                    try:
-                        port = int(port_str)
-                        self.config['mqtt']['broker'] = broker
-                        self.config['mqtt']['port'] = port
-                        print_success(f"\nBroker set to: {broker}:{port}")
-                        self.save_main_config()
-                    except:
-                        print_error("\nInvalid port number")
-                    time.sleep(1)
-                
-                elif current_option == 2:  # Configure Username & Password
-                    if 'mqtt' not in self.config or not isinstance(self.config['mqtt'], dict):
-                        self.config['mqtt'] = {'enabled': True}
-                    
-                    username = input_styled("MQTT Username (leave empty for none)", str(current_username))
-                    
-                    if username:
-                        password = input_styled("MQTT Password", str(current_password))
-                        self.config['mqtt']['username'] = username
-                        self.config['mqtt']['password'] = password
-                        print_success(f"\nAuthentication configured for user: {username}")
-                    else:
-                        self.config['mqtt'].pop('username', None)
-                        self.config['mqtt'].pop('password', None)
-                        print_info("\nAuthentication removed")
-                    
-                    self.save_main_config()
-                    time.sleep(1)
-                
-                elif current_option == 3:  # Configure Topic Prefix & QoS
-                    if 'mqtt' not in self.config or not isinstance(self.config['mqtt'], dict):
-                        self.config['mqtt'] = {'enabled': True}
-                    prefix = input_styled("Topic prefix", self.config['mqtt'].get('topic_prefix', 'nettemp'))
-                    qos = input_int_styled("QoS (0/1/2)", self.config['mqtt'].get('qos', 0))
-                    retain_str = input_styled("Retain published messages? (y/n)", "n" if not self.config['mqtt'].get('retain', False) else "y")
-                    retain = retain_str.lower() in ['y', 'yes']
-                    self.config['mqtt']['topic_prefix'] = prefix or 'nettemp'
-                    self.config['mqtt']['qos'] = qos
-                    self.config['mqtt']['retain'] = retain
-                    print_success("\nTopic prefix/QoS/retain updated")
-                    self.save_main_config()
-                    time.sleep(1)
-                
-                elif current_option == 4:  # Toggle TLS/SSL
-                    if 'mqtt' not in self.config or not isinstance(self.config['mqtt'], dict):
-                        self.config['mqtt'] = {'enabled': True}
-                    
-                    tls_str = input_styled("Enable TLS/SSL? (y/n)", "y" if current_tls else "n")
-                    tls = tls_str.lower() in ['y', 'yes']
-                    
-                    self.config['mqtt']['tls'] = tls
-                    
-                    if tls:
-                        print_success("\nTLS/SSL enabled")
-                        if self.config['mqtt'].get('port', 1883) == 1883:
-                            use_8883 = input_styled("Change port to 8883 (standard MQTT+TLS port)? (y/n)", "y")
-                            if use_8883.lower() in ['y', 'yes']:
-                                self.config['mqtt']['port'] = 8883
-                    else:
-                        print_info("\nTLS/SSL disabled")
-                    
-                    self.save_main_config()
-                    time.sleep(1)
-                
-                elif current_option == 5:  # Test Connection
-                    if 'mqtt' not in self.config or not isinstance(self.config['mqtt'], dict):
-                        print_error("\nMQTT not configured yet!")
-                        time.sleep(2)
-                        continue
-                    
-                    mqtt_cfg = self.config['mqtt']
-                    broker = mqtt_cfg.get('broker', '')
-                    port = mqtt_cfg.get('port', 1883)
-                    username = mqtt_cfg.get('username', '')
-                    password = mqtt_cfg.get('password', '')
-                    tls = mqtt_cfg.get('tls', False)
-                    
-                    if not broker:
-                        print_error("\nNo broker configured!")
-                        time.sleep(2)
-                        continue
-                    
-                    print(f"\n{Colors.BOLD}Testing connection to {broker}:{port}...{Colors.ENDC}")
-                    print("This may take a few seconds...\n")
-                    
-                    success, message = self.check_mqtt_broker_connection(broker, port, username, password, tls)
-                    
-                    if success:
-                        print_success(f"✓ {message}")
-                        print_info("\nMQTT broker is accessible and working!")
-                    else:
-                        print_error(f"✗ {message}")
-                        print_warning("\nTroubleshooting:")
-                        print("  1. Check if broker is running (systemctl status mosquitto)")
-                        print("  2. Verify hostname/IP and port are correct")
-                        print("  3. Check firewall rules")
-                        print("  4. Verify username/password if authentication is enabled")
-                        if tls:
-                            print("  5. Verify TLS/SSL certificate is valid")
-                    
-                    input(f"\n{Colors.GREEN}Press Enter to continue...{Colors.ENDC}")
-                
-                elif current_option == 6:  # Back
-                    break
-            
-            elif key == 'ESC':
-                break
-    
     def configure_mqtt_bridge(self):
         """Configure MQTT Bridge settings"""
         current_option = 0
@@ -3799,6 +3616,9 @@ class NettempConfigMenu:
                 print_info(f"Loaded {logged_topics_count} topics from previous runs")
             except Exception as e:
                 pass
+
+        # Deduplicate live discovery output (devices publish frequently).
+        seen_topics = set(logged_topics)
         
         # Get currently subscribed topics
         current_subscribe_topics = mqtt_cfg.get('subscribe_topics', [])
@@ -4007,13 +3827,14 @@ class NettempConfigMenu:
                     device_topic,
                     sensor_fields
                 )
-                
-                # Show discovered device
-                sensors_str = ','.join(sensor_fields) if sensor_fields else 'none'
-                subscribed_mark = f" {Colors.GREEN}[SUBSCRIBED]{Colors.ENDC}" if is_subscribed else ""
-                print(f"{Colors.GREEN}✓{Colors.ENDC} Found: {Colors.CYAN}{device_name}{Colors.ENDC} ({device_mac}) - {brand} {model} - Sensors: {sensors_str} - Topic: {device_topic}{subscribed_mark}")
-                
-                message_count += 1
+
+                # Show discovered device only once per topic
+                if device_topic not in seen_topics:
+                    seen_topics.add(device_topic)
+                    sensors_str = ','.join(sensor_fields) if sensor_fields else 'none'
+                    subscribed_mark = f" {Colors.GREEN}[SUBSCRIBED]{Colors.ENDC}" if is_subscribed else ""
+                    print(f"{Colors.GREEN}✓{Colors.ENDC} Found: {Colors.CYAN}{device_name}{Colors.ENDC} ({device_mac}) - {brand} {model} - Sensors: {sensors_str} - Topic: {device_topic}{subscribed_mark}")
+                    message_count += 1
                 
             except json.JSONDecodeError:
                 # Silently skip non-JSON payloads
