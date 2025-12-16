@@ -24,6 +24,7 @@ import shutil
 import json
 import signal
 import logging
+import sysconfig
 from pathlib import Path
 from typing import Dict, List, Optional, Any
 
@@ -266,10 +267,20 @@ def check_and_setup_environment():
                 for err in relevant_errors[-5:]:
                     print(f"  {err}")
     # Copy example config files if they don't exist
+    data_dir = Path(sysconfig.get_path("data") or "")
     config_file = base_path / 'config.conf'
     example_config = base_path / 'example_config.conf'
+    if not example_config.exists():
+        fallback = data_dir / "nettemp" / "example_config.conf"
+        if fallback.exists():
+            example_config = fallback
+
     drivers_config_file = base_path / 'drivers_config.yaml'
     example_drivers_config = base_path / 'example_drivers_config.yaml'
+    if not example_drivers_config.exists():
+        fallback = data_dir / "nettemp" / "example_drivers_config.yaml"
+        if fallback.exists():
+            example_drivers_config = fallback
     
     if not config_file.exists() and example_config.exists():
         print("\n📝 Creating config.conf from example...")

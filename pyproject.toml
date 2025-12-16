@@ -18,6 +18,14 @@ include-package-data = true
 "drivers" = ["*.py"]
 "*" = ["example_drivers_config.yaml", "example_config.conf", "example_mqtt_rules.yaml", "requirements.txt"]
 
+[tool.setuptools.data-files]
+"nettemp" = [
+  "example_config.conf",
+  "example_drivers_config.yaml",
+  "example_mqtt_rules.yaml",
+  "requirements.txt"
+]
+
 [project]
 name = "nettemp"
 version = "0.1.0"
