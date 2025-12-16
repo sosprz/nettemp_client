@@ -926,59 +926,8 @@ class NettempConfigMenu:
             else:
                 print(f"  {Colors.YELLOW}No servers configured{Colors.ENDC}")
             
-            enabled_drivers = sum(1 for d in self.drivers_config.values() 
-                                if isinstance(d, dict) and d.get('enabled'))
-            print(f"\nEnabled drivers: {Colors.BOLD}{enabled_drivers}{Colors.ENDC}")
-            
-            # Check cron status
-            if cron_enabled_cached:
-                print(f"Auto-start (cron): {Colors.GREEN}✓ Configured{Colors.ENDC}")
-            else:
-                print(f"Auto-start (cron): {Colors.YELLOW}✗ Not configured{Colors.ENDC}")
-            
-            # Check background process
-            bg_pid = self.check_background_process()
-            if bg_pid:
-                print(f"Background process: {Colors.GREEN}✓ Running (PID: {bg_pid}){Colors.ENDC}")
-            else:
-                print(f"Background process: {Colors.YELLOW}✗ Not running{Colors.ENDC}")
-            
-            # Check HTTP Bridge status
-            http_bridge = self.config.get('http_bridge', {})
-            if isinstance(http_bridge, dict) and http_bridge.get('enabled'):
-                port = http_bridge.get('port', 8080)
-                print(f"HTTP Bridge: {Colors.GREEN}✓ Enabled (port {port}){Colors.ENDC}")
-            else:
-                print(f"HTTP Bridge: {Colors.YELLOW}✗ Disabled{Colors.ENDC}")
-            
-            # Check MQTT Bridge status
-            mqtt = self.config.get('mqtt', {})
-            if isinstance(mqtt, dict) and mqtt.get('enabled'):
-                mode = mqtt.get('mode', 'both')
-                broker = mqtt.get('broker', 'not set')
-                port = mqtt.get('port', 1883)
-                print(f"MQTT Bridge: {Colors.GREEN}✓ Enabled ({mode} mode, {broker}:{port}){Colors.ENDC}")
-            else:
-                print(f"MQTT Bridge: {Colors.YELLOW}✗ Disabled{Colors.ENDC}")
-            
-            # Check Theengs Gateway status
-            theengs = self.config.get('theengs_gateway', {})
-            if isinstance(theengs, dict) and theengs.get('enabled'):
-                is_running = self._check_theengs_process_running()
-                if is_running:
-                    print(f"Theengs Gateway: {Colors.GREEN}✓ Enabled & Running{Colors.ENDC}")
-                else:
-                    print(f"Theengs Gateway: {Colors.YELLOW}✓ Enabled (not running){Colors.ENDC}")
-            else:
-                is_running = self._check_theengs_process_running()
-                if is_running:
-                    print(f"Theengs Gateway: {Colors.YELLOW}✗ Disabled (process still running){Colors.ENDC}")
-                else:
-                    print(f"Theengs Gateway: {Colors.YELLOW}✗ Disabled{Colors.ENDC}")
-            
-            print("\n" + "─" * 70 + "\n")
-            
             menu_options = [
+                "View Status / Health",
                 "Configure Destination Servers",
                 "Configure Device Name",
                 "Configure HTTP Bridge",
@@ -1007,20 +956,22 @@ class NettempConfigMenu:
                 current_option = (current_option + 1) % len(menu_options)
             elif key == '\r' or key == '\n':  # Enter
                 if current_option == 0:
-                    self.configure_server()
+                    self.show_status_summary()
                 elif current_option == 1:
-                    self.configure_device_name()
+                    self.configure_server()
                 elif current_option == 2:
-                    self.configure_http_bridge()
+                    self.configure_device_name()
                 elif current_option == 3:
-                    self.configure_mqtt_bridge()
+                    self.configure_http_bridge()
                 elif current_option == 4:
-                    self.configure_theengs_gateway()
+                    self.configure_mqtt_bridge()
                 elif current_option == 5:
-                    self.configure_local_sensors()
+                    self.configure_theengs_gateway()
                 elif current_option == 6:
-                    self.system_management()
+                    self.configure_local_sensors()
                 elif current_option == 7:
+                    self.system_management()
+                elif current_option == 8:
                     # Check if background process is running
                     bg_pid = self.check_background_process()
                     
@@ -1133,6 +1084,61 @@ class NettempConfigMenu:
                 
                 break
     
+    def show_status_summary(self):
+        """Show status/health details on demand to avoid slowing main menu."""
+        clear_screen()
+        print_header("STATUS / HEALTH")
+        
+        enabled_drivers = sum(
+            1 for d in self.drivers_config.values()
+            if isinstance(d, dict) and d.get('enabled')
+        )
+        print(f"Enabled drivers: {Colors.BOLD}{enabled_drivers}{Colors.ENDC}\n")
+        
+        cron_enabled = self.check_cron_status()
+        if cron_enabled:
+            print(f"Auto-start (cron): {Colors.GREEN}✓ Configured{Colors.ENDC}")
+        else:
+            print(f"Auto-start (cron): {Colors.YELLOW}✗ Not configured{Colors.ENDC}")
+        
+        bg_pid = self.check_background_process()
+        if bg_pid:
+            print(f"Background process: {Colors.GREEN}✓ Running (PID: {bg_pid}){Colors.ENDC}")
+        else:
+            print(f"Background process: {Colors.YELLOW}✗ Not running{Colors.ENDC}")
+        
+        http_bridge = self.config.get('http_bridge', {})
+        if isinstance(http_bridge, dict) and http_bridge.get('enabled'):
+            port = http_bridge.get('port', 8080)
+            print(f"HTTP Bridge: {Colors.GREEN}✓ Enabled (port {port}){Colors.ENDC}")
+        else:
+            print(f"HTTP Bridge: {Colors.YELLOW}✗ Disabled{Colors.ENDC}")
+        
+        mqtt = self.config.get('mqtt', {})
+        if isinstance(mqtt, dict) and mqtt.get('enabled'):
+            mode = mqtt.get('mode', 'both')
+            broker = mqtt.get('broker', 'not set')
+            port = mqtt.get('port', 1883)
+            print(f"MQTT Bridge: {Colors.GREEN}✓ Enabled ({mode} mode, {broker}:{port}){Colors.ENDC}")
+        else:
+            print(f"MQTT Bridge: {Colors.YELLOW}✗ Disabled{Colors.ENDC}")
+        
+        theengs = self.config.get('theengs_gateway', {})
+        if isinstance(theengs, dict) and theengs.get('enabled'):
+            is_running = self._check_theengs_process_running()
+            if is_running:
+                print(f"Theengs Gateway: {Colors.GREEN}✓ Enabled & Running{Colors.ENDC}")
+            else:
+                print(f"Theengs Gateway: {Colors.YELLOW}✓ Enabled (not running){Colors.ENDC}")
+        else:
+            is_running = self._check_theengs_process_running()
+            if is_running:
+                print(f"Theengs Gateway: {Colors.YELLOW}✗ Disabled (process still running){Colors.ENDC}")
+            else:
+                print(f"Theengs Gateway: {Colors.YELLOW}✗ Disabled{Colors.ENDC}")
+        
+        input(f"\n{Colors.GREEN}Press Enter to continue...{Colors.ENDC}")
+
     def configure_local_sensors(self):
         """Grouped menu for local sensor setup"""
         while True:
@@ -4626,7 +4632,6 @@ class NettempConfigMenu:
             print("\n" + "─" * 70 + "\n")
             
             menu_options = [
-                "Update from GitHub",
                 "Setup Auto-Start (Cron Job)",
                 "Remove Auto-Start (Cron Job)",
                 "View Cron Status",
@@ -4652,13 +4657,11 @@ class NettempConfigMenu:
             elif key == 'DOWN':
                 current_option = (current_option + 1) % len(menu_options)
             elif key == '\r' or key == '\n':  # Enter
-                if current_option == 0:  # Run Update
-                    self.run_update_script()
-                elif current_option == 1:  # Setup Auto-Start
+                if current_option == 0:  # Setup Auto-Start
                     self.setup_cron_job()
-                elif current_option == 2:  # Remove Auto-Start
+                elif current_option == 1:  # Remove Auto-Start
                     self.remove_cron_job()
-                elif current_option == 3:  # View Cron
+                elif current_option == 2:  # View Cron
                     clear_screen()
                     print_header("Cron Status")
                     try:
@@ -4673,9 +4676,9 @@ class NettempConfigMenu:
                     except Exception as e:
                         print_error(f"Failed to read cron: {e}")
                     input(f"\n{Colors.GREEN}Press Enter to continue...{Colors.ENDC}")
-                elif current_option == 4:  # Start Background
+                elif current_option == 3:  # Start Background
                     self.start_background_client()
-                elif current_option == 5:  # Stop Background
+                elif current_option == 4:  # Stop Background
                     bg_pid = self.check_background_process()
                     if bg_pid:
                         try:
@@ -4687,7 +4690,7 @@ class NettempConfigMenu:
                     else:
                         print_info("No background process running")
                     input(f"\n{Colors.GREEN}Press Enter to continue...{Colors.ENDC}")
-                elif current_option == 6:  # Back
+                elif current_option == 5:  # Back
                     break
             elif key == 'ESC':
                 break
