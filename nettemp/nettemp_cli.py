@@ -36,7 +36,7 @@ def _start_background() -> int:
     env["NETTEMP_CLIENT_BG"] = "1"
     with open(os.devnull, "wb") as devnull:
         subprocess.Popen(
-            [sys.executable, "-m", "nettemp_client"],
+            [sys.executable, "-m", "nettemp.nettemp_client"],
             stdin=devnull,
             stdout=devnull,
             stderr=devnull,

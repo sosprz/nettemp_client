@@ -17,9 +17,19 @@ from pathlib import Path
 
 # Allow running as a script (python nettemp_client.py) by fixing package context
 if __package__ in (None, ''):
-    pkg_dir = Path(__file__).parent
-    sys.path.append(str(pkg_dir.parent))  # add parent so "nettemp" is importable
-    __package__ = 'nettemp'
+    pkg_dir = Path(__file__).resolve().parent
+    parent_dir = str(pkg_dir.parent)
+    pkg_dir_str = str(pkg_dir)
+
+    # When executed directly (e.g. /.../site-packages/nettemp/nettemp_client.py),
+    # Python puts the package directory itself on sys.path. That causes the
+    # sibling module nettemp.py to be importable as top-level "nettemp", which
+    # then breaks "nettemp.*" imports with: "'nettemp' is not a package".
+    while pkg_dir_str in sys.path:
+        sys.path.remove(pkg_dir_str)
+    if parent_dir not in sys.path:
+        sys.path.insert(0, parent_dir)
+    __package__ = "nettemp"
 
 # Auto-activate venv if not already in it
 script_dir = Path(__file__).parent.resolve()

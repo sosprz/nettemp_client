@@ -324,63 +324,70 @@ def check_and_setup_environment():
                 print(f"⚠ Failed to copy mqtt_rules.yaml: {e}")
         else:
             print("⚠ mqtt_rules.yaml missing and no example found (example_mqtt_rules.yaml)")
-    
-    # Check and setup cron job for auto-start
-    try:
-        result = subprocess.run(['crontab', '-l'], capture_output=True, text=True)
-        has_cron = result.returncode == 0 and ('nettemp.py' in result.stdout or 'nettemp_client' in result.stdout)
         
-        if not has_cron:
-            print("\n⚠ Auto-start not configured")
-            setup_cron = input("Setup auto-start on boot? (y/n) [y]: ").strip().lower()
-            if setup_cron in ['', 'y', 'yes']:
-                # Use current interpreter when running in managed venv (pipx/poetry), otherwise venv python
-                python_cmd = sys.executable if in_venv else venv_path / 'bin' / 'python3'
-                client_script = base_path / 'nettemp_client.py'
-                if not client_script.exists():
-                    try:
-                        import nettemp_client as _nc
-                        client_script = Path(_nc.__file__).resolve()
-                    except Exception:
-                        client_script = None
-                
-                if Path(str(python_cmd)).exists() and client_script and client_script.exists():
-                    cron_entry = f"@reboot /bin/sleep 30 && {python_cmd} {client_script} > /dev/null 2>&1 &"
-                    
-                    # Get existing crontab (excluding nettemp entries)
-                    existing_cron = ""
-                    if result.returncode == 0 and result.stdout.strip():
-                        existing_cron = '\n'.join([line for line in result.stdout.split('\n') 
-                                                   if line.strip() and 'nettemp.py' not in line and 'nettemp_client' not in line])
-                    
-                    # Add new entry with proper newline
-                    if existing_cron:
-                        new_cron = existing_cron + '\n' + cron_entry + '\n'
-                    else:
-                        new_cron = cron_entry + '\n'
-                    
-                    # Install crontab
-                    try:
-                        proc = subprocess.run(['crontab', '-'], input=new_cron, text=True, 
-                                            capture_output=True, check=True)
-                        print("✓ Auto-start configured")
+        # Check and setup cron job for auto-start
+        try:
+            result = subprocess.run(['crontab', '-l'], capture_output=True, text=True)
+            has_cron = result.returncode == 0 and (
+                'nettemp_client' in result.stdout
+                or 'nettemp-client' in result.stdout
+                or 'nettemp.py' in result.stdout
+            )
+            
+            if not has_cron:
+                print("\n⚠ Auto-start not configured")
+                setup_cron = input("Setup auto-start on boot? (y/n) [y]: ").strip().lower()
+                if setup_cron in ['', 'y', 'yes']:
+                    # Use current interpreter when running in managed venv (pipx/poetry), otherwise venv python
+                    python_cmd = sys.executable if in_venv else venv_path / 'bin' / 'python3'
+                    if Path(str(python_cmd)).exists():
+                        cron_entry = (
+                            f"@reboot /bin/sleep 30 && "
+                            f"NETTEMP_CLIENT_BG=1 {python_cmd} -m nettemp.nettemp_client > /dev/null 2>&1 &"
+                        )
                         
-                        # Verify it was installed
-                        verify = subprocess.run(['crontab', '-l'], capture_output=True, text=True)
-                        if verify.returncode == 0 and 'nettemp.py' in verify.stdout:
-                            pass  # Success
-                        else:
-                            print("⚠ Warning: Cron entry verification failed")
-                    except subprocess.CalledProcessError as e:
-                        print(f"⚠ Failed to configure auto-start: {e.stderr if e.stderr else str(e)}")
-                else:
-                    print("⚠ Cannot setup cron: missing files")
-        else:
-            print("✓ Auto-start configured")
-    except FileNotFoundError:
-        pass  # Cron not available
-    except Exception as e:
-        print(f"⚠ Could not setup cron: {e}")
+                        # Get existing crontab (excluding nettemp entries)
+                        existing_cron = ""
+                        if result.returncode == 0 and result.stdout.strip():
+                            existing_cron = '\n'.join(
+                                [
+                                    line for line in result.stdout.split('\n')
+                                    if line.strip()
+                                    and 'nettemp.py' not in line
+                                    and 'nettemp_client' not in line
+                                    and 'nettemp-client' not in line
+                                ]
+                            )
+                        
+                        new_cron = (existing_cron + '\n' if existing_cron else '') + cron_entry + '\n'
+                        
+                        # Install crontab
+                        try:
+                            subprocess.run(
+                                ['crontab', '-'],
+                                input=new_cron,
+                                text=True,
+                                capture_output=True,
+                                check=True,
+                            )
+                            print("✓ Auto-start configured")
+                            
+                            # Verify it was installed
+                            verify = subprocess.run(['crontab', '-l'], capture_output=True, text=True)
+                            if verify.returncode != 0 or (
+                                'nettemp_client' not in verify.stdout and 'nettemp-client' not in verify.stdout
+                            ):
+                                print("⚠ Warning: Cron entry verification failed")
+                        except subprocess.CalledProcessError as e:
+                            print(f"⚠ Failed to configure auto-start: {e.stderr if e.stderr else str(e)}")
+                    else:
+                        print("⚠ Cannot setup cron: missing files")
+            else:
+                print("✓ Auto-start configured")
+        except FileNotFoundError:
+            pass  # Cron not available
+        except Exception as e:
+            print(f"⚠ Could not setup cron: {e}")
     
     print("\n✅ Environment ready!\n")
     
@@ -3551,16 +3558,16 @@ class NettempConfigMenu:
         
         input(f"\n{Colors.GREEN}Press Enter to continue...{Colors.ENDC}")
     
-    def check_cron_status(self) -> bool:
-        """Check if cron job for nettemp is configured"""
-        try:
-            result = subprocess.run(['crontab', '-l'], capture_output=True, text=True)
-            if result.returncode == 0:
-                return 'nettemp_client' in result.stdout
-            return False
-        except Exception as e:
-            print_error(f"Failed to check cron: {e}")
-            return False
+        def check_cron_status(self) -> bool:
+            """Check if cron job for nettemp is configured"""
+            try:
+                result = subprocess.run(['crontab', '-l'], capture_output=True, text=True)
+                if result.returncode == 0:
+                    return 'nettemp_client' in result.stdout or 'nettemp-client' in result.stdout
+                return False
+            except Exception as e:
+                print_error(f"Failed to check cron: {e}")
+                return False
     
     def _configure_mqtt_sensor_rules(self):
         """Configure MQTT sensor parsing rules (intervals, enable/disable)"""
@@ -4547,12 +4554,12 @@ class NettempConfigMenu:
         except Exception as e:
             print_error(f"Failed to setup Bluetooth sudoers: {e}")
             return False
-    
+
     def setup_cron_job(self):
         """Setup cron job for auto-start on boot"""
         clear_screen()
         print_header("Setup Auto-Start (Cron Job)")
-        
+
         # Check and setup Bluetooth sudoers for LYWSD03MMC driver
         print_info("Checking Bluetooth permissions for BLE sensors...")
         if self.setup_bluetooth_sudoers():
@@ -4560,7 +4567,7 @@ class NettempConfigMenu:
         else:
             print_warning("⚠ Could not setup Bluetooth sudoers (BLE sensors may need manual reset)")
         print()
-        
+
         # Check if already configured
         if self.check_cron_status():
             print_warning("Cron job already configured!")
@@ -4569,115 +4576,120 @@ class NettempConfigMenu:
                 result = subprocess.run(['crontab', '-l'], capture_output=True, text=True)
                 if result.returncode == 0:
                     for line in result.stdout.split('\n'):
-                        if 'nettemp.py' in line or 'nettemp_client' in line:
+                        if 'nettemp.py' in line or 'nettemp_client' in line or 'nettemp-client' in line:
                             print(f"  {line}")
-            except:
+            except Exception:
                 pass
             print()
             overwrite = input_styled("Replace existing cron job? (y/n)", "n")
             if overwrite.lower() != 'y':
                 input(f"\n{Colors.GREEN}Press Enter to continue...{Colors.ENDC}")
                 return
-        
-        # Get venv python path
+
+        # Prefer local venv if present; otherwise use the current interpreter (pipx/installed package).
         venv_python = self.base_path / 'venv' / 'bin' / 'python3'
-        if not venv_python.exists():
-            print_error("Virtual environment not found! Run setup first.")
+        python_cmd = venv_python if venv_python.exists() else Path(sys.executable)
+        if not python_cmd.exists():
+            print_error("Python interpreter not found!")
             input(f"\n{Colors.GREEN}Press Enter to continue...{Colors.ENDC}")
             return
-        
-        client_script = self.base_path / 'nettemp_client.py'
-        if not client_script.exists():
-            print_error("nettemp_client.py not found!")
-            input(f"\n{Colors.GREEN}Press Enter to continue...{Colors.ENDC}")
-            return
-        
-        # Create cron entry
-        cron_entry = f"@reboot /bin/sleep 30 && {venv_python} {client_script} > /dev/null 2>&1 &"
-        
+
+        cron_entry = (
+            f"@reboot /bin/sleep 30 && "
+            f"NETTEMP_CLIENT_BG=1 {python_cmd} -m nettemp.nettemp_client > /dev/null 2>&1 &"
+        )
+
         print_info("Will add the following cron job:")
         print(f"  {cron_entry}\n")
         print_info("This will start the client 30 seconds after system boot.\n")
-        
+
         confirm = input_styled("Add this cron job? (y/n)", "y")
         if confirm.lower() != 'y':
             return
-        
+
         try:
-            # Get existing crontab (excluding nettemp entries)
             existing_cron = ""
             try:
                 result = subprocess.run(['crontab', '-l'], capture_output=True, text=True)
                 if result.returncode == 0:
-                    existing_cron = '\n'.join([line for line in result.stdout.split('\n') 
-                                              if line and 'nettemp.py' not in line and 'nettemp_client' not in line])
-            except:
+                    existing_cron = '\n'.join(
+                        [
+                            line for line in result.stdout.split('\n')
+                            if line
+                            and 'nettemp.py' not in line
+                            and 'nettemp_client' not in line
+                            and 'nettemp-client' not in line
+                        ]
+                    )
+            except Exception:
                 pass
-            
-            # Write new crontab
+
             new_cron = existing_cron + '\n' + cron_entry if existing_cron else cron_entry
             temp_file = self.base_path / '.nettemp_crontab'
             with open(temp_file, 'w') as f:
                 f.write(new_cron + '\n')
-            
+
             subprocess.run(['crontab', str(temp_file)], check=True)
             temp_file.unlink()
-            
+
             print_success("Cron job added successfully!")
             print_info("The client will now start automatically on system boot.")
-            
+
         except Exception as e:
             print_error(f"Failed to setup cron job: {e}")
-        
+
         input(f"\n{Colors.GREEN}Press Enter to continue...{Colors.ENDC}")
-    
+
     def remove_cron_job(self):
         """Remove nettemp cron job"""
         clear_screen()
         print_header("Remove Auto-Start (Cron Job)")
-        
+
         if not self.check_cron_status():
             print_info("No nettemp cron job found.")
             input(f"\n{Colors.GREEN}Press Enter to continue...{Colors.ENDC}")
             return
-        
+
         print_info("Current nettemp cron jobs:")
         try:
             result = subprocess.run(['crontab', '-l'], capture_output=True, text=True)
             if result.returncode == 0:
                 for line in result.stdout.split('\n'):
-                    if 'nettemp_client' in line:
+                    if 'nettemp_client' in line or 'nettemp-client' in line:
                         print(f"  {line}")
-        except:
+        except Exception:
             pass
-        
+
         print()
         confirm = input_styled("Remove nettemp cron job? (y/n)", "n")
         if confirm.lower() != 'y':
             return
-        
+
         try:
-            # Get existing crontab without nettemp entries
             result = subprocess.run(['crontab', '-l'], capture_output=True, text=True)
             if result.returncode == 0:
-                new_cron = '\n'.join([line for line in result.stdout.split('\n') 
-                                     if line and 'nettemp_client' not in line])
-                
-                if new_cron.strip():
-                    # Write back remaining cron jobs
-                    temp_file = self.base_path / '.nettemp_crontab'
-                    with open(temp_file, 'w') as f:
-                        f.write(new_cron + '\n')
-                    subprocess.run(['crontab', str(temp_file)], check=True)
-                    temp_file.unlink()
-                else:
-                    # Remove entire crontab if no jobs left
-                    subprocess.run(['crontab', '-r'], check=True)
-                
-                print_success("Cron job removed successfully!")
+                new_cron = '\n'.join(
+                    [
+                        line for line in result.stdout.split('\n')
+                        if line and 'nettemp_client' not in line and 'nettemp-client' not in line
+                    ]
+                )
+            else:
+                new_cron = ""
+
+            if new_cron.strip():
+                temp_file = self.base_path / '.nettemp_crontab'
+                with open(temp_file, 'w') as f:
+                    f.write(new_cron + '\n')
+                subprocess.run(['crontab', str(temp_file)], check=True)
+                temp_file.unlink()
+            else:
+                subprocess.run(['crontab', '-r'], check=True)
+
+            print_success("Cron job removed successfully!")
         except Exception as e:
             print_error(f"Failed to remove cron job: {e}")
-        
+
         input(f"\n{Colors.GREEN}Press Enter to continue...{Colors.ENDC}")
     
     def start_background_client(self):
