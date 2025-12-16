@@ -124,9 +124,13 @@ sudo su - ${USER}
 # Run configurator / client
 nettemp config
 nettemp client
+nettemp client start
 nettemp client restart
 
 # Uninstall
+pipx uninstall nettemp
+
+# Reinstall
 pipx uninstall nettemp
 ```
 

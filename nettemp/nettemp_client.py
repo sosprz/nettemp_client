@@ -348,6 +348,26 @@ def main():
     force_bg = bg_env in ("1", "true", "yes", "y", "on")
     bg_mode = force_bg or not os.isatty(0)
 
+    # Arrange graceful shutdown on SIGTERM so "nettemp client stop" also stops child processes
+    # like TheengsGateway (which is started in its own session).
+    client: NettempClient | None = None
+
+    def _handle_term(signum, frame):
+        try:
+            logging.info(f'Received signal {signum}; shutting down')
+        except Exception:
+            pass
+        try:
+            if client:
+                client.stop()
+        finally:
+            raise SystemExit(0)
+
+    try:
+        signal.signal(signal.SIGTERM, _handle_term)
+    except Exception:
+        pass
+
     # Background mode: run detached loop and restart on crash. This covers cron @reboot
     # entries (they run without a TTY) and manual starts with & where stdin is not a TTY.
     if bg_mode:
@@ -403,7 +423,6 @@ def main():
 
     # Run in foreground for debugging
     write_pidfile(os.getpid())
-    client = None
     try:
         client = NettempClient(
             config_file=str(get_config_file()),

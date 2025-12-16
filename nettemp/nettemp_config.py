@@ -2349,8 +2349,37 @@ class NettempConfigMenu:
             elif key == 'ESC':
                 break
     def _check_theengs_process_running(self):
-        """Skip heavy process scan; rely on config flag only to avoid slowing menus."""
-        return False
+        """Check if TheengsGateway is currently running (best-effort, fast)."""
+        try:
+            current_pid = os.getpid()
+            # The executable name varies by install method.
+            patterns = [
+                "TheengsGateway",
+                "theengsgateway",
+                "theengs-gateway",
+            ]
+            for pattern in patterns:
+                try:
+                    result = subprocess.run(
+                        ["pgrep", "-f", pattern],
+                        capture_output=True,
+                        text=True,
+                        timeout=1,
+                    )
+                except FileNotFoundError:
+                    return False
+                if result.returncode != 0 or not result.stdout.strip():
+                    continue
+                for pid_str in result.stdout.strip().splitlines():
+                    try:
+                        pid = int(pid_str.strip())
+                    except Exception:
+                        continue
+                    if pid and pid != current_pid:
+                        return True
+            return False
+        except Exception:
+            return False
 
     def test_mqtt_connection(self):
         """Wrapper to test MQTT connectivity using current settings with safe defaults."""
@@ -2771,8 +2800,12 @@ class NettempConfigMenu:
         
         device_name = input_styled("Enter device name (device_id)", default_device)
         if device_name and device_name.strip():
-            self.config['group'] = device_name.strip()
-            print_success(f"Device configured: device_id={device_name.strip()}, group={device_name.strip()}")
+            device_name = device_name.strip()
+            self.config['group'] = device_name
+            # Keep device_id mirrored for UI/compatibility (persisted by save_main_config).
+            self.config['device_id'] = device_name
+            self.save_main_config()
+            print_success(f"Device configured: {device_name}")
         else:
             print_warning("Device name not changed")
         
