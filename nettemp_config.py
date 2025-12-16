@@ -1903,7 +1903,7 @@ class NettempConfigMenu:
                     print("  2: Subscriber (receive MQTT and forward to cloud)")
                     print("  3: Both (publisher + subscriber)")
                     
-                    mode_choice = input_styled("Mode", "3")
+                    mode_choice = input_styled("Mode", "2")
                     
                     if mode_choice == '1':
                         self.config['mqtt']['mode'] = 'publisher'
@@ -2051,7 +2051,7 @@ class NettempConfigMenu:
                 mqtt = {}
             
             current_enabled = mqtt.get('enabled', False)
-            current_mode = mqtt.get('mode', 'both')
+            current_mode = mqtt.get('mode', 'subscriber')
             current_broker = mqtt.get('broker', '')
             current_port = mqtt.get('port', 1883)
             current_username = mqtt.get('username', '')
@@ -2313,7 +2313,7 @@ class NettempConfigMenu:
             mqtt['enabled'] = True
             self.config['mqtt'] = mqtt
             
-            current_mode = mqtt.get('mode', 'both')
+            current_mode = mqtt.get('mode', 'subscriber')
             current_broker = mqtt.get('broker', '')
             current_port = mqtt.get('port', 1883)
             current_username = mqtt.get('username', '')
