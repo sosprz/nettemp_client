@@ -256,15 +256,12 @@ def check_and_setup_environment():
                     if result.returncode == 0:
                         print("✓ All packages installed successfully")
                     else:
-                        print(f"
-⚠ Some packages failed to install
-")
+                        print("\n⚠ Some packages failed to install\n")
                         if 'gcc' in result.stderr or 'compiler' in result.stderr.lower():
                             print("Missing C compiler. Install build tools:")
                             print("  sudo apt-get install build-essential python3-dev")
                         if 'spidev' in result.stderr:
-                            print("
-spidev package needs compilation. This is optional.")
+                            print("\nspidev package needs compilation. This is optional.")
                             print("Only needed if using SPI sensors.")
                 else:
                     print("✓ Python packages already installed")
