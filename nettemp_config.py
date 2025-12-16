@@ -180,13 +180,11 @@ def check_and_setup_environment():
     )
 
     if already_in_venv:
-        print("
-✓ Running inside managed virtual environment (skipping venv creation and package install)")
+        print("\n✓ Running inside managed virtual environment (skipping venv creation and package install)")
     else:
         # Check/create virtual environment
         if not venv_path.exists():
-            print("
-📦 Creating virtual environment...")
+            print("\n📦 Creating virtual environment...")
             try:
                 subprocess.run(['python3', '-m', 'venv', str(venv_path)], check=True)
                 print("✓ Virtual environment created")
