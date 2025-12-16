@@ -8,7 +8,8 @@ py-modules = [
   "nettemp_client",
   "nettemp_cli",
   "nettemp",
-  "driver_loader"
+  "driver_loader",
+  "bridge"
 ]
 packages = ["mqtt"]
 
