@@ -2299,7 +2299,149 @@ class NettempConfigMenu:
             
             elif key == 'ESC':
                 break
-    
+
+    def _mqtt_broker_menu(self):
+        """Broker/server settings without enable/disable prompt"""
+        current_option = 0
+        while True:
+            clear_screen()
+            print_header("MQTT BROKER (SERVER) SETTINGS")
+            
+            mqtt = self.config.get('mqtt', {})
+            if not isinstance(mqtt, dict):
+                mqtt = {}
+            mqtt['enabled'] = True
+            self.config['mqtt'] = mqtt
+            
+            current_mode = mqtt.get('mode', 'both')
+            current_broker = mqtt.get('broker', '')
+            current_port = mqtt.get('port', 1883)
+            current_username = mqtt.get('username', '')
+            current_password = mqtt.get('password', '')
+            current_tls = mqtt.get('tls', False)
+            current_prefix = mqtt.get('topic_prefix', 'nettemp')
+            current_qos = mqtt.get('qos', 0)
+            current_retain = mqtt.get('retain', False)
+            
+            print(f"Status: {Colors.GREEN}Enabled{Colors.ENDC}")
+            print(f"Mode: {Colors.CYAN}{current_mode}{Colors.ENDC}")
+            print(f"Broker: {current_broker}:{current_port}")
+            if current_username:
+                print(f"Username: {current_username}")
+            if current_tls:
+                print(f"TLS/SSL: {Colors.GREEN}Enabled{Colors.ENDC}")
+            print("\n" + "─" * 70 + "\n")
+            
+            menu_options = [
+                "Set Mode (publisher/subscriber/both)",
+                "Configure Broker & Port",
+                "Configure Username & Password",
+                "Configure Topic Prefix & QoS",
+                "Toggle TLS/SSL",
+                "Test Connection",
+                "Back"
+            ]
+            
+            for idx, option in enumerate(menu_options):
+                if idx == current_option:
+                    print(f"{Colors.LIGHT_BLUE}▶ {option}{Colors.ENDC}")
+                else:
+                    print(f"  {option}")
+            
+            print(f"\n{Colors.LIGHT_BLUE}Use ↑↓ arrows, Enter to select, Esc to go back{Colors.ENDC}")
+            
+            key = get_key()
+            if key == '':
+                continue
+            elif key == 'UP':
+                current_option = (current_option - 1) % len(menu_options)
+            elif key == 'DOWN':
+                current_option = (current_option + 1) % len(menu_options)
+            elif key == '\r' or key == '\n':
+                if current_option == 0:  # Mode
+                    print("\nSelect MQTT mode:")
+                    print("  1: Publisher (send sensor data to MQTT)")
+                    print("  2: Subscriber (receive MQTT and forward to cloud)")
+                    print("  3: Both (publisher + subscriber)")
+                    mode_choice = input_styled("Mode", "3")
+                    if mode_choice == '1':
+                        self.config['mqtt']['mode'] = 'publisher'
+                        print_success("\nMode set to: Publisher")
+                    elif mode_choice == '2':
+                        self.config['mqtt']['mode'] = 'subscriber'
+                        print_success("\nMode set to: Subscriber")
+                    else:
+                        self.config['mqtt']['mode'] = 'both'
+                        print_success("\nMode set to: Both")
+                    self.save_main_config()
+                    time.sleep(1)
+                
+                elif current_option == 1:  # Broker/Port
+                    broker = input_styled("MQTT Broker hostname/IP", str(current_broker))
+                    port_str = input_styled("MQTT Port", str(current_port))
+                    try:
+                        port = int(port_str)
+                        self.config['mqtt']['broker'] = broker
+                        self.config['mqtt']['port'] = port
+                        print_success(f"\nBroker set to: {broker}:{port}")
+                        self.save_main_config()
+                    except:
+                        print_error("\nInvalid port number")
+                    time.sleep(1)
+                
+                elif current_option == 2:  # Username/Password
+                    username = input_styled("MQTT Username (leave empty for none)", str(current_username))
+                    if username:
+                        password = input_styled("MQTT Password", str(current_password))
+                        self.config['mqtt']['username'] = username
+                        self.config['mqtt']['password'] = password
+                        print_success(f"\nAuthentication configured for user: {username}")
+                    else:
+                        self.config['mqtt'].pop('username', None)
+                        self.config['mqtt'].pop('password', None)
+                        print_info("\nAuthentication removed")
+                    self.save_main_config()
+                    time.sleep(1)
+                
+                elif current_option == 3:  # Topic prefix / QoS
+                    prefix = input_styled("Topic Prefix", str(current_prefix))
+                    qos_str = input_styled("QoS (0/1/2)", str(current_qos))
+                    retain_str = input_styled("Retain messages? (y/n)", "y" if current_retain else "n")
+                    try:
+                        qos = int(qos_str)
+                        if qos not in [0, 1, 2]:
+                            print_warning("QoS must be 0, 1, or 2. Using 0.")
+                            qos = 0
+                        retain = retain_str.lower() in ['y', 'yes']
+                        self.config['mqtt']['topic_prefix'] = prefix
+                        self.config['mqtt']['qos'] = qos
+                        self.config['mqtt']['retain'] = retain
+                        print_success("\nPublisher settings saved")
+                        self.save_main_config()
+                    except:
+                        print_error("\nInvalid QoS value")
+                    time.sleep(1)
+                
+                elif current_option == 4:  # TLS
+                    tls_str = input_styled("Enable TLS/SSL? (y/n)", "y" if current_tls else "n")
+                    tls = tls_str.lower() in ['y', 'yes']
+                    self.config['mqtt']['tls'] = tls
+                    if tls and self.config['mqtt'].get('port', 1883) == 1883:
+                        use_8883 = input_styled("Change port to 8883 (standard MQTT+TLS port)? (y/n)", "y")
+                        if use_8883.lower() in ['y', 'yes']:
+                            self.config['mqtt']['port'] = 8883
+                    self.save_main_config()
+                    print_success(f"\nTLS/SSL {'enabled' if tls else 'disabled'}")
+                    time.sleep(1)
+                
+                elif current_option == 5:  # Test connection
+                    self.test_mqtt_connection()
+                
+                elif current_option == 6:  # Back
+                    break
+            
+            elif key == 'ESC':
+                break
     def _check_theengs_process_running(self):
         """Skip heavy process scan; rely on config flag only to avoid slowing menus."""
         return False
@@ -2460,10 +2602,6 @@ class NettempConfigMenu:
                     # Restart process
                     self._restart_theengs_process()
                 elif current_idx == 3:
-                    # Enable Bluetooth experimental
-                    self._enable_bluetooth_experimental()
-                    time.sleep(2)
-                elif current_idx == 4:
                     break
             elif key == 'ESC':
                 break
