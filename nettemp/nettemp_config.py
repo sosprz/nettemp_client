@@ -2072,7 +2072,16 @@ class NettempConfigMenu:
             mqtt = self.config.get('mqtt', {})
             if not isinstance(mqtt, dict):
                 mqtt = {}
-            
+            # Ensure sensible defaults so empty configs don't produce blanks
+            if 'mode' not in mqtt:
+                mqtt['mode'] = 'subscriber'
+            if not mqtt.get('broker'):
+                mqtt['broker'] = '127.0.0.1'
+            if 'port' not in mqtt:
+                mqtt['port'] = 1883
+            self.config['mqtt'] = mqtt
+            self.save_main_config()
+
             current_enabled = mqtt.get('enabled', False)
             current_mode = mqtt.get('mode', 'subscriber')
             current_broker = mqtt.get('broker', '')
@@ -2468,6 +2477,34 @@ class NettempConfigMenu:
     def _check_theengs_process_running(self):
         """Skip heavy process scan; rely on config flag only to avoid slowing menus."""
         return False
+
+    def test_mqtt_connection(self):
+        """Wrapper to test MQTT connectivity using current settings with safe defaults."""
+        mqtt_cfg = self.config.get('mqtt', {})
+        if not isinstance(mqtt_cfg, dict):
+            mqtt_cfg = {}
+
+        broker = mqtt_cfg.get('broker') or '127.0.0.1'
+        port = int(mqtt_cfg.get('port', 1883) or 1883)
+        username = mqtt_cfg.get('username') or ''
+        password = mqtt_cfg.get('password') or ''
+        tls = bool(mqtt_cfg.get('tls', False))
+
+        # Persist defaults if they were missing
+        mqtt_cfg.setdefault('broker', broker)
+        mqtt_cfg.setdefault('port', port)
+        mqtt_cfg.setdefault('mode', 'subscriber')
+        self.config['mqtt'] = mqtt_cfg
+        self.save_main_config()
+
+        print(f"\n{Colors.BOLD}Testing connection to {broker}:{port}...{Colors.ENDC}")
+        print("This may take a few seconds...\n")
+        success, message = self.check_mqtt_broker_connection(broker, port, username, password, tls)
+        if success:
+            print_success(f"✓ {message}")
+        else:
+            print_error(f"✗ {message}")
+        input(f"\n{Colors.GREEN}Press Enter to continue...{Colors.ENDC}")
     
     def _enable_bluetooth_experimental(self):
         """Enable Bluetooth experimental mode by modifying bluetooth.service"""
