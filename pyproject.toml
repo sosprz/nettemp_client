@@ -6,8 +6,11 @@ build-backend = "setuptools.build_meta"
 py-modules = [
   "nettemp_config",
   "nettemp_client",
-  "nettemp_cli"
+  "nettemp_cli",
+  "nettemp",
+  "driver_loader"
 ]
+packages = ["mqtt"]
 
 [project]
 name = "nettemp"
