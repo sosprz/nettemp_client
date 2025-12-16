@@ -2340,13 +2340,16 @@ class NettempConfigMenu:
             else:
                 print_error(f"✗ Failed to modify bluetooth.service: {result.stderr}")
                 print_warning("You may need to enable it manually (see instructions above)")
-                
+                input(f"\n{Colors.GREEN}Press Enter to continue...{Colors.ENDC}")
+            
         except subprocess.CalledProcessError as e:
             print_error(f"✗ Command failed: {e}")
             print_warning("You may need to enable it manually (see instructions above)")
+            input(f"\n{Colors.GREEN}Press Enter to continue...{Colors.ENDC}")
         except Exception as e:
             print_error(f"✗ Error: {e}")
             print_warning("You may need to enable it manually (see instructions above)")
+            input(f"\n{Colors.GREEN}Press Enter to continue...{Colors.ENDC}")
     
     def _check_theengs_installed(self):
         """Check if TheengsGateway is installed"""
