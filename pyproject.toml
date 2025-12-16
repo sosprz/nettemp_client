@@ -5,6 +5,7 @@ build-backend = "setuptools.build_meta"
 [tool.setuptools]
 packages = [
   "nettemp",
+  "nettemp.config",
   "nettemp.mqtt",
   "nettemp.drivers",
 ]
