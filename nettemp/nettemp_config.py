@@ -3558,16 +3558,16 @@ class NettempConfigMenu:
         
         input(f"\n{Colors.GREEN}Press Enter to continue...{Colors.ENDC}")
     
-        def check_cron_status(self) -> bool:
-            """Check if cron job for nettemp is configured"""
-            try:
-                result = subprocess.run(['crontab', '-l'], capture_output=True, text=True)
-                if result.returncode == 0:
-                    return 'nettemp_client' in result.stdout or 'nettemp-client' in result.stdout
-                return False
-            except Exception as e:
-                print_error(f"Failed to check cron: {e}")
-                return False
+    def check_cron_status(self) -> bool:
+        """Check if cron job for nettemp is configured"""
+        try:
+            result = subprocess.run(['crontab', '-l'], capture_output=True, text=True)
+            if result.returncode == 0:
+                return 'nettemp_client' in result.stdout or 'nettemp-client' in result.stdout
+            return False
+        except Exception as e:
+            print_error(f"Failed to check cron: {e}")
+            return False
     
     def _configure_mqtt_sensor_rules(self):
         """Configure MQTT sensor parsing rules (intervals, enable/disable)"""
