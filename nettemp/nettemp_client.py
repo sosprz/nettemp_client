@@ -15,6 +15,11 @@ import sys
 import os
 from pathlib import Path
 
+# Allow running as a script (python nettemp_client.py) by fixing package context
+if __package__ in (None, ''):
+    sys.path.append(str(Path(__file__).parent))
+    __package__ = 'nettemp'
+
 # Auto-activate venv if not already in it
 script_dir = Path(__file__).parent.resolve()
 venv_path = script_dir / 'venv'

@@ -2137,13 +2137,13 @@ class NettempConfigMenu:
             print("\n" + "─" * 70 + "\n")
             
             menu_options = [
-                "Broker (server) settings",
-                "p: Publisher Settings (topic prefix, QoS, retain)",
-                "s: Subscriber Settings (topics, auth token)",
-                "d: Select Destination Servers",
-                "a: Autodiscover MQTT Devices",
-                "r: Configure Topic Rules (intervals, enable/disable)",
-                "h: Help / Shortcuts",
+                "Enable Broker (server) settings",
+                "Publisher Settings (topic prefix, QoS, retain)",
+                "Subscriber Settings (topics, auth token)",
+                "Select Destination Servers",
+                "Autodiscover MQTT Devices",
+                "Configure Topic Rules (intervals, enable/disable)",
+                "Help / Shortcuts",
                 "Back to Main Menu"
             ]
             
