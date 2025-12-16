@@ -172,102 +172,107 @@ def check_and_setup_environment():
     except Exception as e:
         print(f"⚠ Could not check i2c group: {e}")
     
-    # Check/create virtual environment
-    if not venv_path.exists():
-        print("\n📦 Creating virtual environment...")
-        try:
-            subprocess.run(['python3', '-m', 'venv', str(venv_path)], check=True)
-            print("✓ Virtual environment created")
-        except Exception as e:
-            print(f"✗ Failed to create venv: {e}")
-            sys.exit(1)
+    # Skip venv creation when already inside managed venv (pipx/poetry/etc.)
+    already_in_venv = (
+        (hasattr(sys, 'base_prefix') and sys.prefix != sys.base_prefix)
+        or os.environ.get('PIPX_HOME')
+        or os.environ.get('PIPX_BIN_DIR')
+    )
+
+    if already_in_venv:
+        print("
+✓ Running inside managed virtual environment (skipping venv creation and package install)")
     else:
-        print("\n✓ Virtual environment exists")
-    
-    # Check if we're in venv, if not restart with venv python
-    if not hasattr(sys, 'real_prefix') and not (hasattr(sys, 'base_prefix') and sys.base_prefix != sys.prefix):
-        venv_python = venv_path / 'bin' / 'python3'
-        if venv_python.exists():
-            print("🔄 Activating virtual environment...")
-            os.execv(str(venv_python), [str(venv_python)] + sys.argv)
-    
-    # Check/install requirements
-    if requirements_file.exists():
-        print("📦 Checking Python packages...")
+        # Check/create virtual environment
+        if not venv_path.exists():
+            print("
+📦 Creating virtual environment...")
+            try:
+                subprocess.run(['python3', '-m', 'venv', str(venv_path)], check=True)
+                print("✓ Virtual environment created")
+            except Exception as e:
+                print(f"✗ Failed to create venv: {e}")
+                sys.exit(1)
+        else:
+            print("
+✓ Virtual environment exists")
         
-        # Check for tty and termios (built-in on Unix, may not be on Windows)
-        try:
-            import tty
-            import termios
-        except ImportError:
-            pass  # These are Unix-only, skip on Windows
+        # Check if we're in venv, if not restart with venv python
+        if not hasattr(sys, 'real_prefix') and not (hasattr(sys, 'base_prefix') and sys.base_prefix != sys.prefix):
+            venv_python = venv_path / 'bin' / 'python3'
+            if venv_python.exists():
+                print("🔄 Activating virtual environment...")
+                os.execv(str(venv_python), [str(venv_python)] + sys.argv)
         
-        pip_path = venv_path / 'bin' / 'pip3'
-        
-        # Check if packages are already installed before running pip install
-        try:
-            # Get list of installed packages (including git packages)
-            result = subprocess.run([str(pip_path), 'list', '--format=freeze'], 
-                                  capture_output=True, text=True, check=True)
-            installed_lines = result.stdout.splitlines()
-            installed_packages = set()
+        # Check/install requirements
+        if requirements_file.exists():
+            print("📦 Checking Python packages...")
             
-            for line in installed_lines:
-                if '==' in line:
-                    # Regular package: package==version
-                    pkg = line.split('==')[0].lower()
-                    installed_packages.add(pkg)
-                    # Also add hyphen/underscore variants
-                    installed_packages.add(pkg.replace('-', '_'))
-                    installed_packages.add(pkg.replace('_', '-'))
-                elif ' @ ' in line:
-                    # Git package: vcgencmd @ git+https://...
-                    pkg = line.split(' @ ')[0].lower()
-                    installed_packages.add(pkg)
-                    installed_packages.add(pkg.replace('-', '_'))
-                    installed_packages.add(pkg.replace('_', '-'))
+            # Check for tty and termios (built-in on Unix, may not be on Windows)
+            try:
+                import tty
+                import termios
+            except ImportError:
+                pass  # These are Unix-only, skip on Windows
             
-            # Read requirements and check what's missing
-            missing = []
-            with open(requirements_file, 'r') as f:
-                for line in f:
-                    line = line.strip()
-                    # Skip empty lines, comments, and comment-only lines
-                    if not line or line.startswith('#'):
-                        continue
-                    
-                    # Extract package name (handle git+ packages)
-                    if line.startswith('git+'):
-                        # Extract package name from git URL (after last /)
-                        pkg = line.split('/')[-1].replace('.git', '').lower()
+            pip_path = venv_path / 'bin' / 'pip3'
+            
+            # Check if packages are already installed before running pip install
+            try:
+                # Get list of installed packages (including git packages)
+                result = subprocess.run([str(pip_path), 'list', '--format=freeze'], 
+                                        capture_output=True, text=True, check=True)
+                installed_lines = result.stdout.splitlines()
+                installed_packages = set()
+                
+                for line in installed_lines:
+                    if '==' in line:
+                        pkg = line.split('==')[0].lower()
+                        installed_packages.add(pkg)
+                        installed_packages.add(pkg.replace('-', '_'))
+                        installed_packages.add(pkg.replace('_', '-'))
+                    elif ' @ ' in line:
+                        pkg = line.split(' @ ')[0].lower()
+                        installed_packages.add(pkg)
+                        installed_packages.add(pkg.replace('-', '_'))
+                        installed_packages.add(pkg.replace('_', '-'))
+                
+                missing = []
+                with open(requirements_file, 'r') as f:
+                    for line in f:
+                        line = line.strip()
+                        if not line or line.startswith('#'):
+                            continue
+                        if line.startswith('git+'):
+                            pkg = line.split('/')[-1].replace('.git', '').lower()
+                        else:
+                            pkg = line.split('>=')[0].split('==')[0].split('<')[0].split('[')[0].strip().lower()
+                        pkg_underscore = pkg.replace('-', '_')
+                        pkg_hyphen = pkg.replace('_', '-')
+                        if pkg not in installed_packages and pkg_underscore not in installed_packages and pkg_hyphen not in installed_packages:
+                            missing.append(line.strip())
+                
+                if missing:
+                    print(f"📦 Installing {len(missing)} missing package(s)...")
+                    result = subprocess.run([str(pip_path), 'install', '-r', str(requirements_file)], 
+                                     capture_output=True, text=True)
+                    if result.returncode == 0:
+                        print("✓ All packages installed successfully")
                     else:
-                        # Regular package - normalize name
-                        pkg = line.split('>=')[0].split('==')[0].split('<')[0].split('[')[0].strip().lower()
-                    
-                    # Check both original name and with underscore variant
-                    pkg_underscore = pkg.replace('-', '_')
-                    pkg_hyphen = pkg.replace('_', '-')
-                    
-                    if pkg not in installed_packages and pkg_underscore not in installed_packages and pkg_hyphen not in installed_packages:
-                        missing.append(line.strip())
-            
-            if missing:
-                print(f"📦 Installing {len(missing)} missing package(s)...")
-                result = subprocess.run([str(pip_path), 'install', '-r', str(requirements_file)], 
-                             capture_output=True, text=True)
-                if result.returncode == 0:
-                    print("✓ All packages installed successfully")
+                        print(f"
+⚠ Some packages failed to install
+")
+                        if 'gcc' in result.stderr or 'compiler' in result.stderr.lower():
+                            print("Missing C compiler. Install build tools:")
+                            print("  sudo apt-get install build-essential python3-dev")
+                        if 'spidev' in result.stderr:
+                            print("
+spidev package needs compilation. This is optional.")
+                            print("Only needed if using SPI sensors.")
                 else:
-                    print(f"\n⚠ Some packages failed to install\n")
-                    
-                    # Check for common build errors
-                    if 'gcc' in result.stderr or 'compiler' in result.stderr.lower():
-                        print("Missing C compiler. Install build tools:")
-                        print("  sudo apt-get install build-essential python3-dev")
-                    
-                    if 'spidev' in result.stderr:
-                        print("\nspidev package needs compilation. This is optional.")
-                        print("Only needed if using SPI sensors.")
+                    print("✓ Python packages already installed")
+            except Exception as e:
+                print(f"⚠ Could not verify Python packages: {e}")
                     
                     if 'vcgencmd' in result.stderr:
                         print("\nvcgencmd package needs git. This is optional.")
