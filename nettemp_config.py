@@ -3422,17 +3422,22 @@ class NettempConfigMenu:
         
         script_dir = Path(__file__).parent.resolve()
         rules_file = script_dir / 'mqtt_rules.yaml'
-        example_file = script_dir / 'example_mqtt_rules.yaml'
+        data_dir = Path(sysconfig.get_path("data") or "") / "nettemp"
+        example_candidates = [
+            script_dir / 'example_mqtt_rules.yaml',
+            data_dir / 'example_mqtt_rules.yaml'
+        ]
+        example_file = next((p for p in example_candidates if p.exists()), None)
         
         # Copy example if mqtt_rules.yaml doesn't exist
         if not rules_file.exists():
-            if example_file.exists():
+            if example_file and example_file.exists():
                 import shutil
                 shutil.copy(example_file, rules_file)
                 print_success(f"Created {rules_file} from example")
                 time.sleep(1)
             else:
-                print_error(f"Neither {rules_file} nor {example_file} found!")
+                print_error(f"Neither {rules_file} nor example_mqtt_rules.yaml found (checked {example_candidates})!")
                 input(f"\n{Colors.GREEN}Press Enter to continue...{Colors.ENDC}")
                 return
         
