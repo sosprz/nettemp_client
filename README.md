@@ -115,7 +115,7 @@ Run your own Nettemp server - available as Docker containers or manual deploymen
 Installs the CLI globally with an isolated venv.
 
 ```bash
-sudo apt install -y build-essential gcc-aarch64-linux-gnu pipx python3-dev
+sudo apt install -y build-essential python3-dev python3 python3-venv python3-pip pipx
 pipx install "nettemp @ git+https://github.com/sosprz/nettemp_client.git"
 pipx ensurepath
 sudo su - ${USER}
@@ -125,6 +125,9 @@ sudo su - ${USER}
 nettemp config
 nettemp client
 nettemp client restart
+
+# Uninstall
+pipx uninstall nettemp
 ```
 
 ## Quick Install (one-shot interactive)

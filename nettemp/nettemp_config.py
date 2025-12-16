@@ -4260,7 +4260,8 @@ class NettempConfigMenu:
         """Check if nettemp_client.py is running in background. Returns PID if found."""
         try:
             # Check for PID file first
-            pidfile = self.base_path / '.nettemp_client.pid'
+            pid_dir = Path(os.environ.get("NETTEMP_DATA_DIR", Path.home() / ".nettemp_client"))
+            pidfile = pid_dir / '.nettemp_client.pid'
             if pidfile.exists():
                 with open(pidfile, 'r') as f:
                     pid = int(f.read().strip())
@@ -4273,20 +4274,21 @@ class NettempConfigMenu:
                         pidfile.unlink()
                         return None
             
-            # If no pidfile, search for running python process
-            result = subprocess.run(
-                ['pgrep', '-f', 'nettemp_client.py'],
-                capture_output=True,
-                text=True
-            )
-            if result.returncode == 0 and result.stdout.strip():
-                pids = result.stdout.strip().split('\n')
-                # Filter out this current process
-                current_pid = os.getpid()
-                for pid_str in pids:
-                    pid = int(pid_str)
-                    if pid != current_pid:
-                        return pid
+            # If no pidfile, search for running python process (module or script form)
+            for pattern in ['nettemp.nettemp_client', 'nettemp_client.py']:
+                result = subprocess.run(
+                    ['pgrep', '-f', pattern],
+                    capture_output=True,
+                    text=True
+                )
+                if result.returncode == 0 and result.stdout.strip():
+                    pids = result.stdout.strip().split('\n')
+                    # Filter out this current process
+                    current_pid = os.getpid()
+                    for pid_str in pids:
+                        pid = int(pid_str)
+                        if pid != current_pid:
+                            return pid
             return None
         except Exception as e:
             print_warning(f"Could not check background process: {e}")
@@ -4312,11 +4314,10 @@ class NettempConfigMenu:
                 # Start client in background
                 env = os.environ.copy()
                 env['NETTEMP_CLIENT_BG'] = '1'
-                client_script = self.base_path / 'nettemp_client.py'
                 
                 with open(os.devnull, 'wb') as devnull:
                     subprocess.Popen(
-                        [sys.executable, str(client_script)],
+                        [sys.executable, "-m", "nettemp.nettemp_client"],
                         stdout=devnull,
                         stderr=devnull,
                         start_new_session=True,
@@ -4662,24 +4663,17 @@ class NettempConfigMenu:
                 input(f"\n{Colors.GREEN}Press Enter to continue...{Colors.ENDC}")
                 return
         
-        # Start in background
-        client_script = self.base_path / 'nettemp_client.py'
-        if not client_script.exists():
-            print_error("nettemp_client.py not found!")
-            input(f"\n{Colors.GREEN}Press Enter to continue...{Colors.ENDC}")
-            return
-        
         try:
-            # Use venv python if available
-            venv_python = self.base_path / 'venv' / 'bin' / 'python3'
-            python_cmd = str(venv_python) if venv_python.exists() else 'python3'
-            
-            # Start process in background
+            env = os.environ.copy()
+            env['NETTEMP_CLIENT_BG'] = '1'
+
+            # Prefer current interpreter (pipx/venv) to ensure installed package is available.
             process = subprocess.Popen(
-                [python_cmd, str(client_script)],
+                [sys.executable, "-m", "nettemp.nettemp_client"],
                 stdout=subprocess.DEVNULL,
                 stderr=subprocess.DEVNULL,
-                start_new_session=True
+                start_new_session=True,
+                env=env,
             )
             
             # Give it a moment to start

@@ -23,7 +23,6 @@ from .nettemp_client import (
     is_process_running,
     PIDFILE,
 )
-from .nettemp_config import main as config_main
 
 
 def _start_background() -> int:
@@ -76,10 +75,14 @@ def main() -> int:
 
     cmd = sys.argv[1].lower()
     if cmd == "config":
+        # Import lazily to avoid expensive environment checks for unrelated subcommands.
+        from .nettemp_config import main as config_main
         return config_main() or 0
 
     if cmd == "client":
         if len(sys.argv) == 2:
+            # Strip the "client" token so nettemp_client's argparse doesn't see it.
+            sys.argv = [sys.argv[0]]
             return client_main() or 0
         sub = sys.argv[2].lower()
         if sub == "start":

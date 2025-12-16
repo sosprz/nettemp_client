@@ -74,7 +74,9 @@ logging.basicConfig(level=logging.INFO, format='[%(asctime)s] %(levelname)s: %(m
 # Quiet down APScheduler noise (job executed/run messages)
 logging.getLogger('apscheduler').setLevel(logging.WARNING)
 
-PIDFILE = Path(__file__).parent / '.nettemp_client.pid'
+_DATA_DIR = Path(os.environ.get("NETTEMP_DATA_DIR", Path.home() / ".nettemp_client"))
+_DATA_DIR.mkdir(parents=True, exist_ok=True)
+PIDFILE = _DATA_DIR / '.nettemp_client.pid'
 
 # BLE drivers that need separate scheduling (to avoid blocking other sensors)
 BLE_DRIVERS = ['lywsd03mmc']
