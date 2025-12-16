@@ -301,11 +301,18 @@ def check_and_setup_environment():
             print("\n⚠ Auto-start not configured")
             setup_cron = input("Setup auto-start on boot? (y/n) [y]: ").strip().lower()
             if setup_cron in ['', 'y', 'yes']:
-                venv_python = venv_path / 'bin' / 'python3'
+                # Use current interpreter when running in managed venv (pipx/poetry), otherwise venv python
+                python_cmd = sys.executable if already_in_venv else venv_path / 'bin' / 'python3'
                 client_script = base_path / 'nettemp_client.py'
+                if not client_script.exists():
+                    try:
+                        import nettemp_client as _nc
+                        client_script = Path(_nc.__file__).resolve()
+                    except Exception:
+                        client_script = None
                 
-                if venv_python.exists() and client_script.exists():
-                    cron_entry = f"@reboot /bin/sleep 30 && {venv_python} {client_script} > /dev/null 2>&1 &"
+                if Path(str(python_cmd)).exists() and client_script and client_script.exists():
+                    cron_entry = f"@reboot /bin/sleep 30 && {python_cmd} {client_script} > /dev/null 2>&1 &"
                     
                     # Get existing crontab (excluding nettemp entries)
                     existing_cron = ""

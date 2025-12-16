@@ -12,6 +12,11 @@ py-modules = [
   "bridge"
 ]
 packages = ["mqtt", "drivers"]
+include-package-data = true
+
+[tool.setuptools.package-data]
+"drivers" = ["*.py"]
+"" = ["example_drivers_config.yaml", "example_config.conf", "example_mqtt_rules.yaml", "requirements.txt"]
 
 [project]
 name = "nettemp"
