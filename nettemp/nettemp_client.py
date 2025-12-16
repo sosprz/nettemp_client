@@ -46,11 +46,19 @@ except Exception:
 # Change to script directory to ensure relative paths work correctly
 os.chdir(script_dir)
 
-from .nettemp import CloudClient, insert2
-from .driver_loader import DriverLoader
-from .bridge import HTTPBridge
-from .mqtt.mqtt import MQTTBridge
-from .mqtt.theengs_gateway_manager import TheengsGatewayManager
+# Support both package and script execution contexts
+try:
+    from nettemp.nettemp import CloudClient, insert2
+    from nettemp.driver_loader import DriverLoader
+    from nettemp.bridge import HTTPBridge
+    from nettemp.mqtt.mqtt import MQTTBridge
+    from nettemp.mqtt.theengs_gateway_manager import TheengsGatewayManager
+except ImportError:
+    from .nettemp import CloudClient, insert2
+    from .driver_loader import DriverLoader
+    from .bridge import HTTPBridge
+    from .mqtt.mqtt import MQTTBridge
+    from .mqtt.theengs_gateway_manager import TheengsGatewayManager
 
 logging.basicConfig(level=logging.INFO, format='[%(asctime)s] %(levelname)s: %(message)s')
 # Quiet down APScheduler noise (job executed/run messages)
