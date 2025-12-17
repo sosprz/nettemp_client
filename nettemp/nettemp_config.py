@@ -975,7 +975,7 @@ class NettempConfigMenu:
                     return ""
                 text = ",".join(items)
                 if len(text) <= max_len:
-                    return f" [{text}]"
+                    return f" {Colors.LIGHT_BLUE}[{text}]{Colors.ENDC}"
                 kept: list[str] = []
                 used = 0
                 for item in items:
@@ -985,22 +985,35 @@ class NettempConfigMenu:
                     kept.append(item)
                     used += extra
                 if not kept:
-                    return " [..]"
-                return f" [{','.join(kept)},..]"
+                    return f" {Colors.LIGHT_BLUE}[..]{Colors.ENDC}"
+                return f" {Colors.LIGHT_BLUE}[{','.join(kept)},..]{Colors.ENDC}"
+
+            def _format_enabled_flag(enabled: bool) -> str:
+                label = "enabled" if enabled else "disabled"
+                return f" {Colors.LIGHT_BLUE}[{label}]{Colors.ENDC}"
 
             device_name = (self.config.get('group') or '').strip()
             if not device_name or device_name.lower() == 'not set':
-                device_suffix = f" [{Colors.YELLOW}NOT SET{Colors.ENDC}]"
+                device_suffix = f" {Colors.LIGHT_BLUE}[{Colors.YELLOW}NOT SET{Colors.LIGHT_BLUE}]{Colors.ENDC}"
             else:
-                device_suffix = f" [{device_name}]"
+                device_suffix = f" {Colors.LIGHT_BLUE}[{device_name}]{Colors.ENDC}"
+
+            http_bridge = self.config.get('http_bridge', {})
+            http_enabled = bool(http_bridge.get('enabled')) if isinstance(http_bridge, dict) else False
+
+            mqtt = self.config.get('mqtt', {})
+            mqtt_enabled = bool(mqtt.get('enabled')) if isinstance(mqtt, dict) else False
+
+            theengs = self.config.get('theengs_gateway', {})
+            theengs_enabled = bool(theengs.get('enabled')) if isinstance(theengs, dict) else False
 
             menu_options = [
                 "View Status / Health",
                 f"Configure Destination Servers{_format_bracket_list(enabled_server_names)}",
                 f"Configure Device Name{device_suffix}",
-                "Configure HTTP Bridge",
-                "Configure MQTT Bridge",
-                "Configure Theengs Gateway (BLE to MQTT)",
+                f"Configure HTTP Bridge{_format_enabled_flag(http_enabled)}",
+                f"Configure MQTT Bridge{_format_enabled_flag(mqtt_enabled)}",
+                f"Configure Theengs Gateway (BLE to MQTT){_format_enabled_flag(theengs_enabled)}",
                 "Configure Local Sensors (I2C + 1-Wire + USB + BT)",
                 "System Management (Setup/Update/Cron/Background)",
                 "Exit"
