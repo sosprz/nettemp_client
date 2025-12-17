@@ -3924,15 +3924,16 @@ class NettempConfigMenu:
                 device_topic = msg.topic
 
                 # Get sensor fields
-                metadata_fields = {'id', 'name', 'rssi', 'brand', 'model', 'model_id', 'type', 'mac', 'mfr', 'manufacturerdata'}
+                metadata_fields = {'id', 'name', 'rssi', 'brand', 'model', 'model_id', 'type', 'mac', 'mfr', 'manufacturerdata', 'adv', 'adv_src'}
                 sensor_fields = [k for k in data.keys() if k not in metadata_fields]
                 
                 # Create unique key using normalized MAC for BLE devices
                 mac_normalized = device_mac.replace(':', '').upper()
                 device_key = f"ble_{mac_normalized}"
 
-                # If already in logged devices, just enrich and skip duplicate printing
+                # If already in logged devices, enrich it and still show newly-seen topics.
                 if device_key in logged_devices:
+                    before_topics = set(logged_devices.get(device_key, {}).get('topics', []) or [])
                     merge_device(
                         logged_devices,
                         device_key,
@@ -3947,6 +3948,16 @@ class NettempConfigMenu:
                         device_topic,
                         sensor_fields
                     )
+                    # Print once per *topic*, even if the device was already present from log.
+                    if device_topic not in seen_topics:
+                        seen_topics.add(device_topic)
+                        entry = logged_devices.get(device_key, {})
+                        sensors_str = ','.join(sensor_fields) if sensor_fields else 'none'
+                        is_subscribed = is_topic_subscribed(device_topic)
+                        subscribed_mark = f" {Colors.GREEN}[SUBSCRIBED]{Colors.ENDC}" if is_subscribed else ""
+                        from_log_mark = f" {Colors.YELLOW}[FROM LOG]{Colors.ENDC}" if entry.get('from_log') else ""
+                        print(f"{Colors.GREEN}✓{Colors.ENDC} Found: {Colors.CYAN}{entry.get('name', device_name)}{Colors.ENDC} ({entry.get('mac', device_mac)}) - {entry.get('brand', brand)} {entry.get('model', model)} - Sensors: {sensors_str} - Topic: {device_topic}{subscribed_mark}{from_log_mark}")
+                        message_count += 1
                     return
                 if device_topic in logged_topics:
                     return
