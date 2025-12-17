@@ -55,6 +55,7 @@ from nettemp.paths import (  # noqa: E402
     get_drivers_file,
     get_mqtt_rules_file,
     get_pidfile,
+    get_theengs_gateway_config_file,
 )
 
 def check_and_setup_environment():
