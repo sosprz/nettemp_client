@@ -3720,7 +3720,7 @@ class NettempConfigMenu:
             input(f"\n{Colors.GREEN}Press Enter to continue...{Colors.ENDC}")
             return
         
-        # Dictionary to store discovered devices: {device_key: device_info}
+        # Dictionary to store discovered topics: {topic: topic_info}
         discovered_devices = {}
         message_count = 0
         
@@ -3831,7 +3831,7 @@ class NettempConfigMenu:
                 add_topic(new_entry, topic)
                 store[device_key] = new_entry
 
-        # Parse logged topics before live discovery so user can see them immediately
+        # Parse logged topics before live discovery so user can see them immediately (per-topic).
         logged_devices = {}
         if logged_topics:
             print_info("Parsing logged topics from previous runs...")
@@ -3839,63 +3839,55 @@ class NettempConfigMenu:
                 # Skip exclude patterns
                 if any(excluded in topic for excluded in ['LWT', '/status/', 'homeassistant/', 'config']):
                     continue
+                parts = topic.split('/')
 
-                # Parse Theengs Gateway topics: home/TheengsGateway/BTtoMQTT/A4C138165B5D
-                if 'BTtoMQTT' in topic:
-                    parts = topic.split('/')
-                    if len(parts) >= 4:
-                        mac_normalized = parts[-1]
-                        # Format MAC with colons
-                        if len(mac_normalized) == 12 and mac_normalized.isalnum():
-                            mac_formatted = ':'.join([mac_normalized[i:i+2] for i in range(0, 12, 2)])
-                            device_key = f"ble_{mac_normalized}"
-
-                            device_topic = topic
-                            is_subscribed = is_topic_subscribed(device_topic)
-
-                            merge_device(
-                                logged_devices,
-                                device_key,
-                                {
-                                    'mac': mac_formatted,
-                                    'name': f'BLE-{mac_normalized[-6:]}',
-                                    'type': 'BLE',
-                                    'brand': 'Theengs',
-                                    'model': 'From Log',
-                                    'subscribed': is_subscribed,
-                                    'from_log': True,
-                                },
-                                device_topic,
-                                sensors=[]
-                            )
-
-                # Parse ESPEasy/Tasmota/Other device topics: ESP32_Easy_1/BMP280/temperature
-                elif '/' in topic:
-                    parts = topic.split('/')
-                    if len(parts) >= 2:
-                        device_name = parts[0]
-                        sensor_path = '/'.join(parts[1:])
-                        device_key = f"mqtt_{device_name}"
-
-                        is_subscribed = is_topic_subscribed(topic) or is_topic_subscribed(f"{device_name}/#")
+                # Topic: home/<gateway>/BTtoMQTT/<MAC_NO_COLONS>
+                if 'BTtoMQTT' in topic and len(parts) >= 4:
+                    mac_normalized = parts[-1]
+                    if len(mac_normalized) == 12 and mac_normalized.isalnum():
+                        mac_formatted = ':'.join([mac_normalized[i:i+2] for i in range(0, 12, 2)])
+                        gateway = parts[1] if parts[0] == 'home' and len(parts) >= 2 else 'gateway'
+                        is_subscribed = is_topic_subscribed(topic)
                         merge_device(
                             logged_devices,
-                            device_key,
+                            topic,
                             {
-                                'mac': device_name,
-                                'name': device_name,
-                                'type': 'MQTT',
-                                'brand': 'ESPEasy/Tasmota',
+                                'mac': mac_formatted,
+                                'name': f'BLE-{mac_normalized[-6:]}',
+                                'type': 'BLE',
+                                'brand': gateway,
                                 'model': 'From Log',
                                 'subscribed': is_subscribed,
                                 'from_log': True,
                             },
                             topic,
-                            sensors=[sensor_path]
+                            sensors=[]
                         )
+                        continue
+
+                # Generic MQTT topics: <device>/<sensor>/<field>
+                if len(parts) >= 2:
+                    device_name = parts[0]
+                    sensor_path = '/'.join(parts[1:])
+                    is_subscribed = is_topic_subscribed(topic) or is_topic_subscribed(f"{device_name}/#")
+                    merge_device(
+                        logged_devices,
+                        topic,
+                        {
+                            'mac': device_name,
+                            'name': device_name,
+                            'type': 'MQTT',
+                            'brand': 'MQTT',
+                            'model': 'From Log',
+                            'subscribed': is_subscribed,
+                            'from_log': True,
+                        },
+                        topic,
+                        sensors=[sensor_path]
+                    )
 
             if logged_devices:
-                print_success(f"Found {len(logged_devices)} device(s) from log:")
+                print_success(f"Found {len(logged_devices)} topic(s) from log:")
                 for dev in sorted(logged_devices.values(), key=lambda d: d.get('topic', '')):
                     sensors_str = ','.join(dev['sensors']) if dev['sensors'] else 'none'
                     sub_mark = f" {Colors.GREEN}[SUBSCRIBED]{Colors.ENDC}" if dev.get('subscribed') else f" {Colors.YELLOW}[LOG]{Colors.ENDC}"
@@ -3942,40 +3934,8 @@ class NettempConfigMenu:
                 metadata_fields = {'id', 'name', 'rssi', 'brand', 'model', 'model_id', 'type', 'mac', 'mfr', 'manufacturerdata', 'adv', 'adv_src'}
                 sensor_fields = [k for k in data.keys() if k not in metadata_fields]
                 
-                # Create unique key using normalized MAC for BLE devices
-                mac_normalized = device_mac.replace(':', '').upper()
-                device_key = f"ble_{mac_normalized}"
-
-                # If already in logged devices, enrich it and still show newly-seen topics.
-                if device_key in logged_devices:
-                    before_topics = set(logged_devices.get(device_key, {}).get('topics', []) or [])
-                    merge_device(
-                        logged_devices,
-                        device_key,
-                        {
-                            'mac': device_mac,
-                            'name': device_name,
-                            'type': 'BLE',
-                            'brand': brand,
-                            'model': model,
-                            'subscribed': is_topic_subscribed(device_topic),
-                        },
-                        device_topic,
-                        sensor_fields
-                    )
-                    # Print once per *topic*, even if the device was already present from log.
-                    if device_topic not in seen_topics:
-                        seen_topics.add(device_topic)
-                        entry = logged_devices.get(device_key, {})
-                        sensors_str = ','.join(sensor_fields) if sensor_fields else 'none'
-                        is_subscribed = is_topic_subscribed(device_topic)
-                        subscribed_mark = f" {Colors.GREEN}[SUBSCRIBED]{Colors.ENDC}" if is_subscribed else ""
-                        from_log_mark = f" {Colors.YELLOW}[FROM LOG]{Colors.ENDC}" if entry.get('from_log') else ""
-                        print(f"{Colors.GREEN}✓{Colors.ENDC} Found: {Colors.CYAN}{entry.get('name', device_name)}{Colors.ENDC} ({entry.get('mac', device_mac)}) - {entry.get('brand', brand)} {entry.get('model', model)} - Sensors: {sensors_str} - Topic: {device_topic}{subscribed_mark}{from_log_mark}")
-                        message_count += 1
-                    return
-                if device_topic in logged_topics:
-                    return
+                # Per-topic key
+                device_key = device_topic
 
                 # Add or update device
                 is_subscribed = is_topic_subscribed(device_topic)
@@ -4114,12 +4074,12 @@ class NettempConfigMenu:
             input(f"\n{Colors.GREEN}Press Enter to continue...{Colors.ENDC}")
             return
         
-        print_success(f"✓ Total: {len(all_devices)} unique device(s) ({len(discovered_devices)} live, {len(logged_devices)} from log)\n")
+        print_success(f"✓ Total: {len(all_devices)} unique topic(s) ({len(discovered_devices)} live, {len(logged_devices)} from log)\n")
         
         # Interactive selection
         time.sleep(1)
         clear_screen()
-        print_header("SELECT DEVICES TO SUBSCRIBE")
+        print_header("SELECT TOPICS TO SUBSCRIBE")
         
         devices_list = sorted(all_devices.values(), key=lambda d: d.get('topic', ''))
         # Pre-select already subscribed devices
@@ -4128,12 +4088,12 @@ class NettempConfigMenu:
         
         while True:
             clear_screen()
-            print_header("SELECT DEVICES TO SUBSCRIBE")
+            print_header("SELECT TOPICS TO SUBSCRIBE")
             if logged_topics_count:
                 print_info(f"Loaded {logged_topics_count} topics from previous runs\n")
             
             print(f"\n{Colors.BOLD}Use ↑↓ arrows to navigate, SPACE to select/deselect, Enter to confirm{Colors.ENDC}\n")
-            print(f"Found {len(devices_list)} device(s):\n")
+            print(f"Found {len(devices_list)} topic(s):\n")
             
             for idx, device in enumerate(devices_list):
                 checkbox = "☑" if selected[idx] else "☐"
@@ -4192,34 +4152,13 @@ class NettempConfigMenu:
         print(f"\n{Colors.BOLD}Adding {len(selected_devices)} device(s) to MQTT subscribe_topics...{Colors.ENDC}\n")
         
         try:
-            # Build list of device topics to subscribe (use all known topics from discovery/log)
+            # Build list of topic filters to subscribe (per-topic selection).
             device_topics = []
             for d in selected_devices:
-                if d.get('type') == 'BLE' and d.get('mac'):
-                    mac_no_colons = d['mac'].replace(':', '').upper()
-                    if len(mac_no_colons) == 12:
-                        # Subscribe to any BTtoMQTT source (TheengsGateway, ESP32, OMG, etc.) for this sensor.
-                        device_topics.append(f"home/+/BTtoMQTT/{mac_no_colons}")
-                        continue
+                t = d.get('topic') or (d.get('topics') or [None])[0]
+                if t:
+                    device_topics.append(t)
 
-                topics = d.get('topics') or []
-                if not topics and d.get('topic'):
-                    topics = [d['topic']]
-                for t in topics:
-                    if t:
-                        device_topics.append(t)
-
-            # Track identifiers to drop old topics for the same device
-            selected_ble_macs = set()
-            selected_mqtt_prefixes = set()
-            for d in selected_devices:
-                if d.get('type') == 'BLE' and d.get('mac'):
-                    selected_ble_macs.add(d['mac'].replace(':', '').upper())
-                elif d.get('type') == 'MQTT' and d.get('topic'):
-                    # prefix before first slash
-                    base = d['topic'].split('/')[0]
-                    selected_mqtt_prefixes.add(base)
-            
             # Get current subscribe_topics from config
             if 'mqtt' not in self.config:
                 self.config['mqtt'] = {}
@@ -4230,25 +4169,11 @@ class NettempConfigMenu:
             elif not isinstance(current_topics, list):
                 current_topics = []
             
-            # Remove old device topics for selected devices
-            filtered_topics = []
-            for t in current_topics:
-                if t == '#':
-                    continue
-                drop = False
-                # Drop old BLE topics for selected MACs
-                for mac in selected_ble_macs:
-                    if t.upper().endswith(mac):
-                        drop = True
-                        break
-                # Drop old MQTT device topics for selected prefixes
-                if not drop:
-                    for prefix in selected_mqtt_prefixes:
-                        if t.startswith(prefix + "/") or t.startswith(prefix + "/#"):
-                            drop = True
-                            break
-                if not drop:
-                    filtered_topics.append(t)
+            # Treat the selection screen as authoritative for exact topics in this discovery universe:
+            # - keep wildcard patterns and unrelated topics
+            # - replace exact topics that are part of discovery/log with the selected ones
+            discovery_topics = set(all_devices.keys())
+            filtered_topics = [t for t in current_topics if t and t not in discovery_topics and t != '#']
             
             # Add new topics and deduplicate
             filtered_topics.extend(device_topics)
