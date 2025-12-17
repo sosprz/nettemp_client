@@ -3909,6 +3909,10 @@ class NettempConfigMenu:
             try:
                 topic = msg.topic
                 # Skip noisy/system topics to keep discovery usable.
+                if topic.startswith('$SYS/'):
+                    return
+                if topic.startswith('tele/') or topic.startswith('stat/') or topic.startswith('cmnd/'):
+                    return
                 if any(excluded in topic for excluded in ['LWT', '/status/', 'homeassistant/', '/config']):
                     return
                 payload = msg.payload.decode('utf-8')
@@ -3997,8 +4001,50 @@ class NettempConfigMenu:
                     print(f"{Colors.GREEN}↻{Colors.ENDC} Active: {Colors.CYAN}{device_name}{Colors.ENDC} ({device_mac}) - Sensors: {sensors_str} - Topic: {device_topic}{subscribed_mark}")
                 
             except json.JSONDecodeError:
-                # Silently skip non-JSON payloads
-                pass
+                # Handle simple payloads (numeric/text) like ESPEasy/Tasmota.
+                # Example: ESP32_Easy_1/BMP280/temperature 19.8
+                try:
+                    topic = msg.topic
+                    parts = topic.split('/')
+                    if len(parts) < 2:
+                        return
+                    device_name = parts[0]
+                    sensor_path = '/'.join(parts[1:])
+
+                    # Best-effort parse value (optional; used only to confirm activity)
+                    payload_str = msg.payload.decode('utf-8', errors='ignore') if isinstance(msg.payload, (bytes, bytearray)) else str(msg.payload)
+                    payload_str = (payload_str or '').strip()
+
+                    is_subscribed = is_topic_subscribed(topic) or is_topic_subscribed(f"{device_name}/#")
+                    device_key = f"mqtt_{device_name}"
+                    merge_device(
+                        discovered_devices,
+                        device_key,
+                        {
+                            'mac': device_name,
+                            'name': device_name,
+                            'type': 'MQTT',
+                            'brand': 'ESPEasy/Tasmota',
+                            'model': 'From Live',
+                            'subscribed': is_subscribed,
+                        },
+                        topic,
+                        sensors=[sensor_path]
+                    )
+
+                    if topic not in seen_topics:
+                        seen_topics.add(topic)
+                        subscribed_mark = f" {Colors.GREEN}[SUBSCRIBED]{Colors.ENDC}" if is_subscribed else ""
+                        value_hint = f" = {payload_str}" if payload_str else ""
+                        print(f"{Colors.GREEN}✓{Colors.ENDC} Found: {Colors.CYAN}{device_name}{Colors.ENDC} - Sensors: {sensor_path}{value_hint} - Topic: {topic}{subscribed_mark}")
+                        message_count += 1
+                    elif topic not in seen_in_session:
+                        seen_in_session.add(topic)
+                        subscribed_mark = f" {Colors.GREEN}[SUBSCRIBED]{Colors.ENDC}" if is_subscribed else ""
+                        value_hint = f" = {payload_str}" if payload_str else ""
+                        print(f"{Colors.GREEN}↻{Colors.ENDC} Active: {Colors.CYAN}{device_name}{Colors.ENDC} - {sensor_path}{value_hint} - Topic: {topic}{subscribed_mark}")
+                except Exception:
+                    return
             except Exception as e:
                 # Silently skip any other errors during discovery
                 pass
