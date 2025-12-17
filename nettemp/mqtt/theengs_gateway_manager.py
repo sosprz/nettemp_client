@@ -178,7 +178,8 @@ class TheengsGatewayManager:
                 "publish_topic": self.config.get('publish_topic', 'home/TheengsGateway/BTtoMQTT'),
                 "publish_all": int(self.config.get('publish_all', 1)),
                 "discovery": int(self.config.get('discovery', 0)),
-                "log_level": self.config.get('log_level', 'INFO')
+                # Keep TheengsGateway quiet by default.
+                "log_level": self.config.get('log_level', 'ERROR')
             }
             # Note: subscribe_topic removed - not needed for nettemp use case
             # Note: discovery defaults to 0 (disabled) to avoid Home Assistant autodiscovery messages

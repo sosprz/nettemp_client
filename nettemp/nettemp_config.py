@@ -961,10 +961,6 @@ class NettempConfigMenu:
         while True:
             clear_screen()
             print_header("NETTEMP CLIENT - CONFIGURATION MENU")
-            print(f"{Colors.CYAN}This configurator edits:{Colors.ENDC}")
-            print(f"  - mqtt_rules.yaml {Colors.YELLOW}MQTT incoming topic rules{Colors.ENDC}")
-            print(f"  - drivers_config.yaml {Colors.YELLOW}Local driver rules{Colors.ENDC}")
-            print(f"  - config.conf {Colors.YELLOW}General settings{Colors.ENDC}\n")
 
             cloud_servers = self.config.get('cloud_servers', []) or []
             enabled_server_names = [
@@ -1014,6 +1010,34 @@ class NettempConfigMenu:
                     print(f"{Colors.LIGHT_BLUE}▶ {option}{Colors.ENDC}")
                 else:
                     print(f"  {option}")
+
+            # File locations (moved below the menu for clarity).
+            try:
+                mqtt_rules_path = str(self.mqtt_rules_file.resolve())
+            except Exception:
+                mqtt_rules_path = str(self.mqtt_rules_file)
+            try:
+                drivers_path = str(self.drivers_file.resolve())
+            except Exception:
+                drivers_path = str(self.drivers_file)
+            try:
+                config_path = str(self.config_file.resolve())
+            except Exception:
+                config_path = str(self.config_file)
+            try:
+                theengs_cfg_path = str(get_theengs_gateway_config_file().resolve())
+            except Exception:
+                theengs_cfg_path = str(get_theengs_gateway_config_file())
+
+            print(f"\n{Colors.CYAN}This configurator edits:{Colors.ENDC}")
+            print(f"  - mqtt_rules.yaml {Colors.YELLOW}MQTT incoming topic rules{Colors.ENDC}")
+            print(f"    {mqtt_rules_path}")
+            print(f"  - drivers_config.yaml {Colors.YELLOW}Local driver rules{Colors.ENDC}")
+            print(f"    {drivers_path}")
+            print(f"  - config.conf {Colors.YELLOW}General settings{Colors.ENDC}")
+            print(f"    {config_path}")
+            print(f"  - theengs_gateway_config.json {Colors.YELLOW}Generated TheengsGateway config{Colors.ENDC}")
+            print(f"    {theengs_cfg_path}")
             
             print(f"\n{Colors.LIGHT_BLUE}Use ↑↓ arrows, Enter to select, Esc to exit{Colors.ENDC}")
             
@@ -2639,7 +2663,7 @@ class NettempConfigMenu:
                 'publish_topic': publish_topic,
                 'publish_all': 1,
                 'discovery': 0,
-                'log_level': 'INFO'
+                'log_level': 'ERROR'
             }
             # Note: subscribe_topic not needed - nettemp client subscribes to specific devices
             # Note: discovery set to 0 to disable Home Assistant autodiscovery messages
