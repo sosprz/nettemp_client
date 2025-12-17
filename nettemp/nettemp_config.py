@@ -3894,16 +3894,20 @@ class NettempConfigMenu:
         def on_connect(client, userdata, flags, rc, properties=None):
             if rc == 0:
                 print_success(f"✓ Connected to {broker}:{port}")
-                # Subscribe to common device topics
-                client.subscribe("home/+/BTtoMQTT/+")  # Theengs Gateway
-                client.subscribe("+/+/+")  # ESPEasy, Tasmota, etc.
-                print_info("Listening for MQTT devices... (Press Ctrl+C when done)\n")
+                # Subscribe broadly so newly appearing / rare topics can be seen during discovery.
+                # (We'll filter noisy/system topics in on_message.)
+                client.subscribe("#")
+                print_info("Listening for MQTT devices on '#': all topics (Press Ctrl+C when done)\n")
             else:
                 print_error(f"Connection failed with code {rc}")
-        
+         
         def on_message(client, userdata, msg, properties=None):
             nonlocal message_count
             try:
+                topic = msg.topic
+                # Skip noisy/system topics to keep discovery usable.
+                if any(excluded in topic for excluded in ['LWT', '/status/', 'homeassistant/', '/config']):
+                    return
                 payload = msg.payload.decode('utf-8')
                 data = json.loads(payload)
                 
