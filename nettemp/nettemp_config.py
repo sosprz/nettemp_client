@@ -3732,7 +3732,10 @@ class NettempConfigMenu:
                 pass
 
         # Deduplicate live discovery output (devices publish frequently).
+        # `seen_topics` includes topics already present in mqtt_topics.log so we don't re-print them as "new".
         seen_topics = set(logged_topics)
+        # But for UX it's still useful to confirm that a *known* topic is currently active during this session.
+        seen_in_session = set()
         
         # Get currently subscribed topics
         current_subscribe_topics = mqtt_cfg.get('subscribe_topics', [])
@@ -3986,6 +3989,12 @@ class NettempConfigMenu:
                     subscribed_mark = f" {Colors.GREEN}[SUBSCRIBED]{Colors.ENDC}" if is_subscribed else ""
                     print(f"{Colors.GREEN}✓{Colors.ENDC} Found: {Colors.CYAN}{device_name}{Colors.ENDC} ({device_mac}) - {brand} {model} - Sensors: {sensors_str} - Topic: {device_topic}{subscribed_mark}")
                     message_count += 1
+                elif device_topic not in seen_in_session:
+                    # Topic was already known (from log) but we just saw it live.
+                    seen_in_session.add(device_topic)
+                    sensors_str = ','.join(sensor_fields) if sensor_fields else 'none'
+                    subscribed_mark = f" {Colors.GREEN}[SUBSCRIBED]{Colors.ENDC}" if is_subscribed else ""
+                    print(f"{Colors.GREEN}↻{Colors.ENDC} Active: {Colors.CYAN}{device_name}{Colors.ENDC} ({device_mac}) - Sensors: {sensors_str} - Topic: {device_topic}{subscribed_mark}")
                 
             except json.JSONDecodeError:
                 # Silently skip non-JSON payloads
