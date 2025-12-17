@@ -28,6 +28,9 @@ mqtt:
     - '#'                         # All topics
     - sensors/#                   # All topics under sensors/
     - home/+/temperature          # home/bedroom/temperature, home/kitchen/temperature, etc.
+    # BLE gateways (TheengsGateway / ESP32 / OMG_ESP32_BLE) typically publish to:
+    #   home/<gateway>/BTtoMQTT/<MAC_NO_COLONS>
+    - home/+/BTtoMQTT/+           # Subscribe to all BLE sensor publishes across gateways
     - devices/sensor1/data
   
   # exclude_topics is OPTIONAL - defaults are loaded from mqtt_rules.yaml
@@ -36,6 +39,12 @@ mqtt:
   #   - my_custom_topic/#
   
   auth_token: shared_secret       # Optional - validates incoming MQTT messages
+  
+  # Topic logging (helps `nettemp config` autodiscovery):
+  # Nettemp Client will subscribe to these topics to populate mqtt_topics.log.
+  # This does NOT enable MQTT→Cloud forwarding by itself.
+  topic_log_subscribe_topics:
+    - home/+/BTtoMQTT/+
 
 # Rate Limiting (Subscriber mode):
 # Intervals are configured per device type in mqtt_rules.yaml

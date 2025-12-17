@@ -15,6 +15,13 @@ Configuration in config.conf:
       password: pass          # optional
       tls: false              # use TLS/SSL
       
+      # Topic logging (optional):
+      # This helps `nettemp config` autodiscovery by recording seen topics to mqtt_topics.log.
+      # Subscriptions here are ONLY for logging; they do not enable MQTT→Cloud forwarding.
+      # Recommended (BLE gateways): home/+/BTtoMQTT/+
+      topic_log_subscribe_topics:
+        - home/+/BTtoMQTT/+
+       
       # Publisher settings
       topic_prefix: nettemp   # default: nettemp/{group}/{sensor_id}/{type}
       qos: 0                  # 0, 1, or 2
@@ -90,6 +97,14 @@ class MQTTBridge:
             self.subscribe_topics = [self.subscribe_topics]
         self.auth_token = cfg.get('auth_token')
         self.servers = cfg.get('servers', [])  # Server filtering for subscriber mode
+        
+        # Topic logging subscription (for autodiscovery assistance)
+        self.topic_log_subscribe_topics = cfg.get('topic_log_subscribe_topics', [])
+        if isinstance(self.topic_log_subscribe_topics, str):
+            self.topic_log_subscribe_topics = [self.topic_log_subscribe_topics]
+        # Default to lightweight BLE topic logging if not configured.
+        if not self.topic_log_subscribe_topics:
+            self.topic_log_subscribe_topics = ['home/+/BTtoMQTT/+']
         
         # Message parser (load early to get exclude_topics from rules file)
         self.parser = MQTTParser()  # Loads rules from mqtt_rules.yaml
@@ -190,6 +205,16 @@ class MQTTBridge:
             mode_str = '+'.join(modes)
             logging.info(f'MQTT connected to {self.broker}:{self.port} (mode: {mode_str})')
             
+            # Subscribe to topic logging filters (always, even in publisher-only mode).
+            for topic in self.topic_log_subscribe_topics:
+                if not topic:
+                    continue
+                try:
+                    client.subscribe(topic, qos=self.qos)
+                    logging.info(f'MQTT subscribed (topic log): {topic}')
+                except Exception as e:
+                    logging.error(f'Failed to subscribe (topic log) to {topic}: {e}')
+
             # Subscribe to topics if in subscriber mode
             if self.mode_subscriber:
                 for topic in self.subscribe_topics:
@@ -218,9 +243,6 @@ class MQTTBridge:
 
     def _on_message(self, client, userdata, msg):
         """Callback when message received (subscriber mode)"""
-        if not self.mode_subscriber:
-            return
-        
         try:
             topic = msg.topic
             
@@ -234,6 +256,10 @@ class MQTTBridge:
             
             # Log topic for autodiscovery assistance
             self._log_topic(topic)
+
+            # If subscriber mode is disabled, do not parse/forward (logging-only).
+            if not self.mode_subscriber:
+                return
             
             # Parse message using rule-based parser
             readings = self.parser.parse(topic, msg.payload)

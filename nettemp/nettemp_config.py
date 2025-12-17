@@ -3739,18 +3739,40 @@ class NettempConfigMenu:
         if isinstance(current_subscribe_topics, str):
             current_subscribe_topics = [current_subscribe_topics]
         # Keep all topics for subscription checking (including wildcards like ESP32_Easy_1/#)
+ 
+        def mqtt_filter_matches(filter_str: str, topic: str) -> bool:
+            """
+            MQTT topic filter matcher supporting '+' and '#' wildcards.
+            - '+' matches exactly one level
+            - '#' matches remaining levels (must be last)
+            """
+            if not filter_str or not topic:
+                return False
+            if filter_str == '#':
+                return True
+            if filter_str == topic:
+                return True
+
+            fp = filter_str.split('/')
+            tp = topic.split('/')
+            for i, f in enumerate(fp):
+                if f == '#':
+                    return i == len(fp) - 1
+                if i >= len(tp):
+                    return False
+                if f == '+':
+                    continue
+                if f != tp[i]:
+                    return False
+            return len(tp) == len(fp)
 
         def is_topic_subscribed(topic: str) -> bool:
             """Check if a topic is already covered by current subscribe patterns"""
             for sub in current_subscribe_topics:
                 if not sub:
                     continue
-                if sub == topic:
+                if mqtt_filter_matches(sub, topic):
                     return True
-                if sub.endswith('/#'):
-                    prefix = sub[:-2]
-                    if topic.startswith(prefix):
-                        return True
             return False
 
         def add_topic(entry: dict, topic: str):
@@ -4092,9 +4114,16 @@ class NettempConfigMenu:
         print(f"\n{Colors.BOLD}Adding {len(selected_devices)} device(s) to MQTT subscribe_topics...{Colors.ENDC}\n")
         
         try:
-            # Build list of device-specific topics (use all known topics from discovery/log)
+            # Build list of device topics to subscribe (use all known topics from discovery/log)
             device_topics = []
             for d in selected_devices:
+                if d.get('type') == 'BLE' and d.get('mac'):
+                    mac_no_colons = d['mac'].replace(':', '').upper()
+                    if len(mac_no_colons) == 12:
+                        # Subscribe to any BTtoMQTT source (TheengsGateway, ESP32, OMG, etc.) for this sensor.
+                        device_topics.append(f"home/+/BTtoMQTT/{mac_no_colons}")
+                        continue
+
                 topics = d.get('topics') or []
                 if not topics and d.get('topic'):
                     topics = [d['topic']]
