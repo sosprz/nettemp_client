@@ -80,6 +80,9 @@ class MQTTBridge:
         self.password = cfg.get('password')
         self.use_tls = bool(cfg.get('tls', False))
         self.keepalive = int(cfg.get('keepalive', 60))
+        # 0.0.0.0 is a bind/listen address, not a client connect address.
+        if self.broker == '0.0.0.0':
+            self.broker = '127.0.0.1'
         
         # Operation mode
         mode = cfg.get('mode', 'both').lower()

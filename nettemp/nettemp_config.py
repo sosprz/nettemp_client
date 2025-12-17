@@ -799,9 +799,14 @@ class NettempConfigMenu:
         if self.config_file.exists():
             with open(self.config_file, 'r') as f:
                 loaded_config = yaml.safe_load(f) or {}
+                # Be tolerant to common typos / legacy keys.
+                # Some users accidentally save MQTT section as "qtt:" instead of "mqtt:".
+                if isinstance(loaded_config, dict) and 'mqtt' not in loaded_config and 'qtt' in loaded_config:
+                    loaded_config['mqtt'] = loaded_config.pop('qtt') or {}
+
                 # Merge loaded config into self.config
                 self.config.update(loaded_config)
-                
+                 
                 # Ensure cloud_servers is a list
                 if 'cloud_servers' in self.config and not isinstance(self.config['cloud_servers'], list):
                     # If it's a string or something else, reset it to empty list
@@ -3688,6 +3693,9 @@ class NettempConfigMenu:
             return
         
         broker = mqtt_cfg.get('broker', '')
+        # 0.0.0.0 is a bind/listen address, not a client connect address.
+        if broker == '0.0.0.0':
+            broker = '127.0.0.1'
         port = mqtt_cfg.get('port', 1883)
         username = mqtt_cfg.get('username')
         password = mqtt_cfg.get('password')

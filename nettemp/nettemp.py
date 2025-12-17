@@ -89,7 +89,14 @@ class CloudClient:
         try:
             import yaml
             with open(config_path, 'r') as f:
-                return yaml.safe_load(f) or {}
+                cfg = yaml.safe_load(f) or {}
+                if isinstance(cfg, dict) and 'mqtt' not in cfg and 'qtt' in cfg:
+                    cfg['mqtt'] = cfg.pop('qtt') or {}
+                # 0.0.0.0 is a bind/listen address, not a client connect address.
+                mqtt_cfg = cfg.get('mqtt')
+                if isinstance(mqtt_cfg, dict) and mqtt_cfg.get('broker') == '0.0.0.0':
+                    mqtt_cfg['broker'] = '127.0.0.1'
+                return cfg
         except Exception as e:
             logging.error(f"Config load error: {e}")
             return {}
