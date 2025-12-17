@@ -3915,13 +3915,51 @@ class NettempConfigMenu:
                     return
                 if any(excluded in topic for excluded in ['LWT', '/status/', 'homeassistant/', '/config']):
                     return
-                payload = msg.payload.decode('utf-8')
-                data = json.loads(payload)
-                
-                # Skip if data is not a dictionary (e.g., numeric values)
+
+                def handle_simple_topic(simple_topic: str, payload_str: str):
+                    # Example: ESP32_Easy_1/BMP280/temperature 19.8
+                    parts = simple_topic.split('/')
+                    if len(parts) < 2:
+                        return
+                    device_name = parts[0]
+                    sensor_path = '/'.join(parts[1:])
+
+                    is_subscribed = is_topic_subscribed(simple_topic) or is_topic_subscribed(f"{device_name}/#")
+                    merge_device(
+                        discovered_devices,
+                        simple_topic,
+                        {
+                            'mac': device_name,
+                            'name': device_name,
+                            'type': 'MQTT',
+                            'brand': 'MQTT',
+                            'model': 'From Live',
+                            'subscribed': is_subscribed,
+                        },
+                        simple_topic,
+                        sensors=[sensor_path]
+                    )
+
+                    value_hint = f" = {payload_str}" if payload_str else ""
+                    subscribed_mark = f" {Colors.GREEN}[SUBSCRIBED]{Colors.ENDC}" if is_subscribed else ""
+
+                    if simple_topic not in seen_topics:
+                        seen_topics.add(simple_topic)
+                        print(f"{Colors.GREEN}✓{Colors.ENDC} Found: {Colors.CYAN}{device_name}{Colors.ENDC} - Sensors: {sensor_path}{value_hint} - Topic: {simple_topic}{subscribed_mark}")
+                        message_count += 1
+                    elif simple_topic not in seen_in_session:
+                        seen_in_session.add(simple_topic)
+                        print(f"{Colors.GREEN}↻{Colors.ENDC} Active: {Colors.CYAN}{device_name}{Colors.ENDC} - {sensor_path}{value_hint} - Topic: {simple_topic}{subscribed_mark}")
+
+                payload = msg.payload.decode('utf-8', errors='ignore') if isinstance(msg.payload, (bytes, bytearray)) else str(msg.payload)
+                payload_str = (payload or '').strip()
+                data = json.loads(payload_str)
+                 
+                # If JSON is not a dictionary (e.g., numeric values), treat it like a simple payload topic.
                 if not isinstance(data, dict):
+                    handle_simple_topic(topic, payload_str)
                     return
-                
+                 
                 # Extract device info
                 device_mac = data.get('id', 'unknown')
                 device_name = data.get('name', 'unknown')
@@ -3969,48 +4007,11 @@ class NettempConfigMenu:
                     print(f"{Colors.GREEN}↻{Colors.ENDC} Active: {Colors.CYAN}{device_name}{Colors.ENDC} ({device_mac}) - Sensors: {sensors_str} - Topic: {device_topic}{subscribed_mark}")
                 
             except json.JSONDecodeError:
-                # Handle simple payloads (numeric/text) like ESPEasy/Tasmota.
-                # Example: ESP32_Easy_1/BMP280/temperature 19.8
                 try:
-                    topic = msg.topic
-                    parts = topic.split('/')
-                    if len(parts) < 2:
-                        return
-                    device_name = parts[0]
-                    sensor_path = '/'.join(parts[1:])
-
-                    # Best-effort parse value (optional; used only to confirm activity)
-                    payload_str = msg.payload.decode('utf-8', errors='ignore') if isinstance(msg.payload, (bytes, bytearray)) else str(msg.payload)
-                    payload_str = (payload_str or '').strip()
-
-                    is_subscribed = is_topic_subscribed(topic) or is_topic_subscribed(f"{device_name}/#")
-                    device_key = f"mqtt_{device_name}"
-                    merge_device(
-                        discovered_devices,
-                        device_key,
-                        {
-                            'mac': device_name,
-                            'name': device_name,
-                            'type': 'MQTT',
-                            'brand': 'ESPEasy/Tasmota',
-                            'model': 'From Live',
-                            'subscribed': is_subscribed,
-                        },
-                        topic,
-                        sensors=[sensor_path]
+                    handle_simple_topic(
+                        msg.topic,
+                        (msg.payload.decode('utf-8', errors='ignore') if isinstance(msg.payload, (bytes, bytearray)) else str(msg.payload)).strip()
                     )
-
-                    if topic not in seen_topics:
-                        seen_topics.add(topic)
-                        subscribed_mark = f" {Colors.GREEN}[SUBSCRIBED]{Colors.ENDC}" if is_subscribed else ""
-                        value_hint = f" = {payload_str}" if payload_str else ""
-                        print(f"{Colors.GREEN}✓{Colors.ENDC} Found: {Colors.CYAN}{device_name}{Colors.ENDC} - Sensors: {sensor_path}{value_hint} - Topic: {topic}{subscribed_mark}")
-                        message_count += 1
-                    elif topic not in seen_in_session:
-                        seen_in_session.add(topic)
-                        subscribed_mark = f" {Colors.GREEN}[SUBSCRIBED]{Colors.ENDC}" if is_subscribed else ""
-                        value_hint = f" = {payload_str}" if payload_str else ""
-                        print(f"{Colors.GREEN}↻{Colors.ENDC} Active: {Colors.CYAN}{device_name}{Colors.ENDC} - {sensor_path}{value_hint} - Topic: {topic}{subscribed_mark}")
                 except Exception:
                     return
             except Exception as e:
