@@ -105,9 +105,9 @@ class MQTTBridge:
         self.topic_log_subscribe_topics = cfg.get('topic_log_subscribe_topics', [])
         if isinstance(self.topic_log_subscribe_topics, str):
             self.topic_log_subscribe_topics = [self.topic_log_subscribe_topics]
-        # Default to lightweight BLE topic logging if not configured.
+        # Default to logging all topics (unique) so autodiscovery can show rarely-published topics.
         if not self.topic_log_subscribe_topics:
-            self.topic_log_subscribe_topics = ['home/+/BTtoMQTT/+']
+            self.topic_log_subscribe_topics = ['#']
         
         # Message parser (load early to get exclude_topics from rules file)
         self.parser = MQTTParser()  # Loads rules from mqtt_rules.yaml
@@ -138,9 +138,10 @@ class MQTTBridge:
             self.enabled = False
             return
         
+        # Empty selection = subscribe to all topics (rules + exclude_topics control what gets forwarded).
         if self.mode_subscriber and not self.subscribe_topics:
-            logging.warning('MQTT subscriber mode enabled but no topics configured')
-            self.mode_subscriber = False
+            self.subscribe_topics = ['#']
+            logging.info("MQTT subscriber mode: empty subscribe_topics -> subscribing to '#' (all topics)")
         
         # MQTT client
         self.client: Optional[mqtt.Client] = None
@@ -698,15 +699,15 @@ class MQTTBridge:
                 reading_type = reading.get('type', 'value')
                 value = reading.get('value')
                 
-                # Build topic: nettemp/{group}/{sensor_id}/{type}
-                topic = f'{self.topic_prefix}/{group}/{sensor_id}/{reading_type}'
+                # Nettemp standard topic: {prefix}/{device_id}/{sensor_id}
+                topic = f'{self.topic_prefix}/{group}/{sensor_id}'
                 
                 # Prepare payload
                 payload = {
-                    'value': value,
-                    'type': reading_type,
+                    'device_id': group,
                     'sensor_id': sensor_id,
-                    'timestamp': int(time.time())
+                    'value': value,
+                    'sensor_type': reading_type,
                 }
                 
                 # Add optional fields

@@ -22,7 +22,9 @@
 
 # Topics to always exclude (status/control messages)
 exclude_topics:
-  - nettemp/#                      # Don't receive our own published data
+  # NOTE: We no longer exclude `nettemp/#` by default.
+  # If you run Nettemp Client in `mode: both` (publisher + subscriber) AND subscribe to `#`,
+  # you may want to add `exclude_topics: [nettemp/#]` in `config.conf` to avoid receiving your own publishes.
   - "*/LWT"                        # Last Will Testament messages
   - "*/lwt"
   - "homeassistant/*/config"       # Home Assistant config messages
@@ -30,6 +32,21 @@ exclude_topics:
   - "*/status/LWT"                 # ESPEasy LWT
 
 rules:
+  # Nettemp standard JSON payload (recommended for custom devices / ESP32 firmware)
+  # Topic: nettemp/<device_id>/<sensor_id>
+  # Payload: {"device_id":"...","sensor_id":"...","value":22.5,"sensor_type":"temperature","name":"BME280 temp"}
+  - name: "Nettemp Standard"
+    enabled: true
+    topic_pattern: "nettemp/*/*"
+    format: json
+    interval: 60                     # Forward readings every 60 seconds (1 minute)
+    device_id_field: "device_id"
+    sensor_id_field: "sensor_id"
+    sensor_name_field: "name"        # Friendly name from payload
+    readings_map:
+      value:
+        type_from_field: "sensor_type"
+
   # Theengs Gateway - Bluetooth to MQTT bridge
   # Supports 70+ BLE devices (Xiaomi, Govee, etc.)
   # Topic: home/TheengsGateway/BTtoMQTT/<MAC>

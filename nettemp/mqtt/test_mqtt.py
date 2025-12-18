@@ -108,7 +108,7 @@ def test_mqtt_connection():
         print()
         print("Published to topics:")
         for reading in test_readings:
-            topic = f"{config['topic_prefix']}/test-device/{reading['rom']}/{reading['type']}"
+            topic = f"{config['topic_prefix']}/test-device/{reading['rom']}"
             print(f"  - {topic}")
         print()
         print("To verify, run in another terminal:")

@@ -8,7 +8,7 @@ import sys
 import yaml
 
 def test_config(config_file='config.conf'):
-    """Test if config file has exclude_topics"""
+    """Test if config file has exclude_topics (optional)"""
     try:
         with open(config_file, 'r') as f:
             config = yaml.safe_load(f)
@@ -24,20 +24,9 @@ def test_config(config_file='config.conf'):
         print(f"✅ Found mqtt section")
         
         if 'exclude_topics' not in mqtt_config:
-            print("❌ No 'exclude_topics' found in mqtt section!")
-            print("\nYou need to add exclude_topics to your config.conf:")
-            print("""
-mqtt:
-  exclude_topics:
-    - nettemp/#
-    - "*/LWT"
-    - "*/lwt"
-    - "*/status/LWT"
-    - "*/config"
-    - "homeassistant/*/config"
-    - "homeassistant/*/*/config"
-""")
-            return False
+            print("ℹ No 'exclude_topics' found in mqtt section (this is OK).")
+            print("  Nettemp Client will use defaults from mqtt_rules.yaml (if present).")
+            return True
         
         exclude_topics = mqtt_config['exclude_topics']
         if isinstance(exclude_topics, str):
@@ -48,7 +37,7 @@ mqtt:
             print(f"   - {pattern}")
         
         # Check for common patterns
-        required = ['*/LWT', '*/lwt', '*/config']
+        required = ['*/LWT', '*/lwt']
         missing = []
         for req in required:
             found = any(req in p or req == p for p in exclude_topics)

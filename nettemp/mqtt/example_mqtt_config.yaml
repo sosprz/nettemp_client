@@ -19,7 +19,7 @@ mqtt:
   keepalive: 60                   # Connection keepalive in seconds
   
   # Publisher settings (when mode = publisher or both)
-  topic_prefix: nettemp           # Topic: {prefix}/{device_id}/{sensor_id}/{type}
+  topic_prefix: nettemp           # Topic: {prefix}/{device_id}/{sensor_id}
   qos: 0                          # Quality of Service: 0, 1, or 2
   retain: false                   # Retain messages on broker
   
@@ -43,8 +43,10 @@ mqtt:
   # Topic logging (helps `nettemp config` autodiscovery):
   # Nettemp Client will subscribe to these topics to populate mqtt_topics.log.
   # This does NOT enable MQTT→Cloud forwarding by itself.
+  # Default (if not set): ['#'] (log all topics, unique).
   topic_log_subscribe_topics:
     - home/+/BTtoMQTT/+
+    - nettemp/+/+
 
 # Rate Limiting (Subscriber mode):
 # Intervals are configured per device type in mqtt_rules.yaml
@@ -56,18 +58,17 @@ mqtt:
 # Edit mqtt_rules.yaml to adjust intervals for your needs
 
 # Example topic structure for Publisher mode:
-# nettemp/my-device/lywsd03mmc_A4C138165B5D_temp/temperature
-# nettemp/my-device/lywsd03mmc_A4C138165B5D_humid/humidity
-# nettemp/my-device/ds18b20_28-00000abcdef1/temperature
+# nettemp/my-device/lywsd03mmc_A4C138165B5D_tempc
+# nettemp/my-device/lywsd03mmc_A4C138165B5D_hum
+# nettemp/my-device/ds18b20_28-00000abcdef1_tempc
 
 # Example MQTT payload (Publisher mode):
 # {
+#   "device_id": "my-device",
+#   "sensor_id": "lywsd03mmc_A4C138165B5D_tempc",
 #   "value": 22.5,
-#   "type": "temperature",
-#   "sensor_id": "lywsd03mmc_A4C138165B5D_temp",
-#   "timestamp": 1702234567,
-#   "unit": "°C",
-#   "name": "Living Room/temperature"
+#   "sensor_type": "temperature",
+#   "name": "Living Room temperature"
 # }
 
 # Example incoming MQTT message formats (Subscriber mode):

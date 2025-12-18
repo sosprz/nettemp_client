@@ -3890,8 +3890,12 @@ class NettempConfigMenu:
                 print_success(f"Found {len(logged_devices)} topic(s) from log:")
                 for dev in sorted(logged_devices.values(), key=lambda d: d.get('topic', '')):
                     sensors_str = ','.join(dev['sensors']) if dev['sensors'] else 'none'
-                    sub_mark = f" {Colors.GREEN}[SUBSCRIBED]{Colors.ENDC}" if dev.get('subscribed') else f" {Colors.YELLOW}[LOG]{Colors.ENDC}"
-                    print(f"  {Colors.GREEN}✓{Colors.ENDC} Log: {dev['name']} ({dev['mac']}) - {dev['brand']} {dev['model']} - Sensors: {sensors_str} - Topic: {dev['topic']}{sub_mark}")
+                    status_parts = [f"{Colors.YELLOW}[FROM LOG]{Colors.ENDC}"]
+                    if dev.get('subscribed'):
+                        status_parts.append(f"{Colors.GREEN}[SUBSCRIBED]{Colors.ENDC}")
+                    status_mark = " " + " ".join(status_parts)
+                    print(f"  {Colors.GREEN}✓{Colors.ENDC} {Colors.CYAN}{dev['topic']}{Colors.ENDC}{status_mark}")
+                    print(f"    Device: {dev['name']} ({dev['mac']}) - {dev['brand']} {dev['model']} - Sensors: {sensors_str}")
                 print()
         
         def on_connect(client, userdata, flags, rc, properties=None):
@@ -4051,7 +4055,7 @@ class NettempConfigMenu:
                 
         except KeyboardInterrupt:
             print(f"\n\n{Colors.YELLOW}Discovery stopped{Colors.ENDC}")
-            print(f"Found {len(discovered_devices)} device(s) from live discovery\n")
+            print(f"Found {len(discovered_devices)} topic(s) from live discovery\n")
         except Exception as e:
             print_error(f"\nConnection error: {e}")
             print_warning("Check broker/port, credentials, and TLS settings. Ensure broker is reachable from this host.")
@@ -4109,17 +4113,17 @@ class NettempConfigMenu:
                 status_mark = ' ' + ' '.join(status_parts) if status_parts else ""
                 
                 if idx == current_idx:
-                    print(f"{Colors.LIGHT_BLUE}▶ {checkbox} {device['name']} ({device['mac']}) - {device['brand']} {device['model']} - {device['topic']}{status_mark}")
-                    print(f"    Sensors: {sensors_str}{Colors.ENDC}")
+                    print(f"{Colors.LIGHT_BLUE}▶ {checkbox} {Colors.CYAN}{device['topic']}{Colors.ENDC}{status_mark}")
+                    print(f"{Colors.LIGHT_BLUE}    Device: {device['name']} ({device['mac']}) - {device['brand']} {device['model']} - Sensors: {sensors_str}{Colors.ENDC}")
                 else:
-                    print(f"  {checkbox} {device['name']} ({device['mac']}) - {device['brand']} {device['model']} - {device['topic']}{status_mark}")
+                    print(f"  {checkbox} {Colors.CYAN}{device['topic']}{Colors.ENDC}{status_mark}")
                     if idx == current_idx - 1 or idx == current_idx + 1:
-                        print(f"    Sensors: {sensors_str}")
+                        print(f"    Device: {device['name']} ({device['mac']}) - Sensors: {sensors_str}")
             
             total_selected = sum(selected)
             new_selected = sum(1 for i, sel in enumerate(selected) if sel and not devices_list[i].get('subscribed'))
             already_subscribed = total_selected - new_selected
-            print(f"\n{Colors.GREEN}Selected: {total_selected} device(s){Colors.ENDC} ({new_selected} new, {already_subscribed} already subscribed)")
+            print(f"\n{Colors.GREEN}Selected: {total_selected} topic(s){Colors.ENDC} ({new_selected} new, {already_subscribed} already subscribed)")
             
             key = get_key()
             
@@ -4150,7 +4154,7 @@ class NettempConfigMenu:
         clear_screen()
         print_header("UPDATING MQTT SUBSCRIPTION")
         
-        print(f"\n{Colors.BOLD}Adding {len(selected_devices)} device(s) to MQTT subscribe_topics...{Colors.ENDC}\n")
+        print(f"\n{Colors.BOLD}Adding {len(selected_devices)} topic(s) to MQTT subscribe_topics...{Colors.ENDC}\n")
         
         try:
             # Build list of topic filters to subscribe (per-topic selection).
