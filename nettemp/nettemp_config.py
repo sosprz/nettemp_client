@@ -2407,12 +2407,26 @@ class NettempConfigMenu:
             changed = True
 
         has_nettemp = False
+        nettemp_rule_ref = None
         for r in rules:
             if isinstance(r, dict) and r.get('name') == 'Nettemp Standard':
                 has_nettemp = True
+                nettemp_rule_ref = r
                 # Ensure enabled and correct mapping
                 if r.get('enabled', True) is False:
                     r['enabled'] = True
+                    changed = True
+                if r.get('topic_pattern') != 'nettemp/*/*':
+                    r['topic_pattern'] = 'nettemp/*/*'
+                    changed = True
+                if r.get('format') != 'json':
+                    r['format'] = 'json'
+                    changed = True
+                if r.get('device_id_field') != 'device_id':
+                    r['device_id_field'] = 'device_id'
+                    changed = True
+                if r.get('sensor_id_field') != 'sensor_id':
+                    r['sensor_id_field'] = 'sensor_id'
                     changed = True
                 # Make sure mapping uses sensor_type (not legacy "type")
                 rm = r.get('readings_map', {})
@@ -2423,6 +2437,9 @@ class NettempConfigMenu:
                         rm['value'] = v
                         r['readings_map'] = rm
                         changed = True
+                else:
+                    r['readings_map'] = {'value': {'type_from_field': 'sensor_type'}}
+                    changed = True
                 # Make sure friendly name comes from `name`
                 if r.get('sensor_name_field') != 'name':
                     r['sensor_name_field'] = 'name'
@@ -2445,6 +2462,19 @@ class NettempConfigMenu:
             rules.insert(0, nettemp_rule)
             rules_data['rules'] = rules
             changed = True
+        else:
+            # Ensure Nettemp rule has priority over generic JSON rules.
+            # The parser uses the first matching rule; if "Generic JSON" appears before "Nettemp Standard",
+            # the message gets parsed as a field named "value" -> sensor_type "value" -> UI shows "… value".
+            try:
+                current_idx = next(i for i, r in enumerate(rules) if isinstance(r, dict) and r.get('name') == 'Nettemp Standard')
+            except StopIteration:
+                current_idx = None
+            if current_idx is not None and current_idx != 0:
+                nettemp_rule = rules.pop(current_idx)
+                rules.insert(0, nettemp_rule)
+                rules_data['rules'] = rules
+                changed = True
 
         if changed:
             try:
