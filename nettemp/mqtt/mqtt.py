@@ -114,6 +114,22 @@ class MQTTBridge:
         
         # Track last forward time per sensor_id for interval limiting
         self.last_forward_time = {}
+
+        # Optional per-topic interval overrides (seconds). Keys are MQTT topic filters (supports +, *, #).
+        # Example:
+        #   mqtt:
+        #     topic_intervals:
+        #       "nettemp/+/+": 60
+        #       "ESP32_Easy_1/#": 300
+        self.topic_intervals = cfg.get('topic_intervals', {}) or {}
+        if isinstance(self.topic_intervals, list):
+            merged = {}
+            for item in self.topic_intervals:
+                if isinstance(item, dict):
+                    merged.update(item)
+            self.topic_intervals = merged
+        if not isinstance(self.topic_intervals, dict):
+            self.topic_intervals = {}
         
         # Exclude topics - from config or from parser rules file
         self.exclude_topics = cfg.get('exclude_topics', [])
@@ -277,10 +293,61 @@ class MQTTBridge:
             # Apply interval filtering
             now = time.time()
             filtered_readings = []
+
+            def mqtt_filter_matches(filter_str: str, topic_val: str) -> bool:
+                if not filter_str or not topic_val:
+                    return False
+                if filter_str == '#':
+                    return True
+                if filter_str == topic_val:
+                    return True
+
+                fp = filter_str.split('/')
+                tp = topic_val.split('/')
+                for i, f in enumerate(fp):
+                    if f == '#':
+                        return i == len(fp) - 1
+                    if i >= len(tp):
+                        return False
+                    if f in ['+', '*']:
+                        continue
+                    if f != tp[i]:
+                        return False
+                return len(tp) == len(fp)
+
+            def topic_interval_override_seconds(topic_str: str) -> int | None:
+                best = None
+                best_score = -1
+                for filt, sec in self.topic_intervals.items():
+                    if not isinstance(filt, str):
+                        continue
+                    try:
+                        sec_int = int(sec)
+                    except Exception:
+                        continue
+                    if sec_int < 0:
+                        continue
+                    if not mqtt_filter_matches(filt, topic_str):
+                        continue
+
+                    score = 0
+                    for part in filt.split('/'):
+                        if part == '#':
+                            score += 0
+                        elif part in ['+', '*']:
+                            score += 1
+                        else:
+                            score += 2
+                    score = score * 1000 + len(filt)
+                    if score > best_score:
+                        best_score = score
+                        best = sec_int
+                return best
             
             for reading in readings:
                 sensor_id = reading.get('sensor_id')
-                interval = reading.get('interval', 0)
+                interval_override = topic_interval_override_seconds(topic)
+                interval = interval_override if interval_override is not None else reading.get('interval', 0)
                 
                 if interval == 0:
                     # No interval limit - forward immediately

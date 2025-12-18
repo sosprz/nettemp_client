@@ -1981,8 +1981,9 @@ class NettempConfigMenu:
             clear_screen()
             print_header("MQTT BRIDGE CONFIGURATION")
             
-            print("Goal: subscribe to topics easily + set safe intervals (like drivers).")
-            print(f"{Colors.CYAN}Advanced options are still available.{Colors.ENDC}\n")
+            print("Split view:")
+            print("  - MQTT Broker Settings (connection/auth)")
+            print("  - MQTT → Nettemp (subscriber): topics + per-topic interval overrides\n")
             
             mqtt = self.config.get('mqtt', {})
             if not isinstance(mqtt, dict):
@@ -2050,15 +2051,10 @@ class NettempConfigMenu:
             print("\n" + "─" * 70 + "\n")
             
             menu_options = [
-                "Broker Connection (host/port/auth/TLS)",
-                "Autodiscover & Select Topics",
-                "Subscribe to ALL topics (#)",
-                "Edit subscribe_topics (advanced)",
-                "Profiles & Intervals (simple)",
-                "Rules (advanced)",
-                "Subscriber Servers (advanced)",
-                "Subscriber Auth Token (advanced)",
+                "MQTT Broker Settings",
+                "MQTT → Nettemp (Subscriber)",
                 "Publisher Settings (advanced)",
+                "Rules (advanced)",
                 "Help / Shortcuts",
                 "Back to Main Menu",
             ]
@@ -2082,46 +2078,10 @@ class NettempConfigMenu:
             elif key == '\r' or key == '\n':  # Enter
                 if current_option == 0:  # Broker submenu
                     self._mqtt_broker_menu()
-                elif current_option == 1:  # Autodiscover & Select Topics
-                    self._mqtt_autodiscover_devices()
-                elif current_option == 2:  # Subscribe to ALL topics (#)
-                    if 'mqtt' not in self.config or not isinstance(self.config['mqtt'], dict):
-                        self.config['mqtt'] = {}
-                    self.config['mqtt']['subscribe_topics'] = []
-                    self.save_main_config()
-                    print_success("\nSubscribe topics set to ALL (#)")
-                    time.sleep(1.5)
+                elif current_option == 1:  # MQTT → Nettemp (Subscriber)
+                    self._mqtt_to_nettemp_menu()
 
-                elif current_option == 3:  # Edit subscribe_topics (advanced)
-                    self._mqtt_edit_subscribe_topics_advanced(current_subscribe_topics_sorted, current_auth_token)
-
-                elif current_option == 4:  # Profiles & Intervals (simple)
-                    self._configure_mqtt_sensor_profiles_simple()
-
-                elif current_option == 5:  # Rules (advanced)
-                    self._configure_mqtt_sensor_rules()
-
-                elif current_option == 6:  # Subscriber Servers (advanced)
-                    self._configure_mqtt_servers()
-
-                elif current_option == 7:  # Subscriber Auth Token (advanced)
-                    if 'mqtt' not in self.config or not isinstance(self.config['mqtt'], dict):
-                        self.config['mqtt'] = {}
-                    current_auth_token = str(self.config['mqtt'].get('auth_token', '') or '')
-                    clear_screen()
-                    print_header("MQTT SUBSCRIBER AUTH TOKEN")
-                    print("Optional shared token to validate incoming messages.\n")
-                    auth_token = input_styled("Auth Token (leave empty for none)", current_auth_token)
-                    if auth_token:
-                        self.config['mqtt']['auth_token'] = auth_token
-                        print_success("\nAuth token set")
-                    else:
-                        self.config['mqtt'].pop('auth_token', None)
-                        print_success("\nAuth token cleared")
-                    self.save_main_config()
-                    time.sleep(1.5)
-
-                elif current_option == 8:  # Publisher Settings (advanced)
+                elif current_option == 2:  # Publisher Settings (advanced)
                     if 'mqtt' not in self.config or not isinstance(self.config['mqtt'], dict):
                         self.config['mqtt'] = {'enabled': False}
                     
@@ -2154,7 +2114,10 @@ class NettempConfigMenu:
                         print_error("\nInvalid QoS value")
                     time.sleep(2)
 
-                elif current_option == 9:  # Help / Shortcuts
+                elif current_option == 3:  # Rules (advanced)
+                    self._configure_mqtt_sensor_rules()
+
+                elif current_option == 4:  # Help / Shortcuts
                     clear_screen()
                     print_header("NETTEMP CLIENT - HELP")
                     print(f"{Colors.CYAN}What this tool edits:{Colors.ENDC}")
@@ -2164,20 +2127,193 @@ class NettempConfigMenu:
                     print("\nUseful files:")
                     print("  - mqtt_topics.log : collected topics from previous runs")
                     print("\nTypical flow:")
-                    print("  1) Broker Connection")
-                    print("  2) Autodiscover & Select Topics")
-                    print("  3) Profiles & Intervals (simple)")
-                    print("  4) Rules (advanced) only if needed")
-                    print("\nAdvanced tip:")
-                    print("  - Use 'Edit subscribe_topics (advanced)' to add wildcards like ESP32_Easy_1/#")
+                    print("  1) MQTT Broker Settings")
+                    print("  2) MQTT → Nettemp: pick topics and set per-topic interval")
+                    print("  3) Rules (advanced) only if needed")
                     print("\nNavigation: arrows to move, Enter to select, Esc to go back in menus.")
                     input(f"\n{Colors.GREEN}Press Enter to return...{Colors.ENDC}")
                     
-                elif current_option == 10:  # Back
+                elif current_option == 5:  # Back
                     break
             
             elif key == 'ESC':
                 break
+
+    def _mqtt_to_nettemp_menu(self):
+        """Subscriber-focused setup: subscribe topics + per-topic intervals + destination servers."""
+        mqtt = self.config.get('mqtt', {})
+        if not isinstance(mqtt, dict):
+            mqtt = {}
+        mqtt.setdefault('mode', 'subscriber')
+        mqtt.setdefault('broker', '127.0.0.1')
+        mqtt.setdefault('port', 1883)
+        mqtt['enabled'] = True
+        self.config['mqtt'] = mqtt
+        self.save_main_config()
+
+        def _topics() -> list[str]:
+            st = mqtt.get('subscribe_topics', [])
+            if st is None:
+                return []
+            if isinstance(st, str):
+                return [st]
+            if isinstance(st, list):
+                return [t for t in st if isinstance(t, str) and t]
+            return []
+
+        def _topic_intervals() -> dict:
+            ti = mqtt.get('topic_intervals', {}) or {}
+            if isinstance(ti, list):
+                merged = {}
+                for item in ti:
+                    if isinstance(item, dict):
+                        merged.update(item)
+                ti = merged
+            if not isinstance(ti, dict):
+                ti = {}
+            # Normalize to int seconds where possible
+            out = {}
+            for k, v in ti.items():
+                if not isinstance(k, str) or not k:
+                    continue
+                try:
+                    out[k] = int(v)
+                except Exception:
+                    continue
+            return out
+
+        current_idx = 0
+        while True:
+            clear_screen()
+            print_header("MQTT → NETTEMP (SUBSCRIBER)")
+
+            broker = mqtt.get('broker', '127.0.0.1')
+            port = mqtt.get('port', 1883)
+            if broker == '0.0.0.0':
+                broker = '127.0.0.1'
+
+            topics = _topics()
+            intervals = _topic_intervals()
+            all_mode = (not topics) or (topics == ['#'])
+            shown_topics = ['#'] if all_mode else sorted(set(topics))
+
+            print(f"\nBroker: {Colors.CYAN}{broker}:{port}{Colors.ENDC}")
+            servers = mqtt.get('servers', [])
+            if servers:
+                print(f"Destination servers: {Colors.CYAN}{', '.join(servers)}{Colors.ENDC}")
+            else:
+                print(f"Destination servers: {Colors.CYAN}All enabled servers{Colors.ENDC}")
+            print(f"\n{Colors.BOLD}Subscribe topics:{Colors.ENDC}")
+            for t in shown_topics:
+                sec = intervals.get(t)
+                interval_str = f"{sec}s" if sec is not None else "-"
+                marker = f"{Colors.LIGHT_BLUE}▶{Colors.ENDC} " if (shown_topics and shown_topics.index(t) == current_idx) else "  "
+                print(f"{marker}{Colors.CYAN}{t}{Colors.ENDC}   interval: {Colors.YELLOW}{interval_str}{Colors.ENDC}")
+
+            print("\n" + "─" * 70 + "\n")
+            print(f"{Colors.LIGHT_BLUE}Enter: menu | i: set interval | c: clear intervals | Esc: back{Colors.ENDC}")
+
+            key = get_key()
+            if key == '':
+                continue
+            if key == 'UP':
+                if shown_topics:
+                    current_idx = (current_idx - 1) % len(shown_topics)
+                continue
+            if key == 'DOWN':
+                if shown_topics:
+                    current_idx = (current_idx + 1) % len(shown_topics)
+                continue
+            if key == 'ESC':
+                return
+
+            if key == 'i' or key == 'I':
+                target = shown_topics[current_idx] if shown_topics else '#'
+                current_val = intervals.get(target)
+                clear_screen()
+                print_header("SET TOPIC INTERVAL")
+                print(f"\nTopic: {target}")
+                print("Set seconds (0 = no limit, use rule defaults)")
+                val = input_styled("Interval seconds", str(current_val if current_val is not None else 0))
+                try:
+                    sec = int(val)
+                    mqtt.setdefault('topic_intervals', {})
+                    ti = _topic_intervals()
+                    if sec <= 0:
+                        ti.pop(target, None)
+                        print_success("\nInterval override cleared (rule defaults)")
+                    else:
+                        ti[target] = sec
+                        print_success(f"\nInterval override set: {sec}s")
+                    mqtt['topic_intervals'] = ti
+                    self.save_main_config()
+                except Exception:
+                    print_error("\nInvalid number")
+                time.sleep(1.5)
+                continue
+
+            if key.lower() == 'c':
+                mqtt['topic_intervals'] = {}
+                self.save_main_config()
+                print_success("\nCleared topic interval overrides")
+                time.sleep(1.2)
+                continue
+
+            if key == '\r' or key == '\n':
+                # Actions menu
+                actions = [
+                    "Autodetect (listen on #) and select topics (no log)",
+                    "Edit subscribe_topics in editor (nano)",
+                    "Subscribe to ALL topics (#)",
+                    "Select destination servers",
+                    "Back",
+                ]
+                a_idx = 0
+                while True:
+                    clear_screen()
+                    print_header("MQTT → NETTEMP")
+                    print("\nChoose action:\n")
+                    for i, a in enumerate(actions):
+                        if i == a_idx:
+                            print(f"{Colors.LIGHT_BLUE}▶ {a}{Colors.ENDC}")
+                        else:
+                            print(f"  {a}")
+                    print(f"\n{Colors.LIGHT_BLUE}↑↓: Navigate | Enter: select | Esc: back{Colors.ENDC}")
+                    k = get_key()
+                    if k == '':
+                        continue
+                    if k == 'UP':
+                        a_idx = (a_idx - 1) % len(actions)
+                        continue
+                    if k == 'DOWN':
+                        a_idx = (a_idx + 1) % len(actions)
+                        continue
+                    if k == 'ESC':
+                        break
+                    if k != '\r' and k != '\n':
+                        continue
+
+                    if a_idx == 0:
+                        self._mqtt_autodiscover_devices(use_log=False)
+                        mqtt = self.config.get('mqtt', mqtt)
+                        break
+                    if a_idx == 1:
+                        cur = sorted(set(_topics()))
+                        cur_auth = str(mqtt.get('auth_token', '') or '')
+                        self._mqtt_edit_subscribe_topics_advanced(cur, cur_auth)
+                        mqtt = self.config.get('mqtt', mqtt)
+                        break
+                    if a_idx == 2:
+                        mqtt['subscribe_topics'] = []
+                        self.save_main_config()
+                        print_success("\nSubscribe topics set to ALL (#)")
+                        time.sleep(1.2)
+                        break
+                    if a_idx == 3:
+                        self._configure_mqtt_servers()
+                        mqtt = self.config.get('mqtt', mqtt)
+                        break
+                    break
 
     def _mqtt_edit_subscribe_topics_advanced(self, current_subscribe_topics_sorted: list[str], current_auth_token: str):
         """Advanced editor for subscribe_topics + auth_token (kept for wildcard power-users)."""
@@ -3869,7 +4005,7 @@ class NettempConfigMenu:
                     time.sleep(2)
                 break
     
-    def _mqtt_autodiscover_devices(self):
+    def _mqtt_autodiscover_devices(self, use_log: bool = True):
         """Interactive MQTT device autodiscovery with selection interface"""
         clear_screen()
         print_header("MQTT DEVICE AUTODISCOVERY")
@@ -3914,19 +4050,19 @@ class NettempConfigMenu:
         discovered_devices = {}
         message_count = 0
         
-        # Load topics from log file if exists
+        # Load topics from log file if exists (optional; can be disabled for "listen-only" UX).
         topic_log_file = get_data_dir()
         topic_log_file.mkdir(parents=True, exist_ok=True)
         topic_log_file = topic_log_file / 'mqtt_topics.log'
         logged_topics = set()
         logged_topics_count = 0
-        if topic_log_file.exists():
+        if use_log and topic_log_file.exists():
             try:
                 with open(topic_log_file, 'r') as f:
                     logged_topics = set(line.strip() for line in f if line.strip())
                 logged_topics_count = len(logged_topics)
                 print_info(f"Loaded {logged_topics_count} topics from previous runs")
-            except Exception as e:
+            except Exception:
                 pass
 
         # Deduplicate live discovery output (devices publish frequently).
@@ -4023,7 +4159,7 @@ class NettempConfigMenu:
 
         # Parse logged topics before live discovery so user can see them immediately (per-topic).
         logged_devices = {}
-        if logged_topics:
+        if use_log and logged_topics:
             print_info("Parsing logged topics from previous runs...")
             for topic in logged_topics:
                 # Skip exclude patterns

@@ -39,6 +39,13 @@ mqtt:
   #   - my_custom_topic/#
   
   auth_token: shared_secret       # Optional - validates incoming MQTT messages
+
+  # Optional per-topic interval overrides (seconds) for MQTT→Cloud forwarding.
+  # When a message arrives on a topic that matches a filter below, Nettemp Client will use that interval
+  # instead of the rule interval from mqtt_rules.yaml.
+  # topic_intervals:
+  #   "nettemp/+/+": 60
+  #   "ESP32_Easy_1/#": 300
   
   # Topic logging (helps `nettemp config` autodiscovery):
   # Nettemp Client will subscribe to these topics to populate mqtt_topics.log.
