@@ -46,6 +46,9 @@ mqtt:
   # topic_intervals:
   #   "nettemp/+/+": 60
   #   "ESP32_Easy_1/#": 300
+
+  # Default forwarding interval when no per-topic override matches (seconds).
+  # subscriber_default_interval_s: 60
   
   # Topic logging (helps `nettemp config` autodiscovery):
   # Nettemp Client will subscribe to these topics to populate mqtt_topics.log.

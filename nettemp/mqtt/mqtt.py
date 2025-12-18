@@ -130,6 +130,15 @@ class MQTTBridge:
             self.topic_intervals = merged
         if not isinstance(self.topic_intervals, dict):
             self.topic_intervals = {}
+
+        # Default subscriber forwarding interval (seconds) when no topic override is set.
+        # This intentionally decouples throttling from mqtt_rules.yaml intervals (advanced).
+        try:
+            self.subscriber_default_interval_s = int(cfg.get('subscriber_default_interval_s', 60))
+        except Exception:
+            self.subscriber_default_interval_s = 60
+        if self.subscriber_default_interval_s < 0:
+            self.subscriber_default_interval_s = 60
         
         # Exclude topics - from config or from parser rules file
         self.exclude_topics = cfg.get('exclude_topics', [])
@@ -347,7 +356,7 @@ class MQTTBridge:
             for reading in readings:
                 sensor_id = reading.get('sensor_id')
                 interval_override = topic_interval_override_seconds(topic)
-                interval = interval_override if interval_override is not None else reading.get('interval', 0)
+                interval = interval_override if interval_override is not None else self.subscriber_default_interval_s
                 
                 if interval == 0:
                     # No interval limit - forward immediately

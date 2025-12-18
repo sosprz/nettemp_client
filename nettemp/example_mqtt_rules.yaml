@@ -4,6 +4,12 @@
 # Each rule matches incoming MQTT messages by topic pattern and defines how to extract sensor readings
 # Rules are evaluated in order - first matching rule is used
 #
+# NOTE ABOUT INTERVALS:
+# MQTT→Cloud throttling is configured in `config.conf` (MQTT → Nettemp):
+# - `mqtt.subscriber_default_interval_s` (default 60s)
+# - `mqtt.topic_intervals` (per-topic overrides)
+# The `interval:` fields in rules are kept for backwards compatibility but are not required for normal use.
+#
 # DEVICE FILTERING:
 # Filter devices by subscribing to specific topics in config.conf:
 #

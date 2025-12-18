@@ -2196,6 +2196,7 @@ class NettempConfigMenu:
             intervals = _topic_intervals()
             all_mode = (not topics) or (topics == ['#'])
             shown_topics = ['#'] if all_mode else sorted(set(topics))
+            default_interval_s = int(mqtt.get('subscriber_default_interval_s', 60) or 60)
 
             print(f"\nBroker: {Colors.CYAN}{broker}:{port}{Colors.ENDC}")
             servers = mqtt.get('servers', [])
@@ -2206,12 +2207,13 @@ class NettempConfigMenu:
             print(f"\n{Colors.BOLD}Subscribe topics:{Colors.ENDC}")
             for t in shown_topics:
                 sec = intervals.get(t)
-                interval_str = f"{sec}s" if sec is not None else "-"
+                effective = sec if sec is not None else default_interval_s
+                interval_str = f"{effective}s" + ("" if sec is not None else " (default)")
                 marker = f"{Colors.LIGHT_BLUE}▶{Colors.ENDC} " if (shown_topics and shown_topics.index(t) == current_idx) else "  "
                 print(f"{marker}{Colors.CYAN}{t}{Colors.ENDC}   interval: {Colors.YELLOW}{interval_str}{Colors.ENDC}")
 
             print("\n" + "─" * 70 + "\n")
-            print(f"{Colors.LIGHT_BLUE}Enter: menu | i: set interval | c: clear intervals | Esc: back{Colors.ENDC}")
+            print(f"{Colors.LIGHT_BLUE}↑↓: topic | +/-: interval | i: set | c: clear | Enter: menu | Esc: back{Colors.ENDC}")
 
             key = get_key()
             if key == '':
@@ -2227,21 +2229,45 @@ class NettempConfigMenu:
             if key == 'ESC':
                 return
 
+            if key == '+' or key == '=' or key == '-':
+                target = shown_topics[current_idx] if shown_topics else '#'
+                current_effective = intervals.get(target, default_interval_s)
+                step = 60
+                if key == '-' and current_effective <= step:
+                    new_val = 0
+                else:
+                    new_val = current_effective + (step if key in ['+', '='] else -step)
+                    if new_val < 0:
+                        new_val = 0
+                mqtt.setdefault('topic_intervals', {})
+                ti = _topic_intervals()
+                if new_val <= 0:
+                    ti.pop(target, None)
+                    print_success(f"\n{target}: interval override cleared (default {default_interval_s}s)")
+                else:
+                    ti[target] = new_val
+                    print_success(f"\n{target}: interval override set to {new_val}s")
+                mqtt['topic_intervals'] = ti
+                self.save_main_config()
+                time.sleep(0.9)
+                continue
+
             if key == 'i' or key == 'I':
                 target = shown_topics[current_idx] if shown_topics else '#'
                 current_val = intervals.get(target)
                 clear_screen()
                 print_header("SET TOPIC INTERVAL")
                 print(f"\nTopic: {target}")
-                print("Set seconds (0 = no limit, use rule defaults)")
-                val = input_styled("Interval seconds", str(current_val if current_val is not None else 0))
+                print(f"Default: {default_interval_s}s (used when no override is set)")
+                print("Set seconds (0 = clear override)")
+                val = input_styled("Interval seconds", str(current_val if current_val is not None else default_interval_s))
                 try:
                     sec = int(val)
                     mqtt.setdefault('topic_intervals', {})
                     ti = _topic_intervals()
                     if sec <= 0:
                         ti.pop(target, None)
-                        print_success("\nInterval override cleared (rule defaults)")
+                        print_success(f"\nInterval override cleared (default {default_interval_s}s)")
                     else:
                         ti[target] = sec
                         print_success(f"\nInterval override set: {sec}s")
@@ -2405,7 +2431,7 @@ class NettempConfigMenu:
         input(f"\n{Colors.GREEN}Press Enter to continue...{Colors.ENDC}")
 
     def _configure_mqtt_sensor_profiles_simple(self):
-        """Simple 'drivers-like' view: enable/disable + interval only (no rule details)."""
+        """Simple 'drivers-like' view: enable/disable only (intervals are per-topic in MQTT → Nettemp)."""
         import yaml
 
         rules_file = self.mqtt_rules_file
@@ -2468,25 +2494,23 @@ class NettempConfigMenu:
         current_idx = 0
         while True:
             clear_screen()
-            print_header("MQTT PROFILES & INTERVALS (SIMPLE)")
-            print("Toggle profiles and set forward interval (seconds).\n")
+            print_header("MQTT PROFILES (SIMPLE)")
+            print("Toggle parsers (profiles). Intervals are configured per-topic in: MQTT → Nettemp.\n")
             print("─" * 70 + "\n")
 
             for idx, rule in enumerate(rules):
                 name = rule.get('name', f'Rule {idx+1}')
                 enabled = rule.get('enabled', True)
-                interval = int(rule.get('interval', 60) or 60)
-                interval_min = interval / 60
 
                 status = "✓" if enabled else "✗"
                 status_color = Colors.GREEN if enabled else Colors.RED
-                line = f"{status_color}{status}{Colors.ENDC} {name:25} {interval}s ({interval_min:.1f}min)"
+                line = f"{status_color}{status}{Colors.ENDC} {name}"
                 if idx == current_idx:
                     print(f"{Colors.LIGHT_BLUE}▶ {line}{Colors.ENDC}")
                 else:
                     print(f"  {line}")
 
-            print(f"\n{Colors.LIGHT_BLUE}↑↓: Navigate | Space: Toggle | +/-: Interval | i: Edit Interval | Esc: Save & Back{Colors.ENDC}")
+            print(f"\n{Colors.LIGHT_BLUE}↑↓: Navigate | Space: Toggle | Esc: Save & Back{Colors.ENDC}")
             key = get_key()
 
             if key == '':
@@ -2500,36 +2524,6 @@ class NettempConfigMenu:
             if key == ' ':
                 rule = rules[current_idx]
                 rule['enabled'] = not rule.get('enabled', True)
-                continue
-            if key == '+' or key == '=':
-                rule = rules[current_idx]
-                current_interval = int(rule.get('interval', 60) or 60)
-                rule['interval'] = current_interval + 60
-                continue
-            if key == '-':
-                rule = rules[current_idx]
-                current_interval = int(rule.get('interval', 60) or 60)
-                new_interval = current_interval - 60
-                if new_interval >= 60:
-                    rule['interval'] = new_interval
-                continue
-            if key == 'i' or key == 'I':
-                rule = rules[current_idx]
-                name = rule.get('name', f'Rule {current_idx+1}')
-                current_interval = int(rule.get('interval', 60) or 60)
-                clear_screen()
-                print_header(f"CHANGE INTERVAL: {name}")
-                interval_str = input_styled("Forward interval (seconds)", str(current_interval))
-                try:
-                    interval = int(interval_str)
-                    if interval > 0:
-                        rule['interval'] = interval
-                        print_success(f"\nInterval set to {interval}s")
-                    else:
-                        print_error("\nInterval must be positive!")
-                except ValueError:
-                    print_error("\nInvalid interval value!")
-                time.sleep(1)
                 continue
             if key == 'ESC':
                 try:
@@ -3832,7 +3826,7 @@ class NettempConfigMenu:
             return False
     
     def _configure_mqtt_sensor_rules(self):
-        """Configure MQTT sensor parsing rules (intervals, enable/disable)"""
+        """Configure MQTT sensor parsing rules (enable/disable, advanced)"""
         import yaml
         
         rules_file = self.mqtt_rules_file
@@ -3898,7 +3892,7 @@ class NettempConfigMenu:
         
         rules = rules_data['rules']
         current_idx = 0
-        
+
         while True:
             clear_screen()
             print_header("MQTT SENSOR RULES CONFIGURATION")
@@ -3907,46 +3901,42 @@ class NettempConfigMenu:
                 print_info(f"Imported {imported_rules} missing rule(s) from example")
             if nettemp_excluded:
                 print_warning("Note: exclude_topics contains 'nettemp/#' (Nettemp topics will be ignored)")
-            
+            print_info("Intervals are configured per-topic in: MQTT → Nettemp (Subscriber)")
+
             # Display current rule details
             if rules:
                 current_rule = rules[current_idx]
                 name = current_rule.get('name', f'Rule {current_idx+1}')
                 enabled = current_rule.get('enabled', True)
-                interval = current_rule.get('interval', 60)
-                interval_min = interval / 60
                 topic_pattern = current_rule.get('topic_pattern', '*')
                 format_type = current_rule.get('format', 'json')
-                
+
                 print(f"\n{Colors.BOLD}Selected: {name}{Colors.ENDC}")
                 status_text = f"{Colors.GREEN}ENABLED{Colors.ENDC}" if enabled else f"{Colors.RED}DISABLED{Colors.ENDC}"
                 print(f"Status: {status_text}")
-                print(f"Interval: {interval}s ({interval_min:.1f} min)")
                 print(f"Topic Pattern: {topic_pattern}")
                 print(f"Format: {format_type}")
                 print()
-            
+
             print("─" * 70 + "\n")
-            
+
             # Display all rules
             for idx, rule in enumerate(rules):
                 name = rule.get('name', f'Rule {idx+1}')
                 enabled = rule.get('enabled', True)
-                interval = rule.get('interval', 60)
-                interval_min = interval / 60
-                
+
                 status = "✓" if enabled else "✗"
                 status_color = Colors.GREEN if enabled else Colors.RED
-                
+
                 if idx == current_idx:
-                    print(f"{Colors.LIGHT_BLUE}▶ {status_color}{status}{Colors.ENDC} {Colors.BOLD}{name:25}{Colors.ENDC} {interval}s ({interval_min:.1f}min)")
+                    print(f"{Colors.LIGHT_BLUE}▶ {status_color}{status}{Colors.ENDC} {Colors.BOLD}{name}{Colors.ENDC}")
                 else:
-                    print(f"  {status_color}{status}{Colors.ENDC} {name:25} {interval}s ({interval_min:.1f}min)")
-            
-            print(f"\n{Colors.LIGHT_BLUE}↑↓: Navigate | Space: Toggle | +/-: Interval | i: Edit Interval | Esc: Save & Back{Colors.ENDC}")
-            
+                    print(f"  {status_color}{status}{Colors.ENDC} {name}")
+
+            print(f"\n{Colors.LIGHT_BLUE}↑↓: Navigate | Space: Toggle | Esc: Save & Back{Colors.ENDC}")
+
             key = get_key()
-            
+
             if key == '':  # Ignore unknown/incomplete sequences
                 continue
             elif key == 'UP':
@@ -3956,42 +3946,6 @@ class NettempConfigMenu:
             elif key == ' ':  # Space to toggle
                 rule = rules[current_idx]
                 rule['enabled'] = not rule.get('enabled', True)
-            elif key == 'i' or key == 'I':  # Edit interval
-                rule = rules[current_idx]
-                name = rule.get('name', f'Rule {current_idx+1}')
-                current_interval = rule.get('interval', 60)
-                
-                clear_screen()
-                print_header(f"CHANGE INTERVAL: {name}")
-                print(f"\nCurrent interval: {current_interval}s ({current_interval // 60} minutes)")
-                print("\nCommon intervals:")
-                print("  60s = 1 minute")
-                print("  300s = 5 minutes")
-                print("  600s = 10 minutes")
-                print("  1800s = 30 minutes")
-                print("  3600s = 1 hour")
-                
-                interval_str = input_styled("Forward interval (seconds)", str(current_interval))
-                try:
-                    interval = int(interval_str)
-                    if interval > 0:
-                        rule['interval'] = interval
-                        print_success(f"\nInterval set to {interval}s ({interval // 60} minutes)")
-                    else:
-                        print_error("\nInterval must be positive!")
-                except ValueError:
-                    print_error("\nInvalid interval value!")
-                time.sleep(1)
-            elif key == '+' or key == '=':  # Increase interval by 60s
-                rule = rules[current_idx]
-                current_interval = rule.get('interval', 60)
-                rule['interval'] = current_interval + 60
-            elif key == '-':  # Decrease interval by 60s
-                rule = rules[current_idx]
-                current_interval = rule.get('interval', 60)
-                new_interval = current_interval - 60
-                if new_interval >= 60:
-                    rule['interval'] = new_interval
             elif key == 'ESC':
                 # Save and exit
                 try:
