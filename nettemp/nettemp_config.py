@@ -3574,6 +3574,33 @@ class NettempConfigMenu:
             print_error(f"Invalid rules file format!")
             input(f"\n{Colors.GREEN}Press Enter to continue...{Colors.ENDC}")
             return
+
+        # If user already has mqtt_rules.yaml, keep it, but import any *missing* rules from the current example.
+        imported_rules = 0
+        if example_file and example_file.exists():
+            try:
+                with open(example_file, 'r') as f:
+                    example_data = yaml.safe_load(f) or {}
+                example_rules = example_data.get('rules', []) if isinstance(example_data, dict) else []
+                if isinstance(example_rules, list) and example_rules:
+                    existing_names = {r.get('name') for r in rules_data.get('rules', []) if isinstance(r, dict) and r.get('name')}
+                    for r in example_rules:
+                        if not isinstance(r, dict):
+                            continue
+                        name = r.get('name')
+                        if not name or name in existing_names:
+                            continue
+                        rules_data['rules'].append(r)
+                        existing_names.add(name)
+                        imported_rules += 1
+            except Exception:
+                imported_rules = 0
+
+        # Warn if nettemp topics are excluded (common older default).
+        exclude_topics = rules_data.get('exclude_topics', [])
+        if isinstance(exclude_topics, str):
+            exclude_topics = [exclude_topics]
+        nettemp_excluded = any(p == 'nettemp/#' for p in (exclude_topics or []))
         
         rules = rules_data['rules']
         current_idx = 0
@@ -3581,6 +3608,11 @@ class NettempConfigMenu:
         while True:
             clear_screen()
             print_header("MQTT SENSOR RULES CONFIGURATION")
+
+            if imported_rules:
+                print_info(f"Imported {imported_rules} missing rule(s) from example")
+            if nettemp_excluded:
+                print_warning("Note: exclude_topics contains 'nettemp/#' (Nettemp topics will be ignored)")
             
             # Display current rule details
             if rules:
@@ -3889,13 +3921,11 @@ class NettempConfigMenu:
             if logged_devices:
                 print_success(f"Found {len(logged_devices)} topic(s) from log:")
                 for dev in sorted(logged_devices.values(), key=lambda d: d.get('topic', '')):
-                    sensors_str = ','.join(dev['sensors']) if dev['sensors'] else 'none'
                     status_parts = [f"{Colors.YELLOW}[FROM LOG]{Colors.ENDC}"]
                     if dev.get('subscribed'):
                         status_parts.append(f"{Colors.GREEN}[SUBSCRIBED]{Colors.ENDC}")
                     status_mark = " " + " ".join(status_parts)
                     print(f"  {Colors.GREEN}✓{Colors.ENDC} {Colors.CYAN}{dev['topic']}{Colors.ENDC}{status_mark}")
-                    print(f"    Device: {dev['name']} ({dev['mac']}) - {dev['brand']} {dev['model']} - Sensors: {sensors_str}")
                 print()
         
         def on_connect(client, userdata, flags, rc, properties=None):
@@ -3944,16 +3974,15 @@ class NettempConfigMenu:
                         sensors=[sensor_path]
                     )
 
-                    value_hint = f" = {payload_str}" if payload_str else ""
                     subscribed_mark = f" {Colors.GREEN}[SUBSCRIBED]{Colors.ENDC}" if is_subscribed else ""
 
                     if simple_topic not in seen_topics:
                         seen_topics.add(simple_topic)
-                        print(f"{Colors.GREEN}✓{Colors.ENDC} Found: {Colors.CYAN}{device_name}{Colors.ENDC} - Sensors: {sensor_path}{value_hint} - Topic: {simple_topic}{subscribed_mark}")
+                        print(f"{Colors.GREEN}✓{Colors.ENDC} Found: {Colors.CYAN}{simple_topic}{Colors.ENDC}{subscribed_mark}")
                         message_count += 1
                     elif simple_topic not in seen_in_session:
                         seen_in_session.add(simple_topic)
-                        print(f"{Colors.GREEN}↻{Colors.ENDC} Active: {Colors.CYAN}{device_name}{Colors.ENDC} - {sensor_path}{value_hint} - Topic: {simple_topic}{subscribed_mark}")
+                        print(f"{Colors.GREEN}↻{Colors.ENDC} Active: {Colors.CYAN}{simple_topic}{Colors.ENDC}{subscribed_mark}")
 
                 payload = msg.payload.decode('utf-8', errors='ignore') if isinstance(msg.payload, (bytes, bytearray)) else str(msg.payload)
                 payload_str = (payload or '').strip()
@@ -3999,16 +4028,14 @@ class NettempConfigMenu:
                 # Show discovered device only once per topic
                 if device_topic not in seen_topics:
                     seen_topics.add(device_topic)
-                    sensors_str = ','.join(sensor_fields) if sensor_fields else 'none'
                     subscribed_mark = f" {Colors.GREEN}[SUBSCRIBED]{Colors.ENDC}" if is_subscribed else ""
-                    print(f"{Colors.GREEN}✓{Colors.ENDC} Found: {Colors.CYAN}{device_name}{Colors.ENDC} ({device_mac}) - {brand} {model} - Sensors: {sensors_str} - Topic: {device_topic}{subscribed_mark}")
+                    print(f"{Colors.GREEN}✓{Colors.ENDC} Found: {Colors.CYAN}{device_topic}{Colors.ENDC}{subscribed_mark}")
                     message_count += 1
                 elif device_topic not in seen_in_session:
                     # Topic was already known (from log) but we just saw it live.
                     seen_in_session.add(device_topic)
-                    sensors_str = ','.join(sensor_fields) if sensor_fields else 'none'
                     subscribed_mark = f" {Colors.GREEN}[SUBSCRIBED]{Colors.ENDC}" if is_subscribed else ""
-                    print(f"{Colors.GREEN}↻{Colors.ENDC} Active: {Colors.CYAN}{device_name}{Colors.ENDC} ({device_mac}) - Sensors: {sensors_str} - Topic: {device_topic}{subscribed_mark}")
+                    print(f"{Colors.GREEN}↻{Colors.ENDC} Active: {Colors.CYAN}{device_topic}{Colors.ENDC}{subscribed_mark}")
                 
             except json.JSONDecodeError:
                 try:
@@ -4102,7 +4129,6 @@ class NettempConfigMenu:
             
             for idx, device in enumerate(devices_list):
                 checkbox = "☑" if selected[idx] else "☐"
-                sensors_str = ','.join(device['sensors']) if device['sensors'] else 'none'
                 
                 # Build status indicators
                 status_parts = []
@@ -4114,11 +4140,8 @@ class NettempConfigMenu:
                 
                 if idx == current_idx:
                     print(f"{Colors.LIGHT_BLUE}▶ {checkbox} {Colors.CYAN}{device['topic']}{Colors.ENDC}{status_mark}")
-                    print(f"{Colors.LIGHT_BLUE}    Device: {device['name']} ({device['mac']}) - {device['brand']} {device['model']} - Sensors: {sensors_str}{Colors.ENDC}")
                 else:
                     print(f"  {checkbox} {Colors.CYAN}{device['topic']}{Colors.ENDC}{status_mark}")
-                    if idx == current_idx - 1 or idx == current_idx + 1:
-                        print(f"    Device: {device['name']} ({device['mac']}) - Sensors: {sensors_str}")
             
             total_selected = sum(selected)
             new_selected = sum(1 for i, sel in enumerate(selected) if sel and not devices_list[i].get('subscribed'))
@@ -4191,13 +4214,11 @@ class NettempConfigMenu:
             self.save_main_config()
             
             print_success("✓ Subscribe topics updated in config.conf\n")
-            print(f"{Colors.BOLD}Subscribed to devices:{Colors.ENDC}")
-            for device in sorted(selected_devices, key=lambda d: (d.get('topic') or '', d.get('name') or '')):
-                sensors_str = ','.join(device['sensors']) if device['sensors'] else 'none'
-                topics_show = device.get('topics') or ([device['topic']] if device.get('topic') else [])
-                print(f"  • {Colors.CYAN}{device['name']}{Colors.ENDC} ({device['mac']})")
-                print(f"    {device['brand']} {device['model']} - Sensors: {sensors_str}")
-                print(f"    {Colors.LIGHT_BLUE}Topics:{Colors.ENDC} {', '.join(topics_show)}")
+            print(f"{Colors.BOLD}Subscribed to topics:{Colors.ENDC}")
+            for device in sorted(selected_devices, key=lambda d: (d.get('topic') or '')):
+                t = device.get('topic')
+                if t:
+                    print(f"  • {Colors.CYAN}{t}{Colors.ENDC}")
             
             print(f"\n{Colors.YELLOW}Restart nettemp client to apply changes{Colors.ENDC}")
             
