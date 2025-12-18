@@ -2151,6 +2151,13 @@ class NettempConfigMenu:
         self.config['mqtt'] = mqtt
         self.save_main_config()
 
+        # If user is in subscriber-only mode, ensure we are not blocking nettemp topics and ensure
+        # the Nettemp Standard parser rule exists (otherwise Generic JSON can label everything as "value").
+        self._mqtt_ensure_nettemp_subscriber_ready()
+
+        # Reload in case we updated config/rules above.
+        mqtt = self.config.get('mqtt', mqtt)
+
         def _topics() -> list[str]:
             st = mqtt.get('subscribe_topics', [])
             if st is None:
@@ -2340,6 +2347,111 @@ class NettempConfigMenu:
                         mqtt = self.config.get('mqtt', mqtt)
                         break
                     break
+
+    def _mqtt_ensure_nettemp_subscriber_ready(self):
+        """Best-effort migration for Nettemp MQTT subscriber UX (remove nettemp/# excludes; ensure Nettemp rule)."""
+        mqtt = self.config.get('mqtt', {})
+        if not isinstance(mqtt, dict):
+            return
+        mode = str(mqtt.get('mode', 'subscriber') or 'subscriber').lower()
+        subscriber_only = (mode == 'subscriber')
+
+        # 1) Remove nettemp/# from config.conf mqtt.exclude_topics (only in subscriber-only mode).
+        if subscriber_only:
+            ex = mqtt.get('exclude_topics', [])
+            if isinstance(ex, str):
+                ex = [ex]
+            if isinstance(ex, list):
+                new_ex = [p for p in ex if p != 'nettemp/#']
+                if new_ex != ex:
+                    mqtt['exclude_topics'] = new_ex
+                    self.config['mqtt'] = mqtt
+                    self.save_main_config()
+
+        # 2) Remove nettemp/# from mqtt_rules.yaml exclude_topics (only in subscriber-only mode).
+        # 3) Ensure "Nettemp Standard" rule exists and is enabled.
+        try:
+            import yaml
+        except Exception:
+            return
+
+        rules_file = self.mqtt_rules_file
+        if not rules_file.exists():
+            return
+
+        try:
+            with open(rules_file, 'r') as f:
+                rules_data = yaml.safe_load(f) or {}
+        except Exception:
+            return
+
+        if not isinstance(rules_data, dict):
+            return
+
+        changed = False
+
+        if subscriber_only:
+            ex = rules_data.get('exclude_topics', [])
+            if isinstance(ex, str):
+                ex = [ex]
+            if isinstance(ex, list):
+                new_ex = [p for p in ex if p != 'nettemp/#']
+                if new_ex != ex:
+                    rules_data['exclude_topics'] = new_ex
+                    changed = True
+
+        rules = rules_data.get('rules', [])
+        if not isinstance(rules, list):
+            rules = []
+            rules_data['rules'] = rules
+            changed = True
+
+        has_nettemp = False
+        for r in rules:
+            if isinstance(r, dict) and r.get('name') == 'Nettemp Standard':
+                has_nettemp = True
+                # Ensure enabled and correct mapping
+                if r.get('enabled', True) is False:
+                    r['enabled'] = True
+                    changed = True
+                # Make sure mapping uses sensor_type (not legacy "type")
+                rm = r.get('readings_map', {})
+                if isinstance(rm, dict):
+                    v = rm.get('value')
+                    if isinstance(v, dict) and v.get('type_from_field') != 'sensor_type':
+                        v['type_from_field'] = 'sensor_type'
+                        rm['value'] = v
+                        r['readings_map'] = rm
+                        changed = True
+                # Make sure friendly name comes from `name`
+                if r.get('sensor_name_field') != 'name':
+                    r['sensor_name_field'] = 'name'
+                    changed = True
+                break
+
+        if not has_nettemp:
+            nettemp_rule = {
+                'name': 'Nettemp Standard',
+                'enabled': True,
+                'topic_pattern': 'nettemp/*/*',
+                'format': 'json',
+                'device_id_field': 'device_id',
+                'sensor_id_field': 'sensor_id',
+                'sensor_name_field': 'name',
+                'readings_map': {
+                    'value': {'type_from_field': 'sensor_type'}
+                }
+            }
+            rules.insert(0, nettemp_rule)
+            rules_data['rules'] = rules
+            changed = True
+
+        if changed:
+            try:
+                with open(rules_file, 'w') as f:
+                    yaml.dump(rules_data, f, default_flow_style=False, sort_keys=False)
+            except Exception:
+                pass
 
     def _mqtt_edit_subscribe_topics_advanced(self, current_subscribe_topics_sorted: list[str], current_auth_token: str):
         """Advanced editor for subscribe_topics + auth_token (kept for wildcard power-users)."""
