@@ -1981,10 +1981,8 @@ class NettempConfigMenu:
             clear_screen()
             print_header("MQTT BRIDGE CONFIGURATION")
             
-            print("MQTT Bridge can:")
-            print("  • Publish sensor data to remote MQTT broker (Publisher mode)")
-            print("  • Receive MQTT messages and forward to cloud servers (Subscriber mode)")
-            print("  • Both modes simultaneously\n")
+            print("Goal: subscribe to topics easily + set safe intervals (like drivers).")
+            print(f"{Colors.CYAN}Advanced options are still available.{Colors.ENDC}\n")
             
             mqtt = self.config.get('mqtt', {})
             if not isinstance(mqtt, dict):
@@ -2034,12 +2032,10 @@ class NettempConfigMenu:
                 
                 if current_mode in ['subscriber', 'both']:
                     print(f"\n  {Colors.BOLD}Subscriber Settings:{Colors.ENDC}")
-                    if current_subscribe_topics_sorted:
-                        print(f"    Topics:")
-                        for t in current_subscribe_topics_sorted:
-                            print(f"      - {t}")
+                    if not current_subscribe_topics_sorted or current_subscribe_topics_sorted == ['#']:
+                        print(f"    Topics: {Colors.CYAN}ALL (#){Colors.ENDC}")
                     else:
-                        print(f"    Topics: {Colors.YELLOW}None configured{Colors.ENDC}")
+                        print(f"    Topics: {Colors.CYAN}{len(current_subscribe_topics_sorted)} selected{Colors.ENDC}")
                     if current_auth_token:
                         print(f"    Auth token: {current_auth_token[:8]}...")
                     
@@ -2054,14 +2050,17 @@ class NettempConfigMenu:
             print("\n" + "─" * 70 + "\n")
             
             menu_options = [
-                "Enable Broker (server) settings",
-                "Autodiscover MQTT Devices",
-                "Configure Topic Rules (intervals, enable/disable)",
-                "Subscriber Settings (topics, auth token)",
-                "Publisher Settings (topic prefix, QoS, retain)",
-                "Select Destination Servers",
+                "Broker Connection (host/port/auth/TLS)",
+                "Autodiscover & Select Topics",
+                "Subscribe to ALL topics (#)",
+                "Edit subscribe_topics (advanced)",
+                "Profiles & Intervals (simple)",
+                "Rules (advanced)",
+                "Subscriber Servers (advanced)",
+                "Subscriber Auth Token (advanced)",
+                "Publisher Settings (advanced)",
                 "Help / Shortcuts",
-                "Back to Main Menu"
+                "Back to Main Menu",
             ]
             
             for idx, option in enumerate(menu_options):
@@ -2083,119 +2082,51 @@ class NettempConfigMenu:
             elif key == '\r' or key == '\n':  # Enter
                 if current_option == 0:  # Broker submenu
                     self._mqtt_broker_menu()
-                elif current_option == 1:  # Autodiscover MQTT Devices
+                elif current_option == 1:  # Autodiscover & Select Topics
                     self._mqtt_autodiscover_devices()
+                elif current_option == 2:  # Subscribe to ALL topics (#)
+                    if 'mqtt' not in self.config or not isinstance(self.config['mqtt'], dict):
+                        self.config['mqtt'] = {}
+                    self.config['mqtt']['subscribe_topics'] = []
+                    self.save_main_config()
+                    print_success("\nSubscribe topics set to ALL (#)")
+                    time.sleep(1.5)
 
-                elif current_option == 2:  # Configure Sensor Rules
+                elif current_option == 3:  # Edit subscribe_topics (advanced)
+                    self._mqtt_edit_subscribe_topics_advanced(current_subscribe_topics_sorted, current_auth_token)
+
+                elif current_option == 4:  # Profiles & Intervals (simple)
+                    self._configure_mqtt_sensor_profiles_simple()
+
+                elif current_option == 5:  # Rules (advanced)
                     self._configure_mqtt_sensor_rules()
 
-                elif current_option == 3:  # Subscriber Settings
+                elif current_option == 6:  # Subscriber Servers (advanced)
+                    self._configure_mqtt_servers()
+
+                elif current_option == 7:  # Subscriber Auth Token (advanced)
                     if 'mqtt' not in self.config or not isinstance(self.config['mqtt'], dict):
-                        self.config['mqtt'] = {'enabled': False}
-                    
-                    print("\nSubscriber Settings")
-                    print("Receive MQTT messages and forward to cloud servers (Subscriber mode)")
-                    print("\nHow it works:")
-                    print("  1. MQTT broker must be running (e.g., mosquitto)")
-                    print("  2. Sensors send data to MQTT broker")
-                    print("  3. MQTT bridge subscribes to topics and receives sensor data")
-                    print("  4. Bridge forwards data to configured cloud servers")
-                    print("\nEnter topics to subscribe to (supports MQTT wildcards + and #)")
-                    print("  + matches single level (e.g., home/+/temperature)")
-                    print("  # matches all remaining levels (e.g., sensors/# subscribes to all)")
-                    print("\nExamples:")
-                    print("  sensors/#              - subscribe to all sensor topics")
-                    print("  home/+/temperature     - subscribe to temperature in any room")
-                    print("  devices/sensor1/data   - subscribe to specific sensor")
-                    print("\nCurrent topics:")
-                    if current_subscribe_topics_sorted:
-                        for t in current_subscribe_topics_sorted:
-                            print(f"  - {t}")
-                    else:
-                        print("  None")
-                    
-                    topics_from_editor = None
-                    use_editor = input_styled("Open topics in editor? (y/n)", "n")
-                    if use_editor.lower() in ['y', 'yes']:
-                        temp_path = None
-                        try:
-                            import tempfile
-                            import shlex
-                            
-                            with tempfile.NamedTemporaryFile(mode='w+', delete=False, suffix='.topics') as tf:
-                                temp_path = tf.name
-                                tf.write('\n'.join(current_subscribe_topics_sorted))
-                                tf.flush()
-                            
-                            editor_cmd = shlex.split(os.environ.get('EDITOR', 'nano'))
-                            subprocess.run(editor_cmd + [temp_path], check=False)
-                            
-                            with open(temp_path, 'r') as tf:
-                                topics_from_editor = [line.strip() for line in tf.readlines()]
-                        except Exception as e:
-                            print_error(f"\nCould not open editor: {e}")
-                            topics_from_editor = None
-                        finally:
-                            if temp_path and os.path.exists(temp_path):
-                                try:
-                                    os.unlink(temp_path)
-                                except Exception:
-                                    pass
-                    
-                    topics_set = set()
-                    if topics_from_editor is not None:
-                        topics_set = {t for t in topics_from_editor if t}
-                    else:
-                        topics_str = input_styled("Topics (comma-separated)", ','.join(current_subscribe_topics_sorted) if current_subscribe_topics_sorted else '')
-                    
-                        if topics_str:
-                            topics_set = {t.strip() for t in topics_str.split(',') if t.strip()}
-                    
-                    def validate_topic(t: str) -> list[str]:
-                        issues = []
-                        if ' ' in t or '\t' in t:
-                            issues.append("contains whitespace")
-                        if '//' in t:
-                            issues.append("contains empty path '//'")
-                        if '#' in t and not t.endswith('#'):
-                            issues.append("'#' wildcard must be at end")
-                        if t.endswith('/') and t != '/':
-                            issues.append("trailing '/'")
-                        return issues
-                    
-                    if topics_set:
-                        topics = sorted(topics_set)
-                        self.config['mqtt']['subscribe_topics'] = topics
-                        print_success(f"\nSubscribe topics: {', '.join(topics)}")
-                        # Warn about potential mistakes but keep saving
-                        for t in topics:
-                            problems = validate_topic(t)
-                            if problems:
-                                print_warning(f"Topic '{t}' may be invalid ({'; '.join(problems)})")
-                    else:
-                        self.config['mqtt']['subscribe_topics'] = []
-                        print_info("\nNo subscribe topics configured")
-                    
-                    # Auth token for validating incoming messages
-                    print("\nOptional: Auth token to validate incoming MQTT messages")
-                    auth_token = input_styled("Auth Token (leave empty for none)", str(current_auth_token))
-                    
+                        self.config['mqtt'] = {}
+                    current_auth_token = str(self.config['mqtt'].get('auth_token', '') or '')
+                    clear_screen()
+                    print_header("MQTT SUBSCRIBER AUTH TOKEN")
+                    print("Optional shared token to validate incoming messages.\n")
+                    auth_token = input_styled("Auth Token (leave empty for none)", current_auth_token)
                     if auth_token:
                         self.config['mqtt']['auth_token'] = auth_token
-                        print_info("\nIncoming messages must include this token")
+                        print_success("\nAuth token set")
                     else:
                         self.config['mqtt'].pop('auth_token', None)
-                        print_info("\nNo auth token validation")
-                    
+                        print_success("\nAuth token cleared")
                     self.save_main_config()
-                    time.sleep(2)
+                    time.sleep(1.5)
 
-                elif current_option == 4:  # Publisher Settings
+                elif current_option == 8:  # Publisher Settings (advanced)
                     if 'mqtt' not in self.config or not isinstance(self.config['mqtt'], dict):
                         self.config['mqtt'] = {'enabled': False}
                     
                     print("\nPublisher Settings")
-                    print("Topics will be: {prefix}/{device_id}/{sensor_id}/{type}")
+                    print("Topics will be: {prefix}/{device_id}/{sensor_id}")
                     
                     prefix = input_styled("Topic Prefix", str(current_topic_prefix))
                     qos_str = input_styled("QoS (0=at most once, 1=at least once, 2=exactly once)", str(current_qos))
@@ -2223,10 +2154,7 @@ class NettempConfigMenu:
                         print_error("\nInvalid QoS value")
                     time.sleep(2)
 
-                elif current_option == 5:  # Select Servers
-                    self._configure_mqtt_servers()
-
-                elif current_option == 6:  # Help / Shortcuts
+                elif current_option == 9:  # Help / Shortcuts
                     clear_screen()
                     print_header("NETTEMP CLIENT - HELP")
                     print(f"{Colors.CYAN}What this tool edits:{Colors.ENDC}")
@@ -2236,18 +2164,248 @@ class NettempConfigMenu:
                     print("\nUseful files:")
                     print("  - mqtt_topics.log : collected topics from previous runs")
                     print("\nTypical flow:")
-                    print("  1) Configure MQTT broker (Enable, Mode, Broker/Port, TLS/creds)")
-                    print("  2) Autodiscover MQTT Devices to pull topics from live/log data")
-                    print("  3) Select devices to subscribe (topics stored in config.conf)")
-                    print("  4) Adjust Topic Rules (mqtt_rules.yaml) and Drivers if needed")
+                    print("  1) Broker Connection")
+                    print("  2) Autodiscover & Select Topics")
+                    print("  3) Profiles & Intervals (simple)")
+                    print("  4) Rules (advanced) only if needed")
+                    print("\nAdvanced tip:")
+                    print("  - Use 'Edit subscribe_topics (advanced)' to add wildcards like ESP32_Easy_1/#")
                     print("\nNavigation: arrows to move, Enter to select, Esc to go back in menus.")
                     input(f"\n{Colors.GREEN}Press Enter to return...{Colors.ENDC}")
                     
-                elif current_option == 7:  # Back
+                elif current_option == 10:  # Back
                     break
             
             elif key == 'ESC':
                 break
+
+    def _mqtt_edit_subscribe_topics_advanced(self, current_subscribe_topics_sorted: list[str], current_auth_token: str):
+        """Advanced editor for subscribe_topics + auth_token (kept for wildcard power-users)."""
+        if 'mqtt' not in self.config or not isinstance(self.config['mqtt'], dict):
+            self.config['mqtt'] = {'enabled': False}
+
+        clear_screen()
+        print_header("MQTT SUBSCRIBER (ADVANCED)")
+        print("Edit subscribe_topics manually (supports MQTT wildcards + and #).")
+        print("Empty = subscribe to ALL topics (#).\n")
+
+        print("Current topics:")
+        if current_subscribe_topics_sorted:
+            for t in current_subscribe_topics_sorted:
+                print(f"  - {t}")
+        else:
+            print("  (all topics)")
+
+        topics_from_editor = None
+        use_editor = input_styled("Open topics in editor? (y/n)", "n")
+        if use_editor.lower() in ['y', 'yes']:
+            temp_path = None
+            try:
+                import tempfile
+                import shlex
+
+                with tempfile.NamedTemporaryFile(mode='w+', delete=False, suffix='.topics') as tf:
+                    temp_path = tf.name
+                    tf.write('\n'.join(current_subscribe_topics_sorted))
+                    tf.flush()
+
+                editor_cmd = shlex.split(os.environ.get('EDITOR', 'nano'))
+                subprocess.run(editor_cmd + [temp_path], check=False)
+
+                with open(temp_path, 'r') as tf:
+                    topics_from_editor = [line.strip() for line in tf.readlines()]
+            except Exception as e:
+                print_error(f"\nCould not open editor: {e}")
+                topics_from_editor = None
+            finally:
+                if temp_path and os.path.exists(temp_path):
+                    try:
+                        os.unlink(temp_path)
+                    except Exception:
+                        pass
+
+        topics_set: set[str] = set()
+        if topics_from_editor is not None:
+            topics_set = {t for t in topics_from_editor if t}
+        else:
+            topics_str = input_styled("Topics (comma-separated)", ','.join(current_subscribe_topics_sorted) if current_subscribe_topics_sorted else '')
+            if topics_str:
+                topics_set = {t.strip() for t in topics_str.split(',') if t.strip()}
+
+        def validate_topic(t: str) -> list[str]:
+            issues = []
+            if ' ' in t or '\t' in t:
+                issues.append("contains whitespace")
+            if '//' in t:
+                issues.append("contains empty path '//'")
+            if '#' in t and not t.endswith('#'):
+                issues.append("'#' wildcard must be at end")
+            if t.endswith('/') and t != '/':
+                issues.append("trailing '/'")
+            return issues
+
+        if topics_set:
+            topics = sorted(topics_set)
+            self.config['mqtt']['subscribe_topics'] = topics
+            print_success(f"\nSubscribe topics: {', '.join(topics)}")
+            for t in topics:
+                problems = validate_topic(t)
+                if problems:
+                    print_warning(f"Topic '{t}' may be invalid ({'; '.join(problems)})")
+        else:
+            self.config['mqtt']['subscribe_topics'] = []
+            print_info("\nSubscribe topics: ALL (#)")
+
+        print("\nOptional: Auth token to validate incoming MQTT messages")
+        auth_token = input_styled("Auth Token (leave empty for none)", str(current_auth_token))
+        if auth_token:
+            self.config['mqtt']['auth_token'] = auth_token
+            print_info("\nAuth token set")
+        else:
+            self.config['mqtt'].pop('auth_token', None)
+            print_info("\nNo auth token validation")
+
+        self.save_main_config()
+        input(f"\n{Colors.GREEN}Press Enter to continue...{Colors.ENDC}")
+
+    def _configure_mqtt_sensor_profiles_simple(self):
+        """Simple 'drivers-like' view: enable/disable + interval only (no rule details)."""
+        import yaml
+
+        rules_file = self.mqtt_rules_file
+        example_candidates = [
+            self.base_path / 'example_mqtt_rules.yaml',
+            Path(sysconfig.get_path("data") or "") / "nettemp" / 'example_mqtt_rules.yaml',
+        ]
+        example_file = next((p for p in example_candidates if p.exists()), None)
+
+        # Copy example if mqtt_rules.yaml doesn't exist
+        if not rules_file.exists():
+            if example_file and example_file.exists():
+                import shutil
+                rules_file.parent.mkdir(parents=True, exist_ok=True)
+                shutil.copy(example_file, rules_file)
+                time.sleep(0.5)
+            else:
+                print_error(f"Neither {rules_file} nor example_mqtt_rules.yaml found (checked {example_candidates})!")
+                input(f"\n{Colors.GREEN}Press Enter to continue...{Colors.ENDC}")
+                return
+
+        try:
+            with open(rules_file, 'r') as f:
+                rules_data = yaml.safe_load(f)
+        except Exception as e:
+            print_error(f"Failed to load {rules_file}: {e}")
+            input(f"\n{Colors.GREEN}Press Enter to continue...{Colors.ENDC}")
+            return
+
+        if not rules_data or 'rules' not in rules_data:
+            print_error("Invalid rules file format!")
+            input(f"\n{Colors.GREEN}Press Enter to continue...{Colors.ENDC}")
+            return
+
+        # Import missing rules from example (same approach as advanced editor)
+        if example_file and example_file.exists():
+            try:
+                with open(example_file, 'r') as f:
+                    example_data = yaml.safe_load(f) or {}
+                example_rules = example_data.get('rules', []) if isinstance(example_data, dict) else []
+                if isinstance(example_rules, list) and example_rules:
+                    existing_names = {r.get('name') for r in rules_data.get('rules', []) if isinstance(r, dict) and r.get('name')}
+                    for r in example_rules:
+                        if not isinstance(r, dict):
+                            continue
+                        name = r.get('name')
+                        if not name or name in existing_names:
+                            continue
+                        rules_data['rules'].append(r)
+                        existing_names.add(name)
+            except Exception:
+                pass
+
+        rules = rules_data['rules']
+        if not rules:
+            print_warning("No rules found in mqtt_rules.yaml")
+            input(f"\n{Colors.GREEN}Press Enter to continue...{Colors.ENDC}")
+            return
+
+        current_idx = 0
+        while True:
+            clear_screen()
+            print_header("MQTT PROFILES & INTERVALS (SIMPLE)")
+            print("Toggle profiles and set forward interval (seconds).\n")
+            print("─" * 70 + "\n")
+
+            for idx, rule in enumerate(rules):
+                name = rule.get('name', f'Rule {idx+1}')
+                enabled = rule.get('enabled', True)
+                interval = int(rule.get('interval', 60) or 60)
+                interval_min = interval / 60
+
+                status = "✓" if enabled else "✗"
+                status_color = Colors.GREEN if enabled else Colors.RED
+                line = f"{status_color}{status}{Colors.ENDC} {name:25} {interval}s ({interval_min:.1f}min)"
+                if idx == current_idx:
+                    print(f"{Colors.LIGHT_BLUE}▶ {line}{Colors.ENDC}")
+                else:
+                    print(f"  {line}")
+
+            print(f"\n{Colors.LIGHT_BLUE}↑↓: Navigate | Space: Toggle | +/-: Interval | i: Edit Interval | Esc: Save & Back{Colors.ENDC}")
+            key = get_key()
+
+            if key == '':
+                continue
+            if key == 'UP':
+                current_idx = (current_idx - 1) % len(rules)
+                continue
+            if key == 'DOWN':
+                current_idx = (current_idx + 1) % len(rules)
+                continue
+            if key == ' ':
+                rule = rules[current_idx]
+                rule['enabled'] = not rule.get('enabled', True)
+                continue
+            if key == '+' or key == '=':
+                rule = rules[current_idx]
+                current_interval = int(rule.get('interval', 60) or 60)
+                rule['interval'] = current_interval + 60
+                continue
+            if key == '-':
+                rule = rules[current_idx]
+                current_interval = int(rule.get('interval', 60) or 60)
+                new_interval = current_interval - 60
+                if new_interval >= 60:
+                    rule['interval'] = new_interval
+                continue
+            if key == 'i' or key == 'I':
+                rule = rules[current_idx]
+                name = rule.get('name', f'Rule {current_idx+1}')
+                current_interval = int(rule.get('interval', 60) or 60)
+                clear_screen()
+                print_header(f"CHANGE INTERVAL: {name}")
+                interval_str = input_styled("Forward interval (seconds)", str(current_interval))
+                try:
+                    interval = int(interval_str)
+                    if interval > 0:
+                        rule['interval'] = interval
+                        print_success(f"\nInterval set to {interval}s")
+                    else:
+                        print_error("\nInterval must be positive!")
+                except ValueError:
+                    print_error("\nInvalid interval value!")
+                time.sleep(1)
+                continue
+            if key == 'ESC':
+                try:
+                    with open(rules_file, 'w') as f:
+                        yaml.dump(rules_data, f, default_flow_style=False, sort_keys=False)
+                    print_success(f"\n✓ Saved to {rules_file}")
+                    print_info("\nRestart nettemp_client to apply changes")
+                    time.sleep(1.5)
+                except Exception as e:
+                    print_error(f"\nFailed to save: {e}")
+                    time.sleep(1.5)
+                return
 
     def _mqtt_broker_menu(self):
         """Broker/server settings without enable/disable prompt"""
